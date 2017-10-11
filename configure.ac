@@ -26,6 +26,8 @@ AC_CONFIG_SRCDIR([agent/core/wa_comm.h])
 AC_CONFIG_HEADERS([config.h])
 
 PAROUDS_ENABLE_FLAG=" "
+RF4CE_ENABLE_FLAG=" "
+CTRLMGR_ENABLE_FLAG=" "
 
 LT_INIT
 
@@ -106,11 +108,38 @@ AC_ARG_ENABLE([parodus],
            esac
            ],
          [echo "Parodus support is disabled"])
-
 AM_CONDITIONAL([WITH_PARODUS_SUPPORT], [test x$PARODUS_SUPPORT_ENABLED = xtrue])
-     
+
+AC_ARG_ENABLE([rf4ce],
+        AS_HELP_STRING([--enable-rf4ce],[enable RF4CE Support (default is no)]),
+        [
+          case "${enableval}" in
+           yes) RF4CE_SUPPORT_ENABLED=true
+                RF4CE_ENABLE_FLAG="-DUSE_RF4CEMGR";; 
+           no) RF4CE_SUPPORT_ENABLED=false AC_MSG_ERROR([RF4CE support is disabled]) ;;
+          *) AC_MSG_ERROR([bad value ${enableval} for --enable-rf4ce ]) ;;
+           esac
+           ],
+         [echo "RF4CE support is disabled"])
+AM_CONDITIONAL([WITH_RF4CE_SUPPORT], [test x$RF4CE_SUPPORT_ENABLED = xtrue])
+
+AC_ARG_ENABLE([ctrlmgr],
+        AS_HELP_STRING([--enable-ctrlmgr],[enable CTRLMGR Support (default is no)]),
+        [
+          case "${enableval}" in
+           yes) CTRLMGR_SUPPORT_ENABLED=true
+                CTRLMGR_ENABLE_FLAG="-DUSE_CTRLMGR";; 
+           no) CTRLMGR_SUPPORT_ENABLED=false AC_MSG_ERROR([CTRLMGR support is disabled]) ;;
+          *) AC_MSG_ERROR([bad value ${enableval} for --enable-ctrlmgr ]) ;;
+           esac
+           ],
+         [echo "CTRLMGR support is disabled"])
+AM_CONDITIONAL([WITH_CTRLMGR_SUPPORT], [test x$CTRLMGR_SUPPORT_ENABLED = xtrue])
+
 AC_SUBST([COMPONENTS], ["${SUBDIRS_AGENT} ${SUBDIRS_CLIENT} ${SUBDIRS_TR69PROFILE}"])
 AC_SUBST(PARODUS_ENABLE_FLAG)
+AC_SUBST(RF4CE_ENABLE_FLAG)
+AC_SUBST(CTRLMGR_ENABLE_FLAG)
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC

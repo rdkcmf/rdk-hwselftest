@@ -80,8 +80,9 @@ if USE_MFRLIB
 endif
 
 hwselftest_CFLAGS = \
+        $(RF4CE_ENABLE_FLAG) \
+        $(CTRLMGR_ENABLE_FLAG) \
         -std=gnu99 \
         -pthread \
-	-Wall \
-	-Werror
-
+        -Wall \
+        -Werror

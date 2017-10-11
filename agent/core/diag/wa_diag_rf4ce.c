@@ -48,8 +48,6 @@
 #include "wa_diag_rf4ce.h"
 
 /* enable RF APIs */
-#define USE_CTRLMGR        // use Control Manager
-#define USE_RF4CEMGR       // use rf4ceMgr
 #define RF4CE_API          // select particular rf4ceMgr API (RF4CE_GENMSO_API, RF4CE_API, RF4CE_GPMSO_API)
 
 #if defined(USE_RF4CEMGR)
@@ -364,10 +362,6 @@ static int checkRf4ceStatus(void)
     /* Try CtrlMgr if Rf4ceMgr was not accessible */
     if (result == -1)
         result = checkRf4ceStatusViaCtrlMgr();
-#endif
-
-#if !defined(USE_RF4CEMGR) && !defined(USE_CTRLMGR)
-    #error "No RF4CE component defined"
 #endif
 
     WA_RETURN("checkRf4ceStatus(): return code: %d\n", result);

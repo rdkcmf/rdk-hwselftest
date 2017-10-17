@@ -175,8 +175,6 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
 
- static const unsigned int defaultStreamerPort = 8080; // in host byte order
-
 /* IP Address 127.0.0.1 is reserved, use 127.0.0.2 */
  static const uint32_t firstLocalIP = 0x200007f; // in network byte order
 

@@ -17,4 +17,4 @@
  * limitations under the License.
 */
 
-#define WA_VERSION "000e"
+#define WA_VERSION "0010"

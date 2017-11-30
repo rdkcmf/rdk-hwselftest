@@ -39,5 +39,7 @@ var DIAG_ERRCODE = {
         CM_NO_SIGNAL:           -109,
 
         /* currently mapped to DIAG_ERRCODE.FAILURE in wa_diag_errcodes.h
-        MCARD_CERT_INVALID:     -110 */
+        MCARD_CERT_INVALID:     -110, */
+
+        TUNER_BUSY:             -111
 };

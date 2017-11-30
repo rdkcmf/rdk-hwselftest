@@ -513,7 +513,7 @@ static void *CommTask(void *p)
             goto end;
         }
 
-#ifdef WA_DEBUG
+#if WA_DEBUG
         {
             char *msg;
             msg = json_dumps(qjmsg.json, JSON_ENCODE_ANY);
@@ -530,6 +530,7 @@ static void *CommTask(void *p)
 #else
         WA_INFO("CommTask(): WA_OSA_QReceive(): %p\n", qjmsg.json);
 #endif
+
         {
             WA_COMM_adapterConnectionContext_t *pContext;
             void *iterator;

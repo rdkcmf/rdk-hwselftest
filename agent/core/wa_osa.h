@@ -317,9 +317,20 @@ extern int WA_OSA_SemDestroy(void *hanlde);
 extern int WA_OSA_SemWait(void *hanlde);
 
 /**
+ * @brief Wait semaphore
+ *
+ * @param hanlde valid semaphore handle
+ *
+ * @retval 0 success
+ * @retval !=0 error
+ */
+extern int WA_OSA_SemTimedWait(void *hanlde, unsigned int ms);
+
+/**
  * @brief Signal semaphore
  *
  * @param hanlde valid semaphore handle
+ * @param ms wait timeout in [ms]
  *
  * @retval 0 success
  * @retval !=0 error

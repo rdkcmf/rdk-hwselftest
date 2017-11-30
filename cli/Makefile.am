@@ -16,18 +16,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##########################################################################
-[Unit]
-Description=RDK Hardware Self Test application
-Wants=moca.service rmfstreamer.service
-After=snmpd.service syssnmpagent.service moca.service rmfstreamer.service network.target
-Requires=snmpd.service syssnmpagent.service
+#
 
-[Service]
-Environment="DtcpSrmFilePath=/tmp/hwselftest-dtcp.srm"
-ExecStartPre=/bin/ln -sf /var/www/hwselftest /opt/www
-ExecStart=/bin/sh -c '/usr/bin/hwst_set_runtime_limits.sh $$$$ && /usr/bin/hwselftest || echo "`/bin/date "+%%Y-%%m-%%d %%H:%%M:%%S"` Runtime limits not applied, agent not started." >> /opt/logs/hwselftest.log'
+bin_PROGRAMS = hwselftestcli
 
-Restart=always
+PROFILE_DIR = $(top_srcdir)/tr69profile
 
-[Install]
-WantedBy=multi-user.target
+AM_CXXFLAGS = -I$(PROFILE_DIR) -I$(PKG_CONFIG_SYSROOT_DIR)/usr/include/nopoll
+
+
+hwselftestcli_SOURCES = \
+    wa_cli.cpp
+
+WA_DEBUG ?= $(DEFAULT_WA_DEBUG)
+
+hwselftestcli_CXXFLAGS = $(AM_CXXFLAGS) -std=c++11 -DWA_DEBUG=$(WA_DEBUG)
+hwselftestcli_LDFLAGS = $(AM_LDFLAGS) -pthread -lrt -ldl -ljansson -lnopoll
+hwselftestcli_LDADD = ../tr69profile/libtr69ProfileHwSelfTest.la -lrdkloggers

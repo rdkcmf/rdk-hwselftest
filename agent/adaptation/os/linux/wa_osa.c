@@ -493,11 +493,11 @@ void *WA_OSA_MutexCreate()
     return (void *)pMutex;
 }
 
-int WA_OSA_MutexDestroy(void *mHanlde)
+int WA_OSA_MutexDestroy(void *mHandle)
 {
     int status = -1;
 
-    WA_ENTER("WA_OSA_MutexDestroy(mHandle=%p)\n", mHanlde);
+    WA_ENTER("WA_OSA_MutexDestroy(mHandle=%p)\n", mHandle);
 
     if(!osaInitialized)
     {
@@ -505,25 +505,25 @@ int WA_OSA_MutexDestroy(void *mHanlde)
         goto end;
     }
 
-    status = pthread_mutex_destroy((pthread_mutex_t *)mHanlde);
+    status = pthread_mutex_destroy((pthread_mutex_t *)mHandle);
     if(status != 0)
     {
         WA_ERROR("WA_OSA_MutexDestroy() pthread_mutex_destroy(): %d\n", status);
         goto end;
     }
 
-    free(mHanlde);
+    free(mHandle);
     end:
     WA_RETURN("WA_OSA_MutexDestroy(): %d\n", status);
     return status;
 }
 
 
-int WA_OSA_MutexLock(void *mHanlde)
+int WA_OSA_MutexLock(void *mHandle)
 {
     int status = -1;
 
-    WA_ENTER("WA_OSA_MutexLock(mHandle=%p)\n", mHanlde);
+    WA_ENTER("WA_OSA_MutexLock(mHandle=%p)\n", mHandle);
 
     if(!osaInitialized)
     {
@@ -531,7 +531,7 @@ int WA_OSA_MutexLock(void *mHanlde)
         goto end;
     }
 
-    status = pthread_mutex_lock((pthread_mutex_t *)mHanlde);
+    status = pthread_mutex_lock((pthread_mutex_t *)mHandle);
     if(status != 0)
     {
         WA_ERROR("WA_OSA_MutexLock() pthread_mutex_lock(): %d\n", status);
@@ -543,11 +543,11 @@ int WA_OSA_MutexLock(void *mHanlde)
 }
 
 
-int WA_OSA_MutexUnlock(void *mHanlde)
+int WA_OSA_MutexUnlock(void *mHandle)
 {
     int status = -1;
 
-    WA_ENTER("WA_OSA_MutexUnlock(mHandle=%p)\n", mHanlde);
+    WA_ENTER("WA_OSA_MutexUnlock(mHandle=%p)\n", mHandle);
 
     if(!osaInitialized)
     {
@@ -555,7 +555,7 @@ int WA_OSA_MutexUnlock(void *mHanlde)
         goto end;
     }
 
-    status = pthread_mutex_unlock((pthread_mutex_t *)mHanlde);
+    status = pthread_mutex_unlock((pthread_mutex_t *)mHandle);
     if(status != 0)
     {
         WA_ERROR("WA_OSA_MutexUnlock() pthread_mutex_unlock(): %d\n", status);
@@ -584,7 +584,7 @@ void *WA_OSA_SemCreate(int val)
     status = sem_init(pSem, 0, val);
     if(status != 0)
     {
-        WA_ERROR("WA_OSA_SemCreate() pthread_cond_init(): %d\n", status);
+        WA_ERROR("WA_OSA_SemCreate() sem_init(): %d\n", status);
         goto err_sem;
     }
 
@@ -617,7 +617,7 @@ int WA_OSA_SemDestroy(void *handle)
     status = sem_destroy(pSem);
     if(status != 0)
     {
-        WA_ERROR("WA_OSA_SemDestroy() pthread_mutex_destroy(): %d\n", status);
+        WA_ERROR("WA_OSA_SemDestroy() sem_destroy(): %d\n", status);
         goto end;
     }
 
@@ -645,8 +645,46 @@ int WA_OSA_SemWait(void *handle)
     if(status != 0)
     {
         WA_ERROR("WA_OSA_SemWait() sem_wait(): %d\n", status);
+    }
+
+    end:
+    WA_RETURN("WA_OSA_SemWait(): %d\n", status);
+    return status;
+}
+
+
+int WA_OSA_SemTimedWait(void *handle, unsigned int ms)
+{
+    int status = -1;
+    sem_t *pSem = (sem_t *)handle;
+    struct timespec absTime;
+    struct timeval timeOfDay;
+
+    WA_ENTER("WA_OSA_SemWait(handle=%p)\n", handle);
+
+    if(!osaInitialized)
+    {
+        WA_ERROR("WA_OSA_SemWait(): OSA not initialized.\n");
         goto end;
     }
+
+    gettimeofday(&timeOfDay, NULL);
+
+    absTime.tv_nsec = timeOfDay.tv_usec * 1000 + (ms % 1000) * 1000000;
+    absTime.tv_sec  = timeOfDay.tv_sec + (ms / 1000) + (absTime.tv_nsec / 1000000000);
+    absTime.tv_nsec %= 1000000000;
+
+    status = sem_timedwait(pSem, &absTime);
+    if(status == ETIMEDOUT)
+    {
+        WA_ERROR("WA_OSA_SemTimedWait() sem_timedwait(): timeout\n");
+        status = 1;
+    }
+    else if(status != 0)
+    {
+        WA_ERROR("WA_OSA_SemWait(): sem_timedwait(): %d\n", status);
+    }
+
     end:
     WA_RETURN("WA_OSA_SemWait(): %d\n", status);
     return status;
@@ -669,8 +707,7 @@ int WA_OSA_SemSignal(void *handle)
     status = sem_post(pSem);
     if(status != 0)
     {
-        WA_ERROR("WA_OSA_SemSignal() sem_sig(): %d\n", status);
-        goto end;
+        WA_ERROR("WA_OSA_SemSignal() sem_post(): %d\n", status);
     }
 
     end:
@@ -764,7 +801,7 @@ int WA_OSA_CondWait(void *handle)
     int status = -1;
     WA_OSA_cond_t *pCond = (WA_OSA_cond_t *)handle;
 
-    WA_ENTER("WA_OSA_CondWait(handle=%p)\n", hanlde);
+    WA_ENTER("WA_OSA_CondWait(handle=%p)\n", handle);
 
     if(!osaInitialized)
     {
@@ -790,7 +827,7 @@ int WA_OSA_CondTimedWait(void *handle, unsigned int ms)
     struct timespec absTime;
     struct timeval  timeOfDay;
 
-    WA_ENTER("WA_OSA_CondWait(handle=%p)\n", hanlde);
+    WA_ENTER("WA_OSA_CondWait(handle=%p)\n", handle);
 
     if(!osaInitialized)
     {
@@ -827,7 +864,7 @@ int WA_OSA_CondSignal(void *handle)
     int status = -1;
     WA_OSA_cond_t *pCond = (WA_OSA_cond_t *)handle;
 
-    WA_ENTER("WA_OSA_CondSignal(handle=%p)\n", hanlde);
+    WA_ENTER("WA_OSA_CondSignal(handle=%p)\n", handle);
 
     if(!osaInitialized)
     {
@@ -852,7 +889,7 @@ int WA_OSA_CondSignalBroadcast(void *handle)
     int status = -1;
     WA_OSA_cond_t *pCond = (WA_OSA_cond_t *)handle;
 
-    WA_ENTER("WA_OSA_CondSignalBroadcast(handle=%p)\n", hanlde);
+    WA_ENTER("WA_OSA_CondSignalBroadcast(handle=%p)\n", handle);
 
     if(!osaInitialized)
     {
@@ -877,7 +914,7 @@ int WA_OSA_CondLock(void *handle)
     int status = -1;
     WA_OSA_cond_t *pCond = (WA_OSA_cond_t *)handle;
 
-    WA_ENTER("WA_OSA_CondLock(handle=%p)\n", hanlde);
+    WA_ENTER("WA_OSA_CondLock(handle=%p)\n", handle);
 
     if(!osaInitialized)
     {
@@ -901,7 +938,7 @@ int WA_OSA_CondUnlock(void *handle)
     int status = -1;
     WA_OSA_cond_t *pCond = (WA_OSA_cond_t *)handle;
 
-    WA_ENTER("WA_OSA_CondUnlock(handle=%p)\n", hanlde);
+    WA_ENTER("WA_OSA_CondUnlock(handle=%p)\n", handle);
 
     if(!osaInitialized)
     {
@@ -1017,7 +1054,7 @@ int WA_OSA_QSend(void * const qHandle,
 {
     int status = -1;
 
-    WA_ENTER("WA_OSA_QSend(qHandle=%p, pMsg=%p, size=%ld, prio=%d)\n",
+    WA_ENTER("WA_OSA_QSend(qHandle=%p, pMsg=%p, size=%zu, prio=%d)\n",
             qHandle, pMsg, size, prio);
 
     if(!osaInitialized)
@@ -1046,7 +1083,7 @@ int WA_OSA_QTimedSend(void * const qHandle,
     struct timespec absTime;
     struct timeval  timeOfDay;
 
-    WA_ENTER("WA_OSA_QTimedSend(qHandle=%p, pMsg=%p, size=%ld, prio=%d ms=%d)\n",
+    WA_ENTER("WA_OSA_QTimedSend(qHandle=%p, pMsg=%p, size=%zu, prio=%d ms=%d)\n",
             qHandle, pMsg, size, prio,ms);
 
     if(!osaInitialized)
@@ -1084,7 +1121,7 @@ int WA_OSA_QTimedRetrySend(void * const qHandle,
 {
     int status = -1;
 
-    WA_ENTER("WA_OSA_QTimedRetrySend(qHandle=%p, pMsg=%p, size=%ld, prio=%d ms=%d, retries=%d)\n",
+    WA_ENTER("WA_OSA_QTimedRetrySend(qHandle=%p, pMsg=%p, size=%zu, prio=%d ms=%d, retries=%d)\n",
             qHandle, pMsg, size, prio,ms,retries);
 
     do
@@ -1132,7 +1169,7 @@ ssize_t WA_OSA_QReceive(void * const qHandle,
         *pPrio = prio;
     }
     end:
-    WA_RETURN("WA_OSA_QReceive(prio=%d): %ld\n", prio, rsize);
+    WA_RETURN("WA_OSA_QReceive(prio=%d): %zd\n", prio, rsize);
     return rsize;
 }
 
@@ -1182,7 +1219,7 @@ ssize_t WA_OSA_QTimedReceive(void * const qHandle,
         *pPrio = prio;
     }
     end:
-    WA_RETURN("WA_OSA_QTimedReceive(prio=%u): %ld\n", prio, rsize);
+    WA_RETURN("WA_OSA_QTimedReceive(prio=%u): %zd\n", prio, rsize);
     return rsize;
 }
 

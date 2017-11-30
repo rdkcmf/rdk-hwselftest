@@ -18,21 +18,23 @@
 */
 
 /**
- * @file
+ * @file wa_trh.h
  *
- * @brief Unified error status codes.
+ * @brief This file contains interface functions for tuner reservation helper.
  */
 
-/** @addtogroup WA_DIAG
+/** @addtogroup WA_UTILS_TRH
  *  @{
  */
 
-#ifndef WA_DIAG_ERRCODES_H
-#define WA_DIAG_ERRCODES_H
+#ifndef WA_UTILS_TRH_H
+#define WA_UTILS_TRH_H
+
 
 /*****************************************************************************
  * STANDARD INCLUDE FILES
  *****************************************************************************/
+#include <stdint.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -45,28 +47,6 @@ extern "C"
 /*****************************************************************************
  * EXPORTED DEFINITIONS
  *****************************************************************************/
-#define WA_DIAG_ERRCODE_FAILURE 1
-
-#define WA_DIAG_ERRCODE_SUCCESS 0
-
-/* generic codes */
-#define WA_DIAG_ERRCODE_NOT_APPLICABLE      (-1)
-#define WA_DIAG_ERRCODE_CANCELLED           (-2)
-#define WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR (-3)
-
-/* specific codes */
-#define WA_DIAG_ERRCODE_HDD_STATUS_MISSING  (-100)
-#define WA_DIAG_ERRCODE_HDMI_NO_DISPLAY     (-101)
-#define WA_DIAG_ERRCODE_HDMI_NO_HDCP        (-102)
-#define WA_DIAG_ERRCODE_MOCA_NO_CLIENTS     (-103)
-#define WA_DIAG_ERRCODE_MOCA_DISABLED       (-104)
-#define WA_DIAG_ERRCODE_SI_CACHE_MISSING    (-105)
-#define WA_DIAG_ERRCODE_TUNER_NO_LOCK       (-106)
-#define WA_DIAG_ERRCODE_AV_NO_SIGNAL        (-107)
-#define WA_DIAG_ERRCODE_IR_NOT_DETECTED     (-108)
-#define WA_DIAG_ERRCODE_CM_NO_SIGNAL        (-109)
-#define WA_DIAG_ERRCODE_MCARD_CERT_INVALID  (WA_DIAG_ERRCODE_FAILURE)
-#define WA_DIAG_ERRCODE_TUNER_BUSY          (-111)
 
 /*****************************************************************************
  * EXPORTED TYPES
@@ -80,6 +60,61 @@ extern "C"
  * EXPORTED FUNCTIONS
  *****************************************************************************/
 
+/**
+ * @brief Initialises the TRH utility.
+ *
+ * @retval 0 on success.
+ * @retval 1 on failure.
+ */
+int WA_UTILS_TRH_Init();
+
+/**
+ * @brief Deinitialises the TRH utility.
+ *
+ * @retval 0 on success.
+ * @retval 1 on failure.
+ */
+int WA_UTILS_TRH_Exit();
+
+/**
+ * @brief Attempts to reserve a tuner via TRM.
+ *
+ * param url         OCAP URL to tune to.   
+ * param when        Timestamp when to reserve the tuner (epoch, 0: now).
+ * param duration    Duration for how long to reserve the tuner (ms).
+ * param timeout_ms  Maximum time to wait for the reservation to happen (ms, 0: forever).
+ * param out_handle  Output: reservation handle.
+ *
+ * @retval 0 on success.
+ * @retval 1 on failure.
+ * @retval 2 on timeout.
+ */
+int WA_UTILS_TRH_ReserveTuner(const char *url, uint64_t when, uint64_t duration, int timeout_ms, void **out_handle);
+
+/**
+ * @brief Attempts to release a tuner via TRM.
+ *
+ * @param handle      Handle of reservation to release.
+ * @param timeout_ms  Maximum time to wait for the reservaion to be released (ms, 0: forever).
+ *
+ * @retval 0 on success.
+ * @retval 1 on failure.
+ * @retval 2 on timeout.
+ */
+int WA_UTILS_TRH_ReleaseTuner(void *handle, int timeout_ms);
+
+/**
+ * @brief Blocks the current thread until a tuner is released.
+ *
+ * @param handle      Handle of reservation to wait for.
+ * @param timeout_ms  Maximum time to wait for the tuner to be released (ms, 0: forever).
+ *
+ * @retval 0 on success.
+ * @retval 1 on failure.
+ * @retval 2 on timeout.
+ */
+int WA_UTILS_TRH_WaitForTunerRelease(void *handle, int timeout_ms);
+
 /*****************************************************************************
  * LOCAL FUNCTIONS
  *****************************************************************************/
@@ -88,4 +123,9 @@ extern "C"
 }
 #endif
 
-#endif
+#endif /* WA_UTILS_TRH_H */
+
+/* End of doxygen group */
+/*! @} */
+
+/* EOF */

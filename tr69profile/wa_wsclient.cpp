@@ -31,6 +31,8 @@
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
 #include "wa_wsclient.h"
+#include "wa_service.h"
+#include "wa_settings.h"
 #include "hwst_sched.hpp"
 #include "hwst_log.hpp"
 
@@ -38,26 +40,43 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
-
 #if WA_DEBUG
 #define WA_DBG(f, ...) printf(f, ##__VA_ARGS__)
 #else
 #define WA_DBG(f, ...) (void)0
 #endif
 
-#define HWSELFTEST_WSCLIENT_VERSION "0003"
+#define HWSELFTEST_WSCLIENT_VERSION "0005"
+
 
 namespace {
 
 const char *HWSELFTEST_WSCLIENT_REMOTE = "remote trigger ver. " HWSELFTEST_WSCLIENT_VERSION;
+const char *HWSELFTEST_WSCLIENT_PERIODIC = "periodic trigger ver. " HWSELFTEST_WSCLIENT_VERSION;
 
 const char *HWSELFTEST_AGENT_SERVER_ADDR = "127.0.0.1";
 const char *HWSELFTEST_AGENT_SERVER_PORT = "8002";
 
 const char *HWSELFTEST_ENABLE_FILE = "/tmp/.hwselftest_enable";
+const char *HWSELFTEST_SETTINGS_FILE = "/tmp/.hwselftest_settings";
 
 const int CONNECTION_TIMEOUT = 1; // sec
 const int PREV_RESULTS_FETCH_TIMEOUT = 500; // msec
+
+const char *SYSTEMD_SERVICE_PATH = "/run/systemd/system";
+const char *HWSELFTEST_RUNNER_TIMER = "hwselftest-runner.timer";
+const char *HWSELFTEST_RUNNER_SERVICE = "hwselftest-runner.service";
+
+const int EXECUTION_TIMEOUT = 180; // sec - should be less than MIN_PERIODIC_FREQUENCY
+const int MIN_PERIODIC_FREQUENCY = 1; // minutes
+const int DEFAULT_PERIODIC_FREQUENCY = 240; // minutes
+const char *HWST_PERIODIC_FREQ_NAME = "HWST_PERIODIC_FREQ";
+
+const int DEFAULT_CPU_THRESHOLD = 75; // percent
+const char *HWST_CPU_THRESHOLD_NAME = "HWST_CPU_THRESHOLD";
+
+const int DEFAULT_DRAM_THRESHOLD = 50; // MB
+const char *HWST_DRAM_THRESHOLD_NAME = "HWST_DRAM_THRESHOLD";
 
 } // local namespeace
 
@@ -69,8 +88,26 @@ const int PREV_RESULTS_FETCH_TIMEOUT = 500; // msec
 namespace hwselftest {
 
 wa_wsclient::wa_wsclient():
-    _hwst_scheduler(new hwst::Sched(HWSELFTEST_AGENT_SERVER_ADDR, HWSELFTEST_AGENT_SERVER_PORT, CONNECTION_TIMEOUT))
+    _hwst_scheduler(new hwst::Sched(HWSELFTEST_AGENT_SERVER_ADDR, HWSELFTEST_AGENT_SERVER_PORT, CONNECTION_TIMEOUT)),
+    _runner_service(SYSTEMD_SERVICE_PATH, HWSELFTEST_RUNNER_SERVICE),
+    _runner_timer(SYSTEMD_SERVICE_PATH, HWSELFTEST_RUNNER_TIMER),
+    _settings(HWSELFTEST_SETTINGS_FILE)
 {
+    _runner_timer.set_description("RDK Hardware Self Test periodic run timer");
+    _runner_timer.set_unit(HWSELFTEST_RUNNER_SERVICE);
+
+    if (_settings.get(HWST_PERIODIC_FREQ_NAME).empty() || (std::stoi(_settings.get(HWST_CPU_THRESHOLD_NAME)) < MIN_PERIODIC_FREQUENCY))
+        _settings.set(HWST_PERIODIC_FREQ_NAME, DEFAULT_PERIODIC_FREQUENCY);
+
+    if (_settings.get(HWST_CPU_THRESHOLD_NAME).empty() || (std::stoi(_settings.get(HWST_CPU_THRESHOLD_NAME)) > 100))
+        _settings.set(HWST_CPU_THRESHOLD_NAME, DEFAULT_CPU_THRESHOLD);
+
+    if (_settings.get(HWST_DRAM_THRESHOLD_NAME).empty())
+        _settings.set(HWST_DRAM_THRESHOLD_NAME, DEFAULT_DRAM_THRESHOLD);
+
+    WA_DBG("wa_wsclient::wa_wsclient(): cpu threshold: %s%%\n", _settings.get(HWST_CPU_THRESHOLD_NAME).c_str());
+    WA_DBG("wa_wsclient::wa_wsclient(): dram threshold: %s MB\n", _settings.get(HWST_DRAM_THRESHOLD_NAME).c_str());
+    WA_DBG("wa_wsclient::wa_wsclient(): periodic interval: %s min.\n", _settings.get(HWST_PERIODIC_FREQ_NAME).c_str());
 }
 
 wa_wsclient::~wa_wsclient()
@@ -86,13 +123,13 @@ wa_wsclient::~wa_wsclient()
  */
 bool wa_wsclient::is_enabled() const
 {
-    // Check if the mark file does exist to enable this feature.
     struct stat buffer;
     return (stat(HWSELFTEST_ENABLE_FILE, &buffer) == 0);
 }
 
 /**
  * @brief This function is used to enable/disable the hwselftest component.
+ * @param[out] enable True to enable, False to disable.
  * @return Status of the operation
  * @retval true   Operation succeeded
  * @retval false  Operation failed
@@ -114,9 +151,11 @@ bool wa_wsclient::enable(bool enable)
     }
     else
     {
-        // If enabled (i.e. the mark file exists) then delete the mark file.
         if (is_enabled())
+        {
+            enable_periodic(false, true);
             result = (unlink(HWSELFTEST_ENABLE_FILE) == 0);
+        }
     }
 
     if (result)
@@ -201,11 +240,12 @@ bool wa_wsclient::get_results(std::string& results)
 
 /**
  * @brief This function is used to start at test run of the whole HW SelfTest test suite
+ * @param[in] cli True if executed by CLI, False if by TR69 client.
  * @return Status of the operation
  * @retval true   Operation succeeded
  * @retval false  Operation failed
  */
-bool wa_wsclient::execute_tests(int cookie)
+bool wa_wsclient::execute_tests(bool cli)
 {
     int retval = false;
 
@@ -213,7 +253,8 @@ bool wa_wsclient::execute_tests(int cookie)
     {
         if (_hwst_scheduler)
         {
-            int status = _hwst_scheduler->issue("all", HWSELFTEST_WSCLIENT_REMOTE);
+            WA_DBG("wa_wsclient::get_results(): attempting to retrieve previous results from agent...\n");
+            int status = _hwst_scheduler->issue("all", (cli? HWSELFTEST_WSCLIENT_PERIODIC : HWSELFTEST_WSCLIENT_REMOTE));
 
             switch(status)
             {
@@ -242,10 +283,242 @@ bool wa_wsclient::execute_tests(int cookie)
     return retval;
 }
 
+/**
+ * @brief Wait for the scheduler action to finish or timeout
+ * @return Status of the operation
+ * @retval false Scheduler not finished
+ * @retval true  Scheduler finished
+ */
+bool wa_wsclient::wait()
+{
+    int status = 0;
+    std::string test_result;
+    int count = EXECUTION_TIMEOUT;
+    bool result = false;
+
+    if (_hwst_scheduler)
+    {
+        // wait for the tests to finish
+        do {
+            status = _hwst_scheduler->get(test_result);
+            if(status != 0)
+                break;
+            usleep(1000000);
+        } while (--count);
+
+        if(status == 0)
+            WA_DBG("wa_wsclient::wait(): operation timed out\n");
+
+        result = status;
+    }
+    else
+        WA_DBG("wa_wsclient::wait(): scheduler not avaialable\n");
+
+    return result;
+}
+
+/**
+ * @brief This function is used to enable/disable the hwselftest periodic run feature.
+ * @param[in] enable True to enable periodic running, False to disable.
+ * @param[in] destroy True remove the periodic service timer file.
+ * @param[in] quite True to suppress logs.
+ * @return Status of the operation
+ * @retval true   Operation succeeded
+ * @retval false  Operation failed
+ */
+bool wa_wsclient::enable_periodic(bool enable, bool destroy, bool quiet)
+{
+    int retval = false;
+
+    if (is_enabled())
+    {
+        _runner_timer.stop();
+
+        if (enable)
+        {
+            int status = 0;
+
+            if (_runner_timer.exists() != 0)
+            {
+                _runner_timer.set_on_unit_active_sec(DEFAULT_PERIODIC_FREQUENCY);
+                _settings.set(HWST_PERIODIC_FREQ_NAME, DEFAULT_PERIODIC_FREQUENCY);
+
+                status = _runner_timer.create();
+                if (status != 0)
+                    WA_DBG("wa_wsclient::enable_periodic(): can't create runner timer file\n");
+            }
+
+            if (status == 0)
+            {
+                if (_runner_timer.start() == 0)
+                {
+                    if (_runner_service.start() == 0)
+                    {
+                        WA_DBG("wa_wsclient::enable_periodic(): periodic run enabled\n");
+
+                        if (!quiet)
+                        {
+                            log("Periodic run enabled.\n");
+                            log("Periodic run frequency is " + _settings.get(HWST_PERIODIC_FREQ_NAME) + " min.\n");
+                            log("Periodic run CPU threshold is " + _settings.get(HWST_CPU_THRESHOLD_NAME) + " %.\n");
+                            log("Periodic run DRAM threshold is " + _settings.get(HWST_DRAM_THRESHOLD_NAME) + " MB.\n");
+                        }
+
+                        retval = true;
+                    }
+                    else
+                    {
+                        _runner_timer.stop();
+                        WA_DBG("wa_wsclient::enable_periodic(): can't start runner service\n");
+                    }
+                }
+                else
+                    WA_DBG("wa_wsclient::enable_periodic(): can't start runner timer\n");
+            }
+        }
+        else
+        {
+            retval = true;
+
+            if (destroy)
+                _runner_timer.destroy();
+
+            WA_DBG("wa_wsclient::enable_periodic(): periodic run disabled\n");
+
+            if (!quiet)
+                log("Periodic run disabled.\n");
+        }
+    }
+    else
+    {
+        WA_DBG("wa_wsclient::enable_periodic(): service disabled\n");
+        log("Feature disabled. EnablePeriodicRun request ignored.\n");
+    }
+
+    return retval;
+}
+
+/**
+ * @brief This function is used to enable/disable the hwselftest periodic run feature.
+ * @return Status of the operation
+ * @retval true   Operation succeeded
+ * @retval false  Operation failed
+ */
+bool wa_wsclient::set_periodic_frequency(unsigned int frequency)
+{
+    int retval = false;
+
+    if (is_enabled())
+    {
+        if (frequency == 0)
+            frequency = DEFAULT_PERIODIC_FREQUENCY;
+
+        if (frequency >= MIN_PERIODIC_FREQUENCY)
+        {
+            _runner_timer.set_on_unit_active_sec(frequency);
+            _settings.set(HWST_PERIODIC_FREQ_NAME, frequency);
+
+            if (_runner_timer.create() == 0)
+            {
+                // if already running, then apply the new frequency immediately
+                if (_runner_timer.status() == 0)
+                {
+                    retval = enable_periodic(true, false, true);
+                    if (retval)
+                        WA_DBG("wa_wsclient::set_periodic_frequency(): changed periodic frequency to %i min\n", frequency);
+                    else
+                        WA_DBG("wa_wsclient::set_periodic_frequency(): failed to apply new periodic run frequency\n");
+                }
+                else
+                    retval = true;
+
+                log("Periodic run frequency set to " + std::to_string(frequency) + " min.\n");
+            }
+            else
+                WA_DBG("wa_wsclient::enable_periodic(): can't create timer file\n");
+        }
+        else
+            WA_DBG("wa_wsclient::set_periodic_frequency(): invalid frequency value\n");
+    }
+    else
+    {
+        WA_DBG("wa_wsclient::set_periodic_frequency(): service disabled\n");
+        log("Feature disabled. PeriodicRunFrequency request ignored.\n");
+    }
+
+    return retval;
+}
+
+/**
+ * @brief This function is used to set hwselftest CPU threshold.
+ * @return Status of the operation
+ * @retval true   Operation succeeded
+ * @retval false  Operation failed
+ */
+bool wa_wsclient::set_periodic_cpu_threshold(unsigned int threshold)
+{
+    int retval = false;
+
+    if (is_enabled())
+    {
+        if (threshold <= 100)
+        {
+            retval = _settings.set(HWST_CPU_THRESHOLD_NAME, threshold);
+            if (retval)
+            {
+                WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): changed periodic run cpu threshold to %i%%\n", frequency);
+                log("Periodic run CPU threshold set to " + std::to_string(threshold) + "%.\n");
+            }
+            else
+                WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): failed to apply new periodic run cpu threshold\n");
+        }
+        else
+            WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): invalid threshold value\n");
+    }
+    else
+    {
+        WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): service disabled\n");
+        log("Feature disabled. cpuThreshold request ignored.\n");
+    }
+
+    return retval;
+}
+
+/**
+ * @brief This function is used to set hwselftest DRAM threshold.
+ * @return Status of the operation
+ * @retval true   Operation succeeded
+ * @retval false  Operation failed
+ */
+bool wa_wsclient::set_periodic_dram_threshold(unsigned int threshold)
+{
+    int retval = false;
+
+    if (is_enabled())
+    {
+        retval = _settings.set(HWST_DRAM_THRESHOLD_NAME, threshold);
+        if (retval)
+        {
+            WA_DBG("wa_wsclient::set_periodic_dram_threshold(): changed periodic run dram threshold to %i%%\n", frequency);
+            log("Periodic run DRAM threshold set to " + std::to_string(threshold) + " MB.\n");
+        }
+        else
+            WA_DBG("wa_wsclient::set_periodic_dram_threshold(): failed to apply new periodic run dram threshold\n");
+    }
+    else
+    {
+        WA_DBG("wa_wsclient::set_periodic_dram_threshold(): service disabled\n");
+        log("Feature disabled. dramThreshold request ignored.\n");
+    }
+
+    return retval;
+}
+
 void wa_wsclient::log(const std::string& message) const
 {
     hwst::Log().toFile(hwst::Log().format(std::string("[TR69] ") + message));
 }
+
 
 /*****************************************************************************
  * STATIC METHOD DEFINITIONS

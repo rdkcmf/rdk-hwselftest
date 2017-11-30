@@ -125,6 +125,7 @@ static json_t *sysinfo_Get()
        "RDK",    (rdkver ? rdkver : "N/A"),
        "AgentVersion", WA_VERSION);
        
+    free(rdkver);
     for(i = 0; i < sizeof(params)/sizeof(params[0]); i++)
        if(params[i].value != NULL)
            free(params[i].value);

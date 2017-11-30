@@ -1,0 +1,6 @@
+[Unit]
+Description=RDK Hardware Self Test periodic run service
+
+[Service]
+EnvironmentFile=/tmp/.hwselftest_settings
+ExecStart=/bin/sh -c '/usr/bin/hwst_check_free_dram.sh ${HWST_DRAM_THRESHOLD}; R1=$?; /usr/bin/hwst_check_free_cpu.sh ${HWST_CPU_THRESHOLD}; R2=$?; if [ $R1 -eq 0 -a $R2 -eq 0 ]; then /usr/bin/hwselftestcli execute; else echo "`/bin/date -u "+%%Y-%%m-%%d %%H:%%M:%%S"` [PTR] Test execution skipped, no resources." >> /opt/logs/hwselftest.log; fi'

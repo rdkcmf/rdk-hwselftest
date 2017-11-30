@@ -35,7 +35,7 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
-#define FILE "wa_wsclient.cpp"
+#define FILE "DeviceInfo_hwHealthTest.cpp"
 
 /*****************************************************************************
  * EXPORTED FUNCTIONS
@@ -52,13 +52,13 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_Enable(const char *log_mo
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
-        bool *value = reinterpret_cast<bool *>(stMsgData->paramValue);
-        ret = pInst->enable(*value);
+        bool value = *(reinterpret_cast<bool *>(stMsgData->paramValue));
+        ret = pInst->enable(value);
 
         if (ret)
-            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest %s successfully\n", FILE, __FUNCTION__, ((*value)? "enabled" : "disabled"));
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest %s successfully\n", FILE, __FUNCTION__, (value? "enabled" : "disabled"));
         else
-            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to %s hwselftest\n", FILE, __FUNCTION__, ((*value)? "enable" : "disable"));
+            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to %s hwselftest\n", FILE, __FUNCTION__, (value? "enable" : "disable"));
     }
     else
         RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
@@ -75,11 +75,10 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_ExecuteTest(const char *l
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
-        int cookie = *((int *)stMsgData->paramValue);
-        ret = pInst->execute_tests(cookie);
+        ret = pInst->execute_tests(false /* execution from tr69 */);
 
         if (ret)
-            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] tests scheduled successfully (%i)\n", FILE, __FUNCTION__, cookie);
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] tests scheduled successfully\n", FILE, __FUNCTION__);
         else
             RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to schedule test execution\n", FILE, __FUNCTION__);
     }
@@ -112,6 +111,98 @@ bool get_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_Results(const char *log_m
         }
         else
             RDK_LOG(RDK_LOG_ERROR,log_module,"[%s:%s] failed to retrieve test results\n", FILE, __FUNCTION__);
+    }
+    else
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
+
+    return ret;
+}
+
+bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_EnablePeriodicRun(const char *log_module, HOSTIF_MsgData_t *stMsgData)
+{
+    bool ret = false;
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to enable/disable the hwselftest periodic run...\n", FILE, __FUNCTION__);
+
+    wa_wsclient *pInst = wa_wsclient::instance();
+    if (pInst)
+    {
+        bool value = *(reinterpret_cast<bool *>(stMsgData->paramValue));
+        ret = pInst->enable_periodic(value);
+
+        if (ret)
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest periodic run %s successfully\n", FILE, __FUNCTION__, (value? "enabled" : "disabled"));
+        else
+            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to %s hwselftest periodic run\n", FILE, __FUNCTION__, (value? "enable" : "disable"));
+    }
+    else
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
+
+    return ret;
+}
+
+bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_PeriodicRunFrequency(const char *log_module, HOSTIF_MsgData_t *stMsgData)
+{
+    bool ret = false;
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set the hwselftest periodic run frequency...\n", FILE, __FUNCTION__);
+
+    wa_wsclient *pInst = wa_wsclient::instance();
+    if (pInst)
+    {
+        unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
+        ret = pInst->set_periodic_frequency(value);
+
+        if (ret)
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest periodic run frequency set to %i\n", FILE, __FUNCTION__, value);
+        else
+            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to set hwselftest periodic run frequency to %i\n", FILE, __FUNCTION__, value);
+    }
+    else
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
+
+    return ret;
+}
+
+bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_CpuThreshold(const char *log_module, HOSTIF_MsgData_t *stMsgData)
+{
+    bool ret = false;
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set hwselftest CPU threshold...\n", FILE, __FUNCTION__);
+
+    wa_wsclient *pInst = wa_wsclient::instance();
+    if (pInst)
+    {
+        unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
+        ret = pInst->set_periodic_cpu_threshold(value);
+
+        if (ret)
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest CPU threshold set to %i\n", FILE, __FUNCTION__, value);
+        else
+            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to set CPU threshold to %i\n", FILE, __FUNCTION__, value);
+    }
+    else
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
+
+    return ret;
+}
+
+bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_DramThreshold(const char *log_module, HOSTIF_MsgData_t *stMsgData)
+{
+    bool ret = false;
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set hwselftest DRAM threshold...\n", FILE, __FUNCTION__);
+
+    wa_wsclient *pInst = wa_wsclient::instance();
+    if (pInst)
+    {
+        unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
+        ret = pInst->set_periodic_dram_threshold(value);
+
+        if (ret)
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest DRAM threshold set to %i\n", FILE, __FUNCTION__, value);
+        else
+            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to set DRAM threshold to %i\n", FILE, __FUNCTION__, value);
     }
     else
         RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);

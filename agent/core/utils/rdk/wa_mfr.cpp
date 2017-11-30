@@ -143,9 +143,17 @@ int WA_UTILS_MFR_ReadSerializedData(WA_UTILS_MFR_StbParams_t data, size_t* size,
             {
                 *size = param->bufLen + 1;
                 *value = (char *)malloc(*size);
-                (void)memcpy((void *)*value, (void *)param->buffer, *size - 1);
-                *(*value + param->bufLen) = '\0';
-                WA_INFO("Retrieved MFR value for param %i: %s\n", data, *value);
+                if(*value == NULL)
+                {
+                    *size = 0;
+                    ret = IARM_RESULT_IPCCORE_FAIL;
+                }
+                else
+                {
+                    (void)memcpy((void *)*value, (void *)param->buffer, *size - 1);
+                    *(*value + param->bufLen) = '\0';
+                    WA_INFO("Retrieved MFR value for param %i: %s\n", data, *value);
+                }
             }
         }
         else

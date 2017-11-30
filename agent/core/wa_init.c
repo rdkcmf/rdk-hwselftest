@@ -273,7 +273,7 @@ static void *AgentTask(void *p)
             goto end;
         }
 
-#ifdef WA_DEBUG
+#if WA_DEBUG
         {
             char *msg;
             msg = json_dumps(qjmsg.json, JSON_ENCODE_ANY);
@@ -290,6 +290,7 @@ static void *AgentTask(void *p)
 #else
         WA_INFO("AgentTask(): WA_OSA_QReceive(): %p\n", qjmsg.json);
 #endif
+
         /* Consideration: Add handling messages to particular instances:
          * - if message is with "id" store this json as a reference till response is sent,
          *   then deliver to instance with cookie to this json

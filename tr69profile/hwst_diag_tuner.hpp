@@ -32,7 +32,8 @@ class DiagTuner: public Diag
 
     enum {
         SI_CACHE_MISSING = -105,
-        TUNER_NO_LOCK = -106
+        TUNER_NO_LOCK = -106,
+        TUNER_BUSY = -111
     };
 public:
     DiagTuner(const std::string &params_ = "");

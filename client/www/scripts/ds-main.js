@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-var CLIENT_VERSION = "0009";
+var CLIENT_VERSION = "000b";
 var client_name = "client ver. " + CLIENT_VERSION;
 var screen1SysinfoTimeout = 3; //seconds, 0: disabled
 var screen1Timeout = 300; //seconds, 0: disabled
@@ -182,7 +182,7 @@ function readPreviousResults(data) {
         return;
     }
     var endTimeVal = Object.values(data)[index];
-    document.getElementById('timestamp').innerHTML = endTimeVal;
+    document.getElementById('timestamp').innerHTML = endTimeVal + " UTC";
     //console.log("readPreviousResults: end_time index = " + index + ", value = " + endTimeVal);
 
     buildOperationGroup(diagGroups);
@@ -637,6 +637,9 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.TUNER_NO_LOCK:
         info = "Lock Failed - Check Cable";
         break;
+    case DIAG_ERRCODE.TUNER_BUSY:
+        info = "One or more tuners are busy. All tuners were not tested";
+        break;
     case DIAG_ERRCODE.AV_NO_SIGNAL:
         info = "No stream data. Check cable and verify STB is provisioned correctly";
         break;
@@ -726,6 +729,7 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.MOCA_DISABLED:
     case DIAG_ERRCODE.SI_CACHE_MISSING:
     case DIAG_ERRCODE.TUNER_NO_LOCK:
+    case DIAG_ERRCODE.TUNER_BUSY:
     case DIAG_ERRCODE.AV_NO_SIGNAL:
     case DIAG_ERRCODE.IR_NOT_DETECTED:
     case DIAG_ERRCODE.CM_NO_SIGNAL:
@@ -785,12 +789,12 @@ function setResult(id, status, data) {
 function timeStamp() {
     var d = new Date();
 
-    return d.getFullYear() + "-" +
-           ("0" + (d.getMonth() + 1)).slice(-2) + "-" +
-           ("0" + d.getDate()).slice(-2) + " " +
-           ("0" + d.getHours()).slice(-2) + ":" +
-           ("0" + d.getMinutes()).slice(-2) + ":" +
-           ("0" + d.getSeconds()).slice(-2);
+    return d.getUTCFullYear() + "-" +
+           ("0" + (d.getUTCMonth() + 1)).slice(-2) + "-" +
+           ("0" + d.getUTCDate()).slice(-2) + " " +
+           ("0" + d.getUTCHours()).slice(-2) + ":" +
+           ("0" + d.getUTCMinutes()).slice(-2) + ":" +
+           ("0" + d.getUTCSeconds()).slice(-2);
 }
 
 function setFinal(showPrevious) {
@@ -816,14 +820,18 @@ function setFinal(showPrevious) {
             ds.notify("LOG", { message: "Previous results overall status:" + textResult});
         } else {
             var timestamp = timeStamp();
-            document.getElementById('timestamp').innerHTML = timestamp;
+            document.getElementById('timestamp').innerHTML = timestamp + " UTC";
             ds.notify("LOG", { rawmessage: timestamp + " Test execution completed:" + textResult});
             ds.notify("TESTRUN", { state: "finish" } );
         }
 
         switch(result) {
         case results.passed:
-            enableSuccessResultNochoice();
+            if(showPrevious) {
+                enableSuccessResultChoice();
+            } else {
+                enableSuccessResultNochoice();
+            }
             break;
         case results.warning:
             enableSuccessResultChoice();

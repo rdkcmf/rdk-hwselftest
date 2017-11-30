@@ -26,6 +26,8 @@ lib_LTLIBRARIES = libtr69ProfileHwSelfTest.la
 libtr69ProfileHwSelfTest_la_SOURCES = \
     DeviceInfo_hwHealthTest.cpp \
     wa_wsclient.cpp \
+    wa_service.cpp \
+    wa_settings.cpp \
     hwst_comm.cpp \
     hwst_diag.cpp \
     hwst_diag_av.cpp \
@@ -51,4 +53,3 @@ libtr69ProfileHwSelfTest_la_SOURCES = \
 
 libtr69ProfileHwSelfTest_la_CXXFLAGS = $(AM_CXXFLAGS) -std=c++11
 libtr69ProfileHwSelfTest_la_LDFLAGS = $(AM_LDFLAGS) -ljansson -lnopoll
-AM_CXXFLAGS += $(PARODUS_ENABLE_FLAG)

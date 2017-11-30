@@ -207,6 +207,7 @@ static bool modem_supported(void)
 
     if(WA_OSA_TaskCheckQuit())
     {
+        free(addr);
         WA_DBG("modem_supported: test cancelled\n");
         return false;
     }
@@ -232,6 +233,7 @@ static char *get_modem_ip(void)
 
     if(WA_OSA_TaskCheckQuit())
     {
+        free(addr);
         WA_DBG("get_modem_ip: test cancelled\n");
         return NULL;
     }

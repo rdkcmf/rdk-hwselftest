@@ -71,6 +71,7 @@ void npMessageCb(noPollCtx *ctx, noPollConn *conn, noPollMsg *msg, noPollPtr use
 
     if(payload)
         Ws::cbReceived(payload);
+    HWST_DBG("npMessageCb-END");
 }
 
 /* This callback is coming from two sources;
@@ -81,12 +82,14 @@ void npClosedCb(noPollCtx *ctx, noPollConn *conn, noPollPtr user_data)
 {
     HWST_DBG("npClosedCb");
     Ws::cbDisconnected();
+    HWST_DBG("npClosedCb-END");
 }
 
 void npConnFree(noPollConn *conn)
 {
     HWST_DBG("npConnFree");
     nopoll_conn_close(conn);
+    HWST_DBG("npConnFree-END");
 }
 
 } // extern "C"
@@ -132,16 +135,6 @@ Ws::~Ws()
         goto end;
 
     disconnect();
-
-    nopoll_loop_stop(ctx.get());
-
-    if(npThread != nullptr)
-    {
-        HWST_DBG("~hwst_ws-join");
-        npThread->join();
-        HWST_DBG("~hwst_ws-joined");
-        npThread.reset();
-    }
 
 end:
     HWST_DBG("~hwst_ws");
@@ -224,11 +217,7 @@ int Ws::connect(std::string host, std::string port, int timeout)
         status = 0;
         goto end;
     }
-#ifdef PARODUS_ENABLE
     conn = conn_t(nopoll_conn_new(ctx.get(), host.c_str(), port.c_str(), NULL, NULL, NULL, NULL), nopoll_conn_close);
-#else
-    conn = conn_t(nopoll_conn_new(ctx.get(), host.c_str(), port.c_str(), NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0), nopoll_conn_close);
-#endif
     if((conn == nullptr) || !nopoll_conn_is_ok (conn.get()))
         goto end;
     connected = true;
@@ -263,10 +252,9 @@ int Ws::send(std::string msg)
 
     if(!nopoll_conn_is_ready(conn.get()))
         goto end;
-HWST_DBG("wa::send #2");
+
     length = nopoll_conn_send_text(conn.get(), msg.c_str(),msg.length());
     length = nopoll_conn_flush_writes (conn.get(), FLUSH_TIMEOUT, length);
-HWST_DBG("wa::send #");
     if(length == msg.length())
         status = 0;
 
@@ -281,6 +269,16 @@ void Ws::disconnect()
     HWST_DBG("wa::disconnect ENTER");
     if(conn == nullptr)
         goto end;
+
+    nopoll_loop_stop(ctx.get());
+
+    if(npThread != nullptr)
+    {
+        HWST_DBG("ws-disconnect-join");
+        npThread->join();
+        HWST_DBG("ws-disconnect-joined");
+        npThread.reset();
+    }
 
     HWST_DBG("ws-disconnect-close");
 

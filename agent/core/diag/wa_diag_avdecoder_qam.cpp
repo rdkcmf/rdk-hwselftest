@@ -963,6 +963,7 @@ int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void)
         WA_DBG("WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(): 0\n");
         return 0;
     }
+    free(o);
     o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_FILE, "VIDEO[%*d,%*d] started:");
 
     if(WA_OSA_TaskCheckQuit())
@@ -986,6 +987,7 @@ int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void)
     if (o)
     {
         int status = o[0] == 'y'? 0 : 1;
+        free(o)
         WA_DBG("WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(): *%i\n", status);
         return status;
     }
@@ -1014,6 +1016,7 @@ int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void)
         WA_DBG("WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(): 0\n");
         return 0;
     }
+    free(o);
     o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_FILE, "AUDIO[%*d] started:");
 
     if(o)
@@ -1028,6 +1031,7 @@ int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void)
     if (o)
     {
         int status = o[0] == 'y'? 0 : 1;
+        free(o);
         WA_DBG("WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(): *%i\n", status);
         return status;
     }

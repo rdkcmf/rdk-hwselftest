@@ -323,6 +323,7 @@ int Sched::issue(std::string jobs, const std::string& client)
             }
             cbCond.notify_all();
             thd->join();
+            thd.reset();
             comm.reset();
             state = idle;
             break;

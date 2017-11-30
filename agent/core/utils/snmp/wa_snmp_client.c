@@ -109,11 +109,14 @@ int WA_UTILS_SNMP_Init()
     if (!snmpMutex)
         WA_ERROR("WA_UTILS_SNMP_Init(): failed to allocate mutex\n");
 
+    init_snmp(WA_UTILS_SNMP_APP_NAME);
+
     return snmpMutex ? 0 : -1;
 }
 
 int WA_UTILS_SNMP_Exit()
 {
+    snmp_shutdown(WA_UTILS_SNMP_APP_NAME);
     return WA_OSA_MutexDestroy(snmpMutex);
 }
 
@@ -213,8 +216,6 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
 
     WA_ENTER("waSnmpGetSingle(%s, %s, %i)\n", server, reqOidText, reqType);
 
-    init_snmp(WA_UTILS_SNMP_APP_NAME);
-
     snmp_sess_init(&session);
     session.peername = (char *)server;
     session.version = SNMP_VERSION_1;
@@ -230,6 +231,7 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
         if (!sd.session)
         {
             WA_ERROR("waSnmpGetSingle(): snmp_open returned NULL\n");
+
             SOCK_CLEANUP;
             return NULL;
         }
@@ -271,7 +273,6 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
 
                 WA_ERROR("waSnmpGetSingle(): exhausted retries, giving up...\n");
             }
-
             return NULL;
         }
         else
@@ -285,7 +286,6 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
 
     result->var = sd.response->variables;
     result->sessionData = sd;
-
     return result;
 }
 

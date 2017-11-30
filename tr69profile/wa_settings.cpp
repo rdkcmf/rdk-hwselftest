@@ -17,62 +17,54 @@
  * limitations under the License.
 */
 
-#ifndef WA_WSCLIENT_H_
-#define WA_WSCLIENT_H_
-
 /*****************************************************************************
  * STANDARD INCLUDE FILES
  *****************************************************************************/
 #include <string>
+#include <fstream>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
-#include "wa_service.h"
 #include "wa_settings.h"
 
 /*****************************************************************************
- * EXPORTED CLASSES
+ * METHOD DEFINITIONS
  *****************************************************************************/
-
-namespace hwst { class Sched; }
 
 namespace hwselftest {
 
-class wa_wsclient final {
-public:
-    static wa_wsclient *instance();
+bool wa_settings::load()
+{
+    std::ifstream file(_path);
+    if (file.is_open())
+    {
+        std::string line;
+        while (std::getline(file, line))
+        {
+            size_t delim = line.find('=');
+            if (delim != std::string::npos)
+                _settings.emplace(line.substr(0, delim), line.substr(delim + 1));
+        }
 
-    bool is_enabled() const;
-    bool enable(bool toggle = true);
+        return (!_settings.empty());
+    }
 
-    bool execute_tests(bool cli);
-    bool get_results(std::string &results);
-    bool wait();
+    return false;
+}
 
-    bool enable_periodic(bool toggle = true, bool destroy = false, bool quiet = false);
-    bool set_periodic_frequency(unsigned int frequency);
-    bool set_periodic_cpu_threshold(unsigned int threshold);
-    bool set_periodic_dram_threshold(unsigned int threshold);
+bool wa_settings::save()
+{
+    std::ofstream file(_path, std::ios::trunc);
+    if (file.is_open())
+    {
+        for (auto s : _settings)
+            file << s.first << "=" << s.second << '\n';
 
-private:
-    wa_wsclient();
-    ~wa_wsclient();
+        return true;
+    }
 
-    wa_wsclient(wa_wsclient const &) = delete;
-    void operator=(wa_wsclient const &) = delete;
-
-    void log(const std::string& message) const;
-
-    wa_service _runner_service;
-    wa_service _runner_timer;
-
-    wa_settings _settings;
-
-    std::string _last_result;
-    hwst::Sched *_hwst_scheduler;
-};
+    return false;
+}
 
 } // namespace hwselftest
-
-#endif /* WA_WSCLIENT_H_ */

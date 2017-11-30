@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
         {
             configFileName = argv[argi] + 9;
         }
-#ifdef WA_DEBUG
+#if WA_DEBUG
         /* allow specifying listening port only on debug builds */
         else
         {
@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
             if (port == 0)
                 port = -1;
         }
-#endif
+#endif /* WA_DEBUG */
     }
 
     configs = loadConfig(configFileName);

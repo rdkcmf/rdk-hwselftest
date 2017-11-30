@@ -491,7 +491,7 @@ int WA_DIAG_Send(void *instanceHandle, json_t *json, void *responseCookie)
         WA_ERROR("WA_DIAG_Send(): invalid message\n");
         goto end;
     }
-#ifdef WA_DEBUG
+#if WA_DEBUG
     {
         char *msg;
         msg = json_dumps(json, JSON_ENCODE_ANY);
@@ -513,7 +513,8 @@ int WA_DIAG_Send(void *instanceHandle, json_t *json, void *responseCookie)
     qjmsg.to = pInstance->callerId;
     snprintf(tmp, sizeof(tmp), "#%08x", pInstance->id);
     qjmsg.json = json_pack("{s:s,s:s,s:o,s:n}", "jsonrpc", "2.0", "method", tmp, "params", json, "id");
-#ifdef WA_DEBUG
+
+#if WA_DEBUG
     {
         char *msg;
         msg = json_dumps(qjmsg.json, JSON_ENCODE_ANY);
@@ -638,7 +639,7 @@ static void *DiagTask(void *p)
             goto end;
         }
 
-#ifdef WA_DEBUG
+#if WA_DEBUG
         {
             char *msg;
             msg = json_dumps(qjmsg.json, 0);

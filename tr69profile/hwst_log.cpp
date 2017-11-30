@@ -27,6 +27,7 @@
 
 //#define HWST_DEBUG 1
 #ifdef HWST_DEBUG
+#include <iostream>
 #define HWST_DBG(str) do {std::cout << str << std::endl;} while(false)
 #else
 #define HWST_DBG(str) do {} while(false)
@@ -50,7 +51,7 @@ std::string Log::format(std::string text)
 {
     std::chrono::system_clock::time_point tnow = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(tnow);
-    struct tm now = *std::localtime(&t);
+    struct tm now = *std::gmtime(&t);
     std::ostringstream os;
 
     os << (now.tm_year + 1900) << "-" <<

@@ -74,10 +74,6 @@ hwselftest_CPPFLAGS = \
 
 hwselftest_LDFLAGS = -ljansson -pthread -lrt -lnetsnmp -lds -ldshalcli -lIARMBus -lwebsockets -lhnsource -lmediaplayersink -lrmfbase -lrmfosal -lglib-2.0 -lrdkloggers
 
-if USE_MFRLIB
-    hwselftest_CPPFLAGS += -DLEGACY_MFR_VENDOR=$(MFRVENDOR)
-    hwselftest_LDFLAGS += -l$(MFRLIB)
-endif
 
 hwselftest_CFLAGS = \
         $(RF4CE_ENABLE_FLAG) \
@@ -86,3 +82,14 @@ hwselftest_CFLAGS = \
         -pthread \
         -Wall \
         -Werror
+
+if USE_MFRLIB
+    hwselftest_CPPFLAGS += -DLEGACY_MFR_VENDOR=$(MFRVENDOR)
+    hwselftest_LDFLAGS += -l$(MFRLIB)
+endif
+
+#if USE_TRM
+    hwselftest_SOURCES += core/utils/rdk/wa_trh.cpp
+    hwselftest_CFLAGS += -DUSE_TRM
+    hwselftest_LDFLAGS += -ltrm -ltrh
+#endif

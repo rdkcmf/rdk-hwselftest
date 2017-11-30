@@ -97,18 +97,18 @@ AC_ARG_ENABLE([tr69profile-build],
         ], 
         [echo "tr60profile build is disabled"])
 
-AC_ARG_ENABLE([parodus],
-        AS_HELP_STRING([--enable-parodus],[enable Parodus Support (default is no)]),
+AC_ARG_ENABLE([cli-build],
+        AS_HELP_STRING([--enable-cli-build],[enable CLI tool build (default is no)]),
         [
           case "${enableval}" in
-           yes) PARODUS_SUPPORT_ENABLED=true
-                PARODUS_ENABLE_FLAG="-DPARODUS_ENABLE";; 
-           no) PARODUS_SUPPORT_ENABLED=false AC_MSG_ERROR([Parodus support is disabled]) ;;
-          *) AC_MSG_ERROR([bad value ${enableval} for --enable-parodus ]) ;;
+           yes) CLI_ENABLE=true
+                m4_syscmd([test -d cli])
+                m4_if(m4_sysval,[0],[AC_CONFIG_FILES([cli/Makefile])])
+                m4_if(m4_sysval,[0],[SUBDIRS_CLI="cli"]) ;;
+           no) CLI_ENABLE=false;;
            esac
-           ],
-         [echo "Parodus support is disabled"])
-AM_CONDITIONAL([WITH_PARODUS_SUPPORT], [test x$PARODUS_SUPPORT_ENABLED = xtrue])
+        ],
+        [echo "cli build is disabled"])
 
 AC_ARG_ENABLE([rf4ce],
         AS_HELP_STRING([--enable-rf4ce],[enable RF4CE Support (default is no)]),
@@ -136,8 +136,8 @@ AC_ARG_ENABLE([ctrlmgr],
          [echo "CTRLMGR support is disabled"])
 AM_CONDITIONAL([WITH_CTRLMGR_SUPPORT], [test x$CTRLMGR_SUPPORT_ENABLED = xtrue])
 
-AC_SUBST([COMPONENTS], ["${SUBDIRS_AGENT} ${SUBDIRS_CLIENT} ${SUBDIRS_TR69PROFILE}"])
-AC_SUBST(PARODUS_ENABLE_FLAG)
+AC_SUBST([COMPONENTS], ["${SUBDIRS_AGENT} ${SUBDIRS_CLIENT} ${SUBDIRS_TR69PROFILE} ${SUBDIRS_CLI}"])
+AC_SUBST([USE_TRM])
 AC_SUBST(RF4CE_ENABLE_FLAG)
 AC_SUBST(CTRLMGR_ENABLE_FLAG)
 # Checks for programs.

@@ -52,27 +52,12 @@
 #include <sys/time.h>
 #include <time.h>
 
-/* About:
- * 1. The rmfstreamer does not stream multiple streams to clients at the same IP.
- * 2. The quamsrc will reuse the same tuner if the requested tuning string is already in use.
- * 2a. Only 'ocap://' prefix is compiled in, the 'tune://' is not.
- * 3. The rmfstreamer accepts multiple tune requests but they are handled one-by-one,
- *    thus next tuner is tuned only after previous tuner finished this process.
- *
- *
- * How to handle above:
- * 1. Since there is only one agent and it runs on local machine, multiple requests must be
- *    issued with different source IP each.
- * 2. Every tuning request must be different. The same frequency/modulation/sr is allowed by the
- *    physical string must differ by adding extra parameters.
- * 2a. Different 'ocap://' must be used for each request.
- * 3. Prior to read proper tuner status for all tuners, code must wait for responses from all tuners.
- *
- */
-
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
+#ifndef USE_TRM
+#define USE_RMF
+#endif
 
 #include "wa_diag.h"
 #include "wa_debug.h"
@@ -82,6 +67,10 @@
 /* rdk specific */
 #include "wa_sicache.h"
 #include "wa_rmf.h"
+
+#ifdef USE_TRM
+#include "wa_trh.h"
+#endif
 
 /* module interface */
 #include "wa_diag_tuner.h"
@@ -104,21 +93,29 @@
 #define OID_TUNER_MODULATION_MODE "OC-STB-HOST-MIB::ocStbHostInBandTunerModulationMode"
 #define OID_TUNER_POWER "OC-STB-HOST-MIB::ocStbHostInBandTunerPower"
 #define OID_TUNER_SNR "OC-STB-HOST-MIB::ocStbHostInBandTunerSNRValue"
+#define SNMP_SERVER "localhost"
 #else
 #define PROCFS_STATUS_FILE "/proc/brcm/frontend"
 #define LINE_LEN 256
 #endif
 
-#define MAX_REQUEST 512
-#define HTML_RESPONSE_TIMEOUT 1000 /* in [ms] */
 #define TUNE_RESPONSE_TIMEOUT 14000 /* in [ms] */
-
-#define SNMP_SERVER "localhost"
-
-#define NUM_SI_ENTRIES 2
-
 #define REQUEST_PATTERN "/vldms/tuner?ocap_locator=ocap://tune://frequency=%u_modulation=%u_pgmno=%u"
 #define REQUEST_MAX_LENGTH 256
+
+#ifdef USE_RMF
+#define MAX_REQUEST 512
+#define HTML_RESPONSE_TIMEOUT 1000 /* in [ms] */
+#endif /* USE_RMF */
+
+#ifdef USE_TRM
+#define TRM_TUNER_RESERVATION_TIME              (1000) /* time to resevere the tuner for, ms */
+#define TRM_TUNER_RESERVATION_TIMEOUT           (30000) /* time to wait for tuner reservation response, ms */
+#define TRM_TUNER_RESERVATION_RELEASE_TIMEOUT   (TRM_TUNER_RESERVATION_TIME) /* time to wait for tuner release response, ms */
+#define TRM_TUNER_SESSIONS_TIMEOUT              (120) /* max time for tunning all tuners on one locator, seconds */
+#endif /* USE_TRM */
+
+#define NUM_SI_ENTRIES 2
 
 #define USE_SEVERAL_LOCK_PROBES 1
 #ifdef USE_SEVERAL_LOCK_PROBES
@@ -130,10 +127,12 @@
  * LOCAL TYPES
  *****************************************************************************/
 
+#ifndef USE_FRONTEND_PROCFS
 typedef enum TunerStateSnmp_tag
 {
     TUNER_LOCKED = 5 // 5 is 'FOUNDQAM' status
 } TunerStateSnmp_t;
+#endif
 
 typedef struct TuneSession_tag
 {
@@ -154,8 +153,16 @@ static bool startTuneSessions(void * instanceHandle,
         unsigned int currentPass,
         unsigned int totalPasses,
         WA_DIAG_TUNER_TunerStatus_t * statuses);
+
 static bool closeTuneSessions(TuneSession_t * sessions, size_t sessionCount);
 
+void SendSessionProgress(void * instanceHandle,
+        unsigned int sessionsDone,
+        unsigned int sessionCount,
+        unsigned int passesDone,
+        unsigned int passesCount);
+
+#ifdef USE_RMF
 static void WaitSessions(void* instanceHandle,
         TuneSession_t * sessions,
         size_t sessionCount,
@@ -163,22 +170,25 @@ static void WaitSessions(void* instanceHandle,
         unsigned int totalPasses,
         WA_DIAG_TUNER_TunerStatus_t * statuses,
         size_t statusCount);
+
 static int IssueRequest(uint32_t sourceIP, uint32_t serverIP, unsigned short int serverPort, const char *request);
-void SendSessionProgress(void * instanceHandle,
-        unsigned int sessionsDone,
-        unsigned int sessionCount,
-        unsigned int passesDone,
-        unsigned int passesCount);
+
 static uint32_t FindNonexistentIf(uint32_t lastIP);
+#endif /* USE_RMF */
+
 
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
 
+#ifdef USE_RMF
+ static const unsigned int defaultStreamerPort = 8080; // in host byte order
+
 /* IP Address 127.0.0.1 is reserved, use 127.0.0.2 */
  static const uint32_t firstLocalIP = 0x200007f; // in network byte order
 
  static const bool tuneAllAtOnce = true;
+#endif /* USE_RMF */
 
  /*****************************************************************************
   * FUNCTION DEFINITIONS
@@ -267,6 +277,24 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
      return 0;
  }
 
+#ifdef USE_RMF
+/* About:
+ * 1. The rmfstreamer does not stream multiple streams to clients at the same IP.
+ * 2. The quamsrc will reuse the same tuner if the requested tuning string is already in use.
+ * 2a. Only 'ocap://' prefix is compiled in, the 'tune://' is not.
+ * 3. The rmfstreamer accepts multiple tune requests but they are handled one-by-one,
+ *    thus next tuner is tuned only after previous tuner finished this process.
+ *
+ *
+ * How to handle above:
+ * 1. Since there is only one agent and it runs on local machine, multiple requests must be
+ *    issued with different source IP each.
+ * 2. Every tuning request must be different. The same frequency/modulation/sr is allowed by the
+ *    physical string must differ by adding extra parameters.
+ * 2a. Different 'ocap://' must be used for each request.
+ * 3. Prior to read proper tuner status for all tuners, code must wait for responses from all tuners.
+ *
+ */
 
  static bool startTuneSessions(void * instanceHandle,
     TuneSession_t * sessions,
@@ -760,7 +788,7 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
      freeifaddrs(ifas);
      return htonl(ip);
  }
-
+#endif /* USE_RMF */
 
  void SendSessionProgress(void * instanceHandle,
          unsigned int sessionsDone,
@@ -777,6 +805,116 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
      WA_DIAG_SendProgress(instanceHandle, value);
  }
 
+#ifdef USE_TRM
+static bool startTuneSessions(void *instanceHandle,
+    TuneSession_t * sessions,
+    size_t sessionCount,
+    const char *urlBase,
+    unsigned int currentPass,
+    unsigned int totalPasses,
+    WA_DIAG_TUNER_TunerStatus_t *statuses)
+{
+    (void)statuses;
+    bool result = false;
+
+    WA_ENTER("startTuneSessions(instanceHandle=%p, sessions=%p, sessionCount=%u, urlBase='%s', currentPass=%u, totalPasses=%u, statuses=%p)\n", 
+                instanceHandle, sessions, sessionCount, urlBase, currentPass, totalPasses, statuses);
+
+    if (!closeTuneSessions(sessions, sessionCount))
+        WA_ERROR("startTuneSessions(): closeTuneSessions() failed\n");
+
+    /* Unlikely, but might lengthen the url by 1 character when adjusting the frequency. */
+    size_t max_url_len = strlen(urlBase) + 1 /* nul */ + 1;
+    char *adj_url = malloc(max_url_len);
+    if (!adj_url)
+        goto end;
+
+    int freq = 0, mod = 0, pgmo = 0;
+    if (sscanf(urlBase, REQUEST_PATTERN, &freq, &mod, &pgmo) != 3)
+    {
+        WA_ERROR("startTuneSessions(): failed to parse URL\n");
+        goto end;
+    }
+
+    time_t start_time = time(NULL);
+
+    result = true;
+    for (int i = 0; i < sessionCount; i++)
+    {
+        if (time(NULL) - start_time > TRM_TUNER_SESSIONS_TIMEOUT)
+        {
+            WA_ERROR("startTuneSessions(): sessions timeout!\n");
+            WA_OSA_TaskSignalQuit(WA_OSA_TaskGet());
+        }
+
+        if (WA_OSA_TaskCheckQuit())
+        {
+            WA_DBG("startTuneSessions(): test cancelled #1\n");
+            result = false;
+            break;
+        }
+
+        /* For each reserve request adjust frequency slightly, so it's different to TRM, but close enough to still be lockable. */
+        snprintf(adj_url, max_url_len, REQUEST_PATTERN, freq + i, mod, pgmo);
+        if (!WA_UTILS_TRH_ReserveTuner(strstr(adj_url, "ocap://"), 0 /* now */, TRM_TUNER_RESERVATION_TIME, TRM_TUNER_RESERVATION_TIMEOUT, (void **)&sessions[i].socket))
+        {
+            if (WA_OSA_TaskCheckQuit())
+            {
+                WA_DBG("startTuneSessions(): test cancelled #2\n");
+                result = false;
+                break;
+            }
+
+            if (WA_UTILS_TRH_WaitForTunerRelease((void *)sessions[i].socket, (2 * TRM_TUNER_RESERVATION_TIME)))
+            {
+                WA_ERROR("startTuneSessions(): tuner release timed out\n");
+                result = false;
+            }
+            else
+                WA_DBG("startTuneSessions(): tuner from reservation request %i successfully released\n", i);
+        }
+        else
+        {
+            WA_ERROR("startTuneSessions(): failed to issue reservation request %i\n", i);
+            result = false;
+        }
+
+        SendSessionProgress(instanceHandle, i, sessionCount, currentPass, totalPasses);
+    }
+
+end:
+    free(adj_url);
+
+    WA_RETURN("startTuneSessions(): %d\n", result);
+
+    return result;
+}
+
+static bool closeTuneSessions(TuneSession_t *sessions, size_t sessionCount)
+{
+    bool result = true;
+
+    WA_ENTER("closeTuneSessions(sessions=%p, sessionCount=%u)\n", sessions, sessionCount);
+
+    for (int i = 0; i < sessionCount; i++)
+    {
+        if (sessions[i].socket)
+        {
+            if (WA_UTILS_TRH_ReleaseTuner((void *)sessions[i].socket, TRM_TUNER_RESERVATION_RELEASE_TIMEOUT))
+            {
+               WA_ERROR("closeTuneSessions(): failed to free reservation %i\n", i);
+               result = false; /* but continue anyway */
+            }
+
+            sessions[i].socket = 0;
+        }
+    }
+
+    WA_RETURN("closeTuneSessions(): %d\n", result);
+
+    return result;
+}
+#endif /* USE_TRM */
 
  /*****************************************************************************
   * EXPORTED FUNCTIONS
@@ -982,12 +1120,12 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
              break;
          }
 
-        retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, sizeof(statuses) / sizeof(statuses[0]), &numLocked);
-        if(retCode && (numLocked == sizeof(statuses) / sizeof(statuses[0])))
+        retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked);
+        if(retCode && (numLocked == tunersCount))
         {
             WA_INFO("WA_DIAG_TUNER_status(): All tuners initially locked.\n");
             result = WA_DIAG_ERRCODE_SUCCESS;
-            break;;
+            break;
         }
 
          WA_INFO("WA_DIAG_TUNER_status(): Processing URL %zu.\n", (size_t)urlIndex);
@@ -1001,7 +1139,7 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
 
          retCode = startTuneSessions(instanceHandle,
              sessions,
-             sizeof(sessions) / sizeof(sessions[0]),
+             tunersCount,
              url,
              urlIndex,
              urlCount,
@@ -1019,17 +1157,17 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
              WA_ERROR("WA_DIAG_TUNER_status(): Could not start tune sessions for URL: %s\n", url);
          }
 #ifndef USE_SEVERAL_LOCK_PROBES
-         retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, sizeof(statuses) / sizeof(statuses[0]), &numLocked);
+         retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked);
 #else
          for(i=0, retCode=true, numLocked=0;
-             retCode && (i<LOCK_LOOP_COUNT) && (numLocked < sizeof(statuses) / sizeof(statuses[0])) && !WA_OSA_TaskCheckQuit(); ++i)
+             retCode && (i<LOCK_LOOP_COUNT) && (numLocked < tunersCount) && !WA_OSA_TaskCheckQuit(); ++i)
          {
-             retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, sizeof(statuses) / sizeof(statuses[0]), &numLocked);
+             retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked);
 
 #if defined(USE_FRONTEND_PROCFS) && defined(USE_UNRELIABLE_PROCFS_WORKAROUND)
              if(retCode && (numLocked == 0))
 #else
-             if(retCode && (numLocked < sizeof(statuses) / sizeof(statuses[0])))
+             if(retCode && (numLocked < tunersCount))
 #endif
              {
                  WA_DBG("WA_DIAG_TUNER_status(): retrying status check (%i)...\n", i);
@@ -1038,14 +1176,9 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
          }
 #endif /* USE_SEVERAL_LOCK_PROBES */
 
-         WA_UTILS_SICACHE_TuningSetLuckyId(numLocked ? urlIndex : -1);
+         closeTuneSessions(sessions, tunersCount);
 
-         if(WA_OSA_TaskCheckQuit())
-         {
-             WA_DBG("WA_DIAG_TUNER_status(): test cancelled #4\n");
-             result = WA_DIAG_ERRCODE_CANCELLED;
-             break;
-         }
+         WA_UTILS_SICACHE_TuningSetLuckyId(numLocked ? urlIndex : -1);
 
          if(!retCode)
          {
@@ -1053,23 +1186,25 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
              break;
          }
 
-         if (numLocked == sizeof(statuses) / sizeof(statuses[0]))
+         if (numLocked == tunersCount)
          {
+             WA_INFO("WA_DIAG_TUNER_status(): All tuners locked.\n");
              result = WA_DIAG_ERRCODE_SUCCESS;
          }
          else
          {
              WA_WARN("WA_DIAG_TUNER_status(): Not all tuners locked, url: %s\n", (char*)url);
              result = WA_DIAG_ERRCODE_TUNER_NO_LOCK;
+
+#ifdef USE_TRM
+             if (numLocked == tunersCount - 1)
+             {
+                WA_INFO("WA_DIAG_TUNER_status(): One tuner not locked, possible TRM tuner protection\n");
+                result = WA_DIAG_ERRCODE_TUNER_BUSY;
+             }
+#endif /* USE_TRM */
          }
 
-         closeTuneSessions(sessions, sizeof(sessions) / sizeof(sessions[0]));
-
-         if(WA_OSA_TaskCheckQuit())
-         {
-             WA_DBG("WA_DIAG_TUNER_status(): test cancelled #5\n");
-             result = WA_DIAG_ERRCODE_CANCELLED;
-         }
          WA_DBG("WA_DIAG_TUNER_status(): URL[%d]: result=%d\n", urlIndex, result);
      }
 
@@ -1079,10 +1214,14 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
          *pJsonInOut = json_string("Tuners good.");
          break;
 
+#ifdef USE_TRM
+     case WA_DIAG_ERRCODE_TUNER_BUSY:
+        /* fall-through */
+#endif
      case WA_DIAG_ERRCODE_TUNER_NO_LOCK:
      {
          *pJsonInOut = json_array();
-         for (int i = 0; i < sizeof(statuses) / sizeof(statuses[0]); ++i)
+         for (int i = 0; i < tunersCount; ++i)
          {
              json_t * stateData = json_object();
              json_object_set_new(stateData, "lock", json_integer(statuses[i].locked));

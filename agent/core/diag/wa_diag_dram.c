@@ -106,6 +106,7 @@ int WA_DIAG_DRAM_status(void* instanceHandle, void *initHandle, json_t **pJsonIn
 
         if(WA_OSA_TaskCheckQuit())
         {
+                free((void *)ramDiskPath);
                 WA_DBG("dram_status: Test cancelled\n");
                 *pJsonInOut = json_string("Test cancelled.");
                 return WA_DIAG_ERRCODE_CANCELLED;

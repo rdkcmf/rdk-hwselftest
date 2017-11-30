@@ -99,6 +99,7 @@ void WA_LOG_Client(bool raw, const char * format, ...)
         }
     }
     va_end(ap);
+    free(logmsg);
 }
 
 int WA_LOG_Log(json_t **pJson)

@@ -34,9 +34,11 @@ DiagTuner::DiagTuner(const std::string &params_):
 {
     presentationResult.insert(std::pair<int, const std::string>(SI_CACHE_MISSING, "WARNING"));
     presentationResult.insert(std::pair<int, const std::string>(TUNER_NO_LOCK, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(TUNER_BUSY, "WARNING"));
 
     presentationComment.insert(std::pair<int, const std::string>(SI_CACHE_MISSING, "Missing Channel Map"));
     presentationComment.insert(std::pair<int, const std::string>(TUNER_NO_LOCK, "Lock Failed - Check Cable"));
+    presentationComment.insert(std::pair<int, const std::string>(TUNER_BUSY, "One or more tuners are busy. All tuners were not tested"));
 }
 
 std::string DiagTuner::getPresentationName() const

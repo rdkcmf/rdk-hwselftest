@@ -135,6 +135,16 @@ extern int WA_OSA_Exit(void);
  */
 extern int WA_OSA_TaskSetName(const char * const name);
 
+/**
+ * @brief Get current task name
+ *
+ * @param valid buffer handle to store task name
+ *
+ * @retval 0  success
+ * @retval -1 error
+ */
+
+extern int WA_OSA_TaskGetName(char * name);
 
 /**
  * @brief Changes task scheduling algorithm(policy) and priority

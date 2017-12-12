@@ -17,15 +17,10 @@
 # limitations under the License.
 ##########################################################################
 [Unit]
-Description=RDK Hardware Self Test application
-Wants=moca.service rmfstreamer.service
-After=snmpd.service syssnmpagent.service moca.service rmfstreamer.service network.target
-Requires=snmpd.service syssnmpagent.service
+Description=hwselftest proxy socket
 
-[Service]
-Environment="DtcpSrmFilePath=/tmp/hwselftest-dtcp.srm"
-Environment="HW_TEST_SVC=1"
-ExecStartPre=/bin/ln -sf /var/www/hwselftest /opt/www
-Type=forking
-ExecStart=/bin/sh -c '/usr/bin/hwst_set_runtime_limits.sh $$$$ && /usr/bin/hwselftest || echo "`/bin/date "+%%Y-%%m-%%d %%H:%%M:%%S"` Runtime limits not applied, agent not started." >> /opt/logs/hwselftest.log'
+[Socket]
+ListenStream=127.0.0.1:8002
 
+[Install]
+WantedBy=multi-user.target

@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -77,6 +78,9 @@ bool shouldQuit = false;
 #ifndef SYSCONFDIR
 #define SYSCONFDIR "/etc/hwselftest"
 #endif
+
+#define INIT_SLEEP_USEC 10000 /* 10 millisec */
+#define INIT_COUNT_MAX 100    /* 100 x 10 millisec = 1 second */
 
 /*****************************************************************************
  * LOCAL TYPES
@@ -127,12 +131,75 @@ char * configCheckDirectories[] =
  * FUNCTION DEFINITIONS
  *****************************************************************************/
 
+static int received = 0;
+void sig_usr(int signo){
+    if(signo==SIGUSR1)
+    {
+        received = 1;
+    }
+    return;
+}
+
 int main(int argc, char *argv[])
 {
     int status;
     int port = -1;
     const char * configFileName = NULL;
     json_t * configs = NULL;
+    int count_sleeps = 0;
+    pid_t ppid, pid, sid;
+    
+    if (getenv("HW_TEST_SVC")==NULL)
+    {
+        fprintf(stderr, "Diagnostic agent can't be excuted out of service\n");
+        exit(1);
+    }
+
+    /* Daemonize the service */
+
+    signal(SIGUSR1,sig_usr);
+    ppid = getpid(); /* get parent PID */
+#if WA_DEBUG
+    WA_DBG("parent PID = %d\n", ppid);
+#endif
+    pid = fork();
+    if (pid == 0)
+    {
+        sid = setsid();
+        if (sid < 0)
+        {
+            fprintf(stderr, "Failed to create new SID for child process\n");
+            exit(1);
+        }
+    }
+    else if (pid > 0)
+    {
+        /* Parent process successfully created child process */
+#if WA_DEBUG
+        WA_DBG("child PID = %d\n", pid);
+#endif
+        while(!received)
+        {
+            if(count_sleeps>INIT_COUNT_MAX)
+            {
+                fprintf(stderr, "Child process has not sent signal - initialization failed\n");
+                exit(1);
+            }
+            usleep(INIT_SLEEP_USEC);
+            count_sleeps++;
+        }
+#if WA_DEBUG
+        WA_DBG("count_sleeps = %d\n", count_sleeps);
+#endif
+        /* Child process has sent signal - initialization complete */
+        exit(0);
+    }
+    else
+    {
+        /* Failed to create child process */
+        fprintf(stderr, "Failed to create child process, fork returned %d\n", pid);
+        exit(1);
+    }
 
     WA_ENTER("main(argc=%d)\n", argc);
 
@@ -224,6 +291,13 @@ int main(int argc, char *argv[])
         goto err_wa;
     }
 
+#if WA_DEBUG
+    WA_DBG("sending SIGUSR1\n");
+#endif
+
+    kill(ppid,SIGUSR1);  /* Send signal to parent process that initialization is complete */
+
+    WA_INFO("WA_INIT_Init():Child process started\n");
     while(!shouldQuit)
         WA_OSA_TaskSleep(1000);
 
@@ -245,6 +319,8 @@ int main(int argc, char *argv[])
     err_wa:
     WA_OSA_Exit();
     end:
+
+    CLIENT_LOG("Agent exited");
 
     json_decref(configs);
 

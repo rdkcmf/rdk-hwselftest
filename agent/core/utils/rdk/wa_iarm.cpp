@@ -103,7 +103,11 @@ static WA_UTILS_IARM_ConnState_t conn;
 int WA_UTILS_IARM_Init(void)
 {
     int state = -1;
+    char thName [WA_OSA_TASK_NAME_MAX_LEN];
+    int getNameRes = -1;
     IARM_Result_t ret = IARM_RESULT_INVALID_STATE;
+
+    getNameRes = WA_OSA_TaskGetName(thName);
 
     if(!iarmInitialized)
     {
@@ -115,7 +119,21 @@ int WA_UTILS_IARM_Init(void)
             return -1;
         }
 
+        /*rename current thread to make threads created by arm bus distingushable */
+        WA_OSA_TaskSetName("WAiarmbusifce");
+
         ret = IARM_Bus_Init(WA_UTILS_IARM_BUS_RDKSELFTEST_NAME);
+
+        /*recover thread name as it was before*/
+        if (getNameRes == 0)
+        {
+            WA_OSA_TaskSetName(thName);
+        }
+        else
+        {
+            /* use default value if for any reason we do not have initial value at this stage */
+            WA_OSA_TaskSetName("hwselftest");
+        }
 
         if(ret != IARM_RESULT_SUCCESS)
         {

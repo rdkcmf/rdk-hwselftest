@@ -174,7 +174,7 @@ int WA_OSA_TaskSetName(const char * const name)
 
     if(!osaInitialized)
     {
-        WA_ERROR("WA_OSA_QTimedReceive(): OSA not initialized.\n");
+        WA_ERROR("WA_OSA_TaskSetName(): OSA not initialized.\n");
         goto end;
     }
 
@@ -186,6 +186,35 @@ int WA_OSA_TaskSetName(const char * const name)
     }
     end:
     WA_RETURN("WA_OSA_TaskSetName(): %d\n", status);
+    return status;
+}
+
+int  WA_OSA_TaskGetName(char * nameBuff)
+{
+    int status = -1;
+
+    WA_ENTER("WA_OSA_TaskGetName()\n");
+
+    if(!osaInitialized)
+    {
+        WA_ERROR("WA_OSA_TaskGetName(): OSA not initialized.\n");
+        goto end;
+    }
+
+    if (nameBuff == NULL)
+    {
+        WA_ERROR("WA_OSA_TaskGetName(): buffer not valid\n");
+        goto end;
+    }
+
+    status = prctl(PR_GET_NAME, (unsigned long) nameBuff, 0, 0, 0);
+    if(status == -1)
+    {
+        WA_ERROR("WA_OSA_TaskGetName(): prctl(): unable to get name: %d\n", errno);
+        goto end;
+    }
+    end:
+    WA_RETURN("WA_OSA_TaskGetName(): %d\n", status);
     return status;
 }
 

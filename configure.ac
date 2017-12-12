@@ -25,7 +25,6 @@ AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_SRCDIR([agent/core/wa_comm.h])
 AC_CONFIG_HEADERS([config.h])
 
-PAROUDS_ENABLE_FLAG=" "
 RF4CE_ENABLE_FLAG=" "
 CTRLMGR_ENABLE_FLAG=" "
 

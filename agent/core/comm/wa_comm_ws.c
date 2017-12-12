@@ -31,6 +31,7 @@
  * STANDARD INCLUDE FILES
  *****************************************************************************/
 #include <string.h>
+#include <stdbool.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -45,6 +46,7 @@
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
  *****************************************************************************/
+extern bool shouldQuit;
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
@@ -125,7 +127,7 @@ void * WA_COMM_WS_Init(WA_COMM_adaptersConfig_t *config)
 {
     WA_COMM_WS_context_t *pContext = NULL;
     json_t *json;
-    int port = 8002;
+    int port = 8003;
     int txTimeout = 3000;
     size_t maxPayload = WS_MAX_PAYLOAD;
     int status;
@@ -390,6 +392,7 @@ static int LwsCallback(struct lws *wsi, enum lws_callback_reasons reason, void *
     case LWS_CALLBACK_WSI_DESTROY:
         WA_INFO("LwsCallback(): LWS_CALLBACK_WSI_DESTROY\n");
         --connectionsNum;
+        shouldQuit = true;
         WA_INFO("LwsCallback(): LWS_CALLBACK_WSI_DESTROY END\n");
         break;
     case LWS_CALLBACK_FILTER_NETWORK_CONNECTION:

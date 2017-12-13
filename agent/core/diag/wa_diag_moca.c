@@ -66,9 +66,12 @@
  * LOCAL DEFINITIONS
  *****************************************************************************/
 
-#define OID_MOCA_IF_ENABLE_STATUS "MOCA11-MIB::mocaIfEnable"
-#define OID_MOCA_IF_NODES_COUNT "MOCA11-MIB::mocaIfNumNodes"
-#define OID_MOCA_IF_RX_PACKETS_COUNT "MOCA11-MIB::mocaIfRxPackets"
+#define OID_MOCA11_IF_ENABLE_STATUS "MOCA11-MIB::mocaIfEnable"
+#define OID_MOCA11_IF_NODES_COUNT "MOCA11-MIB::mocaIfNumNodes"
+#define OID_MOCA11_IF_RX_PACKETS_COUNT "MOCA11-MIB::mocaIfRxPackets"
+#define OID_MOCA20_IF_ENABLE_STATUS "MOCA20-MIB::mocaIfEnable"
+#define OID_MOCA20_IF_NODES_COUNT "MOCA20-MIB::mocaIfNumNodes"
+#define OID_MOCA20_IF_RX_PACKETS_COUNT "MOCA20-MIB::mocaIfRxPackets"
 
 #define MOCA_TRUTH_VALUE_FALSE               (0)
 #define MOCA_TRUTH_VALUE_TRUE                (1)
@@ -91,13 +94,19 @@
 #define NODESCOUNT_STEPS 9
 #define PACKETSCOUNT_STEPS 9
 #define TOTAL_STEPS (NODESCOUNT_STEPS + PACKETSCOUNT_STEPS)
+
+#define MOCA_GROUP_11 0
+#define MOCA_GROUP_20 (MOCA20_OPT_IF_ENABLE_STATUS)
 /*****************************************************************************
  * LOCAL TYPES
  *****************************************************************************/
 typedef enum {
-    MOCA_OPT_IF_ENABLE_STATUS,
-    MOCA_OPT_IF_NODES_COUNT,
-    MOCA_OPT_IF_RX_PACKETS_COUNT,
+    MOCA11_OPT_IF_ENABLE_STATUS,
+    MOCA11_OPT_IF_NODES_COUNT,
+    MOCA11_OPT_IF_RX_PACKETS_COUNT,
+    MOCA20_OPT_IF_ENABLE_STATUS,
+    MOCA20_OPT_IF_NODES_COUNT,
+    MOCA20_OPT_IF_RX_PACKETS_COUNT,
     MOCA_OPT_MAX,
 } MocaOption_t;
 
@@ -106,9 +115,9 @@ typedef enum {
  *****************************************************************************/
 static int moca_supported(const char *interface);
 static int getMocaOptionStatus(MocaOption_t opt, long *value);
-static int getMocaIfEnableStatus(long *value);
-static int getMocaIfNodesCount(void* instanceHandle, long *value, int progress);
-static int getMocaIfRxPacketsCount(void* instanceHandle, long *value, int progress);
+static int getMocaIfEnableStatus(int group, long *value);
+static int getMocaIfNodesCount(void* instanceHandle, int group, long *value, int progress);
+static int getMocaIfRxPacketsCount(void* instanceHandle, int group, long *value, int progress);
 static int verifyOptionValue(MocaOption_t opt, long *value);
 static int setReturnData(int status, json_t **param);
 
@@ -116,9 +125,12 @@ static int setReturnData(int status, json_t **param);
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
 char *MocaOptions[MOCA_OPT_MAX] = {
-    OID_MOCA_IF_ENABLE_STATUS,
-    OID_MOCA_IF_NODES_COUNT,
-    OID_MOCA_IF_RX_PACKETS_COUNT
+    OID_MOCA11_IF_ENABLE_STATUS,
+    OID_MOCA11_IF_NODES_COUNT,
+    OID_MOCA11_IF_RX_PACKETS_COUNT,
+    OID_MOCA20_IF_ENABLE_STATUS,
+    OID_MOCA20_IF_NODES_COUNT,
+    OID_MOCA20_IF_RX_PACKETS_COUNT
 };
 
 /*****************************************************************************
@@ -161,12 +173,12 @@ static int getMocaOptionStatus(MocaOption_t opt, long *value)
     return verifyOptionValue(opt, value);
 }
 
-static int getMocaIfEnableStatus(long *value)
+static int getMocaIfEnableStatus(int group, long *value)
 {
-    return getMocaOptionStatus(MOCA_OPT_IF_ENABLE_STATUS, value);
+    return getMocaOptionStatus(MOCA11_OPT_IF_ENABLE_STATUS + group, value);
 }
 
-static int getMocaIfNodesCount(void* instanceHandle, long *value, int progress)
+static int getMocaIfNodesCount(void* instanceHandle, int group, long *value, int progress)
 {
     int status;
     int step = 0;
@@ -175,7 +187,7 @@ static int getMocaIfNodesCount(void* instanceHandle, long *value, int progress)
     {
         ++step;
 
-        status = getMocaOptionStatus(MOCA_OPT_IF_NODES_COUNT, value);
+        status = getMocaOptionStatus(MOCA11_OPT_IF_NODES_COUNT + group, value);
 
         if(WA_OSA_TaskCheckQuit())
         {
@@ -193,11 +205,11 @@ static int getMocaIfNodesCount(void* instanceHandle, long *value, int progress)
         sleep(STEP_TIME);
 
     }
-    
+
     return status;
 }
 
-static int getMocaIfRxPacketsCount(void* instanceHandle, long *value, int progress)
+static int getMocaIfRxPacketsCount(void* instanceHandle, int group, long *value, int progress)
 {
     int status;
     int step = 0;
@@ -206,7 +218,7 @@ static int getMocaIfRxPacketsCount(void* instanceHandle, long *value, int progre
     {
         ++step;
 
-        status = getMocaOptionStatus(MOCA_OPT_IF_RX_PACKETS_COUNT, value);
+        status = getMocaOptionStatus(MOCA11_OPT_IF_RX_PACKETS_COUNT + group, value);
 
         if(WA_OSA_TaskCheckQuit())
         {
@@ -224,10 +236,8 @@ static int getMocaIfRxPacketsCount(void* instanceHandle, long *value, int progre
         sleep(STEP_TIME);
 
     }
-    
-    return status;
 
-    return getMocaOptionStatus(MOCA_OPT_IF_RX_PACKETS_COUNT, value);
+    return status;
 }
 
 static int verifyOptionValue(MocaOption_t opt, long *value)
@@ -244,7 +254,8 @@ static int verifyOptionValue(MocaOption_t opt, long *value)
 
     switch(opt)
     {
-        case MOCA_OPT_IF_ENABLE_STATUS:
+        case MOCA11_OPT_IF_ENABLE_STATUS:
+        case MOCA20_OPT_IF_ENABLE_STATUS:
             switch (*value)
             {
                 case MOCA_IF_ENABLE_STATUS_MOCA_DISABLED:
@@ -262,11 +273,13 @@ static int verifyOptionValue(MocaOption_t opt, long *value)
             }
             break;
 
-        case MOCA_OPT_IF_NODES_COUNT:
+        case MOCA11_OPT_IF_NODES_COUNT:
+        case MOCA20_OPT_IF_NODES_COUNT:
             ret = (*value >= MOCA_IF_NODES_COUNT_MIN ? 1 : 0);
             break;
 
-        case MOCA_OPT_IF_RX_PACKETS_COUNT:
+        case MOCA11_OPT_IF_RX_PACKETS_COUNT:
+        case MOCA20_OPT_IF_RX_PACKETS_COUNT:
             ret = (*value >= 1 ? 1 : 0);
             break;
 
@@ -333,6 +346,7 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
     long value;
     json_t * jsonConfig = NULL;    
     const char *interface = MOCA_AVAILABLE_STR;
+    int group = MOCA_GROUP_11;
 
     json_decref(*params); // not used
     *params = NULL;
@@ -364,7 +378,12 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
     }
     WA_DBG("MoCA supported.\n");
 
-    ret = getMocaIfEnableStatus(&value);
+    ret = getMocaIfEnableStatus(group, &value);
+    if(ret < 0)
+    {
+        group = MOCA_GROUP_20;
+        ret = getMocaIfEnableStatus(group, &value);
+    }
     if(ret < 1)
     {
         if(WA_OSA_TaskCheckQuit())
@@ -389,7 +408,7 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
 
     WA_DBG("MoCA status read successfully.\n");
 
-    ret = getMocaIfNodesCount(instanceHandle, &value, 0);
+    ret = getMocaIfNodesCount(instanceHandle, group, &value, 0);
     if(ret < 1)
     {
         if(WA_OSA_TaskCheckQuit())
@@ -403,7 +422,7 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
     }
 
     // If nodes count grater than 1, still need to check if any packets received
-    ret = getMocaIfRxPacketsCount(instanceHandle, &value, NODESCOUNT_STEPS);
+    ret = getMocaIfRxPacketsCount(instanceHandle, group, &value, NODESCOUNT_STEPS);
     if(ret < 1)
     {
         if(WA_OSA_TaskCheckQuit())

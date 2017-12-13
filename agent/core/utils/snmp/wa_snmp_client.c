@@ -210,6 +210,7 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
 
     struct snmp_session session;
     struct snmp_pdu *pdu;
+    struct variable_list *vars;
 
     oid reqOid[MAX_OID_LEN];
     size_t reqOidLength = MAX_OID_LEN;
@@ -279,6 +280,16 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
         {
             WA_INFO("waSnmpGetSingle(): snmp_synch_response() successful (retries: %i)\n", WA_SNMP_RETRY_COUNT - retries);
             break;
+        }
+    }
+
+    for(vars = sd.response->variables; vars; vars = vars->next_variable)
+    {
+        if(netsnmp_oid_is_subtree(reqOid, reqOidLength, vars->name, vars->name_length))
+        {
+            WA_ERROR("waSnmpGetSingle(): not corelated response, giving up...\n");
+            waSnmpSessionDataCleanup(&sd);
+            return NULL;
         }
     }
 

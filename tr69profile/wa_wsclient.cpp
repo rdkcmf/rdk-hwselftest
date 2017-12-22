@@ -21,6 +21,7 @@
  * STANDARD INCLUDE FILES
  *****************************************************************************/
 #include <string>
+#include <sstream>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -40,13 +41,14 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
+//#define WA_DEBUG 1
 #if WA_DEBUG
 #define WA_DBG(f, ...) printf(f, ##__VA_ARGS__)
 #else
 #define WA_DBG(f, ...) (void)0
 #endif
 
-#define HWSELFTEST_WSCLIENT_VERSION "0005"
+#define HWSELFTEST_WSCLIENT_VERSION "0006"
 
 
 namespace {
@@ -184,37 +186,15 @@ bool wa_wsclient::get_results(std::string& results)
     {
         if (_hwst_scheduler)
         {
-            int status = 0;
-            std::string test_result;
+            std::string test_results;
 
             WA_DBG("wa_wsclient::get_results(): attempting to retrieve previous results from agent...\n");
 
-            // ask agent for previous results...
-            status = _hwst_scheduler->issue("previous_results");
-            if (status == 0)
+            if (execute("previous_results", test_results))
             {
-                // wait for the results to arrive...
-                int count = (PREV_RESULTS_FETCH_TIMEOUT / 100);
-                do {
-                    usleep(100 * 1000);
-                    status = _hwst_scheduler->get(test_result);
-                    count--;
-                } while ((status != 1) && count);
-
-                if (status == 1)
-                {
-                    WA_DBG("wa_wsclient::get_results(): retrieved results from agent\n");
-                    _last_result = test_result;
-                }
-                else if (status == 0)
-                    WA_DBG("wa_wsclient::get_results(): operation timed out\n");
-                else
-                    WA_DBG("wa_wsclient::get_results(): operation failed\n");
+                _last_result = test_results;
+                WA_DBG("wa_wsclient::get_results(): retrieved last results from agent\n");
             }
-            else if (status == 1)
-                WA_DBG("wa_wsclient::get_results(): scheduler busy\n");
-            else if (status == -1)
-                WA_DBG("wa_wsclient::get_results(): scheduler failed\n");
 
             if (_last_result.empty())
             {
@@ -239,6 +219,45 @@ bool wa_wsclient::get_results(std::string& results)
 }
 
 /**
+ * @brief This function is used to retrieve agent capabilities.
+ * @param[out] caps String to be filled with capabilities info.
+ * @return Status of the operation
+ * @retval true   Operation succeeded
+ * @retval false  Operation failed
+ */
+bool wa_wsclient::get_capabilities(std::string& caps)
+{
+    int retval = false;
+
+    if (is_enabled())
+    {
+        if (_hwst_scheduler)
+        {
+            WA_DBG("wa_wsclient::get_results(): attempting to agent capabilities...\n");
+
+            // currently this only returns available diags list
+            if (execute("capabilities_info", caps))
+            {
+                WA_DBG("wa_wsclient::get_capabilities(): successfully retrieved capabilities\n");
+                retval = true;
+            }
+            else
+                WA_DBG("wa_wsclient::get_capabilities(): failed to retrieve capabilities\n");
+
+        }
+        else
+            WA_DBG("wa_wsclient::get_capabilities(): scheduler not avaialable\n");
+    }
+    else
+    {
+        WA_DBG("wa_wsclient::get_capabilities(): service disabled\n");
+        log("Feature disabled. Capabilities request ignored.\n");
+    }
+
+    return retval;
+}
+
+/**
  * @brief This function is used to start at test run of the whole HW SelfTest test suite
  * @param[in] cli True if executed by CLI, False if by TR69 client.
  * @return Status of the operation
@@ -253,8 +272,8 @@ bool wa_wsclient::execute_tests(bool cli)
     {
         if (_hwst_scheduler)
         {
-            WA_DBG("wa_wsclient::get_results(): attempting to retrieve previous results from agent...\n");
-            int status = _hwst_scheduler->issue("all", (cli? HWSELFTEST_WSCLIENT_PERIODIC : HWSELFTEST_WSCLIENT_REMOTE));
+            WA_DBG("wa_wsclient::execute_tests(): attempting to execute tests...\n");
+            int status = _hwst_scheduler->issue({}, (cli? HWSELFTEST_WSCLIENT_PERIODIC : HWSELFTEST_WSCLIENT_REMOTE));
 
             switch(status)
             {
@@ -466,7 +485,7 @@ bool wa_wsclient::set_periodic_cpu_threshold(unsigned int threshold)
             retval = _settings.set(HWST_CPU_THRESHOLD_NAME, threshold);
             if (retval)
             {
-                WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): changed periodic run cpu threshold to %i%%\n", frequency);
+                WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): changed periodic run cpu threshold to %i%%\n", threshold);
                 log("Periodic run CPU threshold set to " + std::to_string(threshold) + "%.\n");
             }
             else
@@ -499,7 +518,7 @@ bool wa_wsclient::set_periodic_dram_threshold(unsigned int threshold)
         retval = _settings.set(HWST_DRAM_THRESHOLD_NAME, threshold);
         if (retval)
         {
-            WA_DBG("wa_wsclient::set_periodic_dram_threshold(): changed periodic run dram threshold to %i%%\n", frequency);
+            WA_DBG("wa_wsclient::set_periodic_dram_threshold(): changed periodic run dram threshold to %i%%\n", threshold);
             log("Periodic run DRAM threshold set to " + std::to_string(threshold) + " MB.\n");
         }
         else
@@ -517,6 +536,49 @@ bool wa_wsclient::set_periodic_dram_threshold(unsigned int threshold)
 void wa_wsclient::log(const std::string& message) const
 {
     hwst::Log().toFile(hwst::Log().format(std::string("[TR69] ") + message));
+}
+
+bool wa_wsclient::execute(const std::string& diag, std::string& result)
+{
+    int retval = false;
+
+    if (_hwst_scheduler)
+    {
+        int status = 0;
+
+        WA_DBG("wa_wsclient::execute(): attempting to execute diag %s...\n", diag.c_str());
+
+        // ask agent for previous results...
+        status = _hwst_scheduler->issue({diag});
+        if (status == 0)
+        {
+            // wait for the results to arrive...
+            int count = (PREV_RESULTS_FETCH_TIMEOUT / 100);
+            do {
+                usleep(100 * 1000);
+                status = _hwst_scheduler->get(result);
+                count--;
+            } while ((status != 1) && count);
+
+            if (status == 1)
+            {
+                retval = true;
+                WA_DBG("wa_wsclient::execute(): retrieved result from agent\n");
+            }
+            else if (status == 0)
+                WA_DBG("wa_wsclient::execute(): operation timed out\n");
+            else
+                WA_DBG("wa_wsclient::execute(): operation failed\n");
+        }
+        else if (status == 1)
+            WA_DBG("wa_wsclient::execute(): scheduler busy\n");
+        else if (status == -1)
+            WA_DBG("wa_wsclient::execute(): scheduler failed\n");
+    }
+    else
+        WA_DBG("wa_wsclient::execute(): scheduler not avaialable\n");
+
+    return retval;
 }
 
 

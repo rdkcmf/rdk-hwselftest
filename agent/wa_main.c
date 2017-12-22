@@ -35,6 +35,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <semaphore.h>
+#include <sys/time.h>
+#include <errno.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -43,165 +46,131 @@
 #include "wa_comm_ws.h"
 #include "wa_debug.h"
 #include "wa_diag.h"
-#include "wa_diag_hdd.h"
-#include "wa_diag_sysinfo.h"
-#include "wa_diag_prev_results.h"
-#include "wa_diag_tuner.h"
-#include "wa_diag_avdecoder_qam.h"
-#include "wa_diag_hdmiout.h"
-#include "wa_diag_ir.h"
-#include "wa_diag_flash.h"
 #include "wa_iarm.h"
-#include "wa_diag_dram.h"
-#include "wa_diag_mcard.h"
-#include "wa_diag_moca.h"
-#include "wa_diag_rf4ce.h"
-#include "wa_diag_modem.h"
 #include "wa_init.h"
 #include "wa_json.h"
 #include "wa_osa.h"
 #include "wa_stest.h"
 #include "wa_snmp_client.h"
 #include "wa_log.h"
-
-/*****************************************************************************
- * GLOBAL VARIABLE DEFINITIONS
- *****************************************************************************/
-bool shouldQuit = false;
+#include "wa_config.h"
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
-
-#define CONFIG_FILE_NAME "hwselftest.conf"
-
-#ifndef SYSCONFDIR
-#define SYSCONFDIR "/etc/hwselftest"
-#endif
-
-#define INIT_SLEEP_USEC 10000 /* 10 millisec */
-#define INIT_COUNT_MAX 100    /* 100 x 10 millisec = 1 second */
+#define CHILD_INIT_TIMEOUT 1000 /* 1s */
+#define NO_CONNECTION_TIMEOUT 5000 /* 5s */
 
 /*****************************************************************************
  * LOCAL TYPES
  *****************************************************************************/
+typedef enum {
+    quitStarting = 0,
+    quitPrevent,
+    quitQuit
+}quit_t;
+
+/*****************************************************************************
+ * LOCAL VARIABLE DEFINITIONS
+ *****************************************************************************/
+static void *quitCondVar;
+static quit_t quitState = quitStarting;
+static void *childInitSem;
 
 /*****************************************************************************
  * LOCAL FUNCTION PROTOTYPES
  *****************************************************************************/
-
-static json_t * loadConfigFile(const char * filename);
-static json_t * loadConfig(const char * commandLineFilename);
-
-/*****************************************************************************
- * LOCAL VARIABLE DECLARATIONS
- *****************************************************************************/
-static WA_COMM_adaptersConfig_t adapters[] =
-{
-        {"comm_ws", WA_COMM_WS_Init, WA_COMM_WS_Exit, WA_COMM_WS_Callback, NULL, NULL},
-        {NULL, NULL, NULL, NULL, NULL, NULL}
-};
-
-static WA_DIAG_proceduresConfig_t diags[] =
-{
-        {"sysinfo_info", NULL, NULL, WA_DIAG_SYSINFO_Info, NULL, NULL, NULL},
-        {"hdd_status",  NULL, NULL, WA_DIAG_HDD_status, NULL, NULL, NULL },
-        {"tuner_status", NULL, NULL, WA_DIAG_TUNER_status, NULL, NULL, NULL },
-        {"avdecoder_qam_status", WA_DIAG_AVDECODER_QAM_init, NULL, WA_DIAG_AVDECODER_QAM_status, NULL, NULL, NULL },
-        {"hdmiout_status", NULL, NULL, WA_DIAG_HDMIOUT_status, NULL, NULL, NULL },
-        {"flash_status", NULL, NULL, WA_DIAG_FLASH_status, NULL, NULL, NULL },
-        {"dram_status", NULL, NULL, WA_DIAG_DRAM_status, NULL, NULL, NULL },
-        {"mcard_status", NULL, NULL, WA_DIAG_MCARD_status, NULL, NULL, NULL },
-        {"moca_status", NULL, NULL, WA_DIAG_MOCA_status, NULL, NULL, NULL },
-        {"rf4ce_status", NULL, NULL, WA_DIAG_RF4CE_status, NULL, NULL, NULL },
-        {"ir_status", NULL, NULL, WA_DIAG_IR_status, NULL, NULL, NULL},
-        {"modem_status", NULL, NULL, WA_DIAG_MODEM_status, NULL, NULL, NULL },
-        {"previous_results", NULL, NULL, WA_DIAG_PREV_RESULTS_Info, NULL, NULL, NULL },
-        /* END OF LIST */
-        { fnc:NULL}
-};
-
-char * configCheckDirectories[] =
-{
-        ".",
-        SYSCONFDIR
-};
+static void sig_usr(int signo);
 
 /*****************************************************************************
  * FUNCTION DEFINITIONS
  *****************************************************************************/
 
-static int received = 0;
-void sig_usr(int signo){
-    if(signo==SIGUSR1)
-    {
-        received = 1;
-    }
-    return;
-}
-
 int main(int argc, char *argv[])
 {
-    int status;
-    int port = -1;
+    int status, exitStatus;
     const char * configFileName = NULL;
-    json_t * configs = NULL;
-    int count_sleeps = 0;
+    struct sigaction sa_new, sa_old;
     pid_t ppid, pid, sid;
-    
+
+    WA_ENTER("main(argc=%d) [PARENT]\n", argc);
+
     if (getenv("HW_TEST_SVC")==NULL)
     {
-        fprintf(stderr, "Diagnostic agent can't be excuted out of service\n");
+        fprintf(stderr, "hwselftest: diagnostic agent can't be excuted out of service\n");
         exit(1);
     }
 
     /* Daemonize the service */
+    memset(&sa_new, 0, sizeof(sa_new));
+    sigemptyset(&sa_new.sa_mask);
+    sa_new.sa_handler  = sig_usr;
+    if(sigaction(SIGUSR1, &sa_new, &sa_old) == -1)
+    {
+         WA_ERROR("hwselftest: failed install signal handler for SIGUSR1");
+         exit(1);
+    }
 
-    signal(SIGUSR1,sig_usr);
     ppid = getpid(); /* get parent PID */
-#if WA_DEBUG
     WA_DBG("parent PID = %d\n", ppid);
-#endif
+
+    childInitSem = malloc(sizeof(sem_t));
+    if (!childInitSem || (sem_init(childInitSem, 0, 0) != 0))
+    {
+        fprintf(stderr, "hwselftest: can't create child init semaphore\n");
+        exit(1);
+    }
+
     pid = fork();
     if (pid == 0)
     {
         sid = setsid();
         if (sid < 0)
         {
-            fprintf(stderr, "Failed to create new SID for child process\n");
+            fprintf(stderr, "hwselftest: failed to create new SID for child process\n");
             exit(1);
         }
     }
     else if (pid > 0)
     {
         /* Parent process successfully created child process */
-#if WA_DEBUG
         WA_DBG("child PID = %d\n", pid);
-#endif
-        while(!received)
+        struct timespec absTime;
+        struct timeval timeOfDay;
+        int wait_status;
+
+        gettimeofday(&timeOfDay, NULL);
+        absTime.tv_nsec = timeOfDay.tv_usec * 1000 + (CHILD_INIT_TIMEOUT % 1000) * 1000000;
+        absTime.tv_sec  = timeOfDay.tv_sec + (CHILD_INIT_TIMEOUT / 1000) + (absTime.tv_nsec / 1000000000);
+        absTime.tv_nsec %= 1000000000;
+
+        while ((wait_status = sem_timedwait(childInitSem, &absTime)) == -1 && (errno == EINTR))
+            continue;
+
+        if (wait_status == -1)
         {
-            if(count_sleeps>INIT_COUNT_MAX)
-            {
-                fprintf(stderr, "Child process has not sent signal - initialization failed\n");
-                exit(1);
-            }
-            usleep(INIT_SLEEP_USEC);
-            count_sleeps++;
+            fprintf(stderr, "hwselftest: child process has not sent signal - initialization failed\n");
+            exit(1);
         }
-#if WA_DEBUG
-        WA_DBG("count_sleeps = %d\n", count_sleeps);
-#endif
+
         /* Child process has sent signal - initialization complete */
+        WA_INFO("main(): child process created, parent process exiting...\n");
         exit(0);
     }
     else
     {
         /* Failed to create child process */
-        fprintf(stderr, "Failed to create child process, fork returned %d\n", pid);
+        fprintf(stderr, "hwselftest: ailed to create child process, fork returned %d\n", pid);
         exit(1);
     }
 
-    WA_ENTER("main(argc=%d)\n", argc);
+    WA_ENTER("main(argc=%d) [CHILD]\n", argc);
+
+    if(sigaction(SIGUSR1, &sa_old, NULL) == -1)
+    {
+        WA_ERROR("hwselftest: failed to restore previous signal handler for SIGUSR1");
+        exit(1);
+    }
 
     WA_LOG_Init();
 
@@ -210,54 +179,6 @@ int main(int argc, char *argv[])
         if (strncmp(argv[argi], "--config=", 9) == 0)
         {
             configFileName = argv[argi] + 9;
-        }
-#if WA_DEBUG
-        /* allow specifying listening port only on debug builds */
-        else
-        {
-            port = atoi(argv[argi]);
-            if (port == 0)
-                port = -1;
-        }
-#endif /* WA_DEBUG */
-    }
-
-    configs = loadConfig(configFileName);
-
-    if (port != -1)
-    {
-        WA_UTILS_JSON_NestedSetNew(configs, json_integer(port + 1), "adapters", "comm_ws", "port", "");
-    }
-
-    /* Fill in config fields in adapter definition table with json taken from configuration */
-    {
-        json_t * adaptersConfig = json_object_get(configs, "adapters");
-        if (adaptersConfig && json_is_object(adaptersConfig))
-        {
-            for (WA_COMM_adaptersConfig_t * adapter = &adapters[0]; adapter->name; adapter++)
-            {
-                json_t * adapterConfig = json_object_get(adaptersConfig, adapter->name);
-                if (adapterConfig && json_is_object(adapterConfig))
-                {
-                    adapter->config = adapterConfig;
-                }
-            }
-        }
-    }
-
-    /* Fill in config fields in diag definition table with json taken from configuration */
-    {
-        json_t * diagsConfig = json_object_get(configs, "diags");
-        if (diagsConfig && json_is_object(diagsConfig))
-        {
-            for (WA_DIAG_proceduresConfig_t * diag = &diags[0]; diag->name; diag++)
-            {
-                json_t * diagConfig = json_object_get(diagsConfig, diag->name);
-                if (diagConfig && json_is_object(diagConfig))
-                {
-                    diag->config = diagConfig;
-                }
-            }
         }
     }
 
@@ -268,11 +189,25 @@ int main(int argc, char *argv[])
         goto end;
     }
 
+    quitCondVar = WA_OSA_CondCreate();
+    if(quitCondVar == NULL)
+    {
+        WA_ERROR("WA_OSA_CondCreate()\n");
+        goto err_cond;
+    }
+
+    status = WA_CONFIG_Init(configFileName);
+    if(status != 0)
+    {
+        WA_ERROR("WA_CONFIG_Init():%d\n", status);
+        goto err_config;
+    }
+
     status = WA_UTILS_IARM_Init();
     if(status != 0)
     {
         WA_ERROR("WA_UTILS_IARM_Init():%d\n", status);
-        goto err_wa;
+        goto err_iarm;
     }
 
     status = WA_UTILS_SNMP_Init();
@@ -281,139 +216,111 @@ int main(int argc, char *argv[])
         WA_ERROR("WA_UTILS_SNMP_Init():%d\n", status);
         goto err_snmp;
     }
+
 #ifdef WA_STEST
     WA_STEST_Run();
 #else
-    status = WA_INIT_Init(adapters, diags);
+    status = WA_INIT_Init(WA_CONFIG_GetAdapters(), WA_CONFIG_GetDiags());
     if(status != 0)
     {
         WA_ERROR("WA_INIT_Init():%d\n", status);
-        goto err_wa;
+        goto err_init;
     }
 
-#if WA_DEBUG
     WA_DBG("sending SIGUSR1\n");
-#endif
-
     kill(ppid,SIGUSR1);  /* Send signal to parent process that initialization is complete */
 
-    WA_INFO("WA_INIT_Init():Child process started\n");
-    while(!shouldQuit)
-        WA_OSA_TaskSleep(1000);
+    WA_INFO("main(): child process started\n");
+    WA_OSA_CondLock(quitCondVar);
 
-    WA_INIT_Exit();
-#endif
-    status = WA_UTILS_SNMP_Exit();
-    if(status != 0)
+    if (getenv("HW_TEST_NO_CONN_INIT_TIMEOUT") != NULL)
+        printf("hwselftest: diagnostic agent will not timeout if no connection\n");
+    else
     {
-        WA_ERROR("WA_UTILS_SNMP_Exit():%d\n", status);
+        if(quitState == quitStarting)
+            if(WA_OSA_CondTimedWait(quitCondVar, NO_CONNECTION_TIMEOUT) == 1) //timeout
+            {
+                WA_INFO("main(): no connection, quitting...\n");
+                quitState = quitQuit;
+            }
     }
 
-    err_snmp:
-    status = WA_UTILS_IARM_Term();
-    if(status != 0)
+    while(quitState != quitQuit)
+        WA_OSA_CondWait(quitCondVar);
+
+    WA_OSA_CondUnlock(quitCondVar);
+
+    exitStatus = WA_INIT_Exit();
+    if (exitStatus != 0)
     {
-        WA_ERROR("WA_UTILS_IARM_Term():%d\n", status);
+        WA_ERROR("WA_INIT_Exit(): error %d\n", exitStatus);
     }
 
-    err_wa:
-    WA_OSA_Exit();
-    end:
+err_init:
+#endif /* WA_STEST */
 
+    exitStatus = WA_UTILS_SNMP_Exit();
+    if(exitStatus != 0)
+    {
+        WA_ERROR("WA_UTILS_SNMP_Exit(): error %d\n", exitStatus);
+    }
+
+err_snmp:
+    exitStatus = WA_UTILS_IARM_Term();
+    if(exitStatus != 0)
+    {
+        WA_ERROR("WA_UTILS_IARM_Term(): error %d\n", exitStatus);
+    }
+
+err_iarm:
+    exitStatus = WA_CONFIG_Exit();
+    if(exitStatus != 0)
+    {
+        WA_ERROR("WA_CONFIG_Exit(): error %d\n", exitStatus);
+    }
+
+err_config:
+    exitStatus = WA_OSA_CondDestroy(quitCondVar);
+    if(exitStatus != 0)
+    {
+        WA_ERROR("WA_OSA_CondDestroy(): error %d\n", exitStatus);
+    }
+
+err_cond:
+    exitStatus = WA_OSA_Exit();
+    if(exitStatus != 0)
+        WA_ERROR("WA_OSA_Exit(): error %d\n", exitStatus);
+
+end:
     CLIENT_LOG("Agent exited");
 
-    json_decref(configs);
-
     if (status)
-        fprintf(stderr, "hwselftest agent failed\n");
+        fprintf(stderr, "hwselftest: agent failed\n");
 
     WA_RETURN("main():%d\n", status);
     return status;
 }
 
+void WA_MAIN_Quit(bool quit)
+{
+    WA_ENTER("WA_MAIN_Quit(quit=%i)\n", quit);
 
+    WA_OSA_CondLock(quitCondVar);
+    quitState = quit ? quitQuit : quitPrevent;
+    WA_OSA_CondSignal(quitCondVar);
+    WA_OSA_CondUnlock(quitCondVar);
+
+    WA_RETURN("WA_MAIN_Quit(): exit\n");
+}
 
 /*****************************************************************************
  * LOCAL FUNCTIONS
  *****************************************************************************/
 
-static json_t * loadConfigFile(const char * filename)
+static void sig_usr(int signo)
 {
-    json_error_t error;
-    json_t * result;
-    printf("Loading config file from: %s\n", filename);
-    result = json_load_file(filename, 0, &error);
-    if (!result)
-    {
-        WA_ERROR("Unable to parse configuration file \"%s\", position %i: %s\n", filename, error.position, error.text);
-        fprintf(stderr, "Failed to open config file \"%s\"\n", filename);
-        result = json_object();
-    }
-    return result;
-}
-
-static char * findConfigFile()
-{
-    const size_t baseNameSize = strlen(CONFIG_FILE_NAME);
-    char * buf = NULL;
-    size_t bufSize = 0;
-
-    for (int i = 0; i < sizeof(configCheckDirectories) / sizeof(configCheckDirectories[0]); ++i)
-    {
-        const char * dir = configCheckDirectories[i];
-        const size_t dirNameSize = strlen(dir);
-        const size_t newSize = dirNameSize + baseNameSize + 2; // slash and terminating NUL
-        if (newSize > bufSize)
-        {
-            char * newBuf = realloc(buf, newSize);
-            if (newBuf)
-            {
-                buf = newBuf;
-                bufSize = newSize;
-            }
-        }
-        if (bufSize >= newSize)
-        {
-            strncpy(buf, dir, dirNameSize);
-            buf[dirNameSize] = '/';
-            strncpy(buf + dirNameSize + 1, CONFIG_FILE_NAME, baseNameSize);
-            buf[dirNameSize + 1 + baseNameSize] = 0;
-        }
-        printf("Looking for %s... ", buf);
-        if (access(buf, F_OK) == 0)
-        {
-            printf("found.\n");
-            return buf;
-        }
-        printf("not found.");
-    }
-
-    return NULL;
-}
-
-static json_t * loadConfig(const char * filename)
-{
-    json_t * result = NULL;
-    char * toFree = NULL;
-
-    if (!filename)
-    {
-        toFree = findConfigFile();
-        filename = toFree;
-    }
-
-    if (filename)
-    {
-        result = loadConfigFile(filename);
-    }
-    else
-    {
-        result = json_object();
-    }
-
-    free(toFree);
-
-    return result;
+    if (signo == SIGUSR1)
+        sem_post(childInitSem);
 }
 
 /* End of doxygen group */

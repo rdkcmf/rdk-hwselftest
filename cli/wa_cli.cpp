@@ -49,7 +49,7 @@ using namespace hwselftest;
  * LOCAL DEFINITIONS
  *****************************************************************************/
 #define HWSELFTESTCLI_NAME "hwselftestcli"
-#define HWSELFTESTCLI_VERSION "0004"
+#define HWSELFTESTCLI_VERSION "0005"
 
 #define cliprintf(str, ...) printf(HWSELFTESTCLI_NAME ": " str, ##__VA_ARGS__)
 #define cliprintferr(str, ...) fprintf(stderr, HWSELFTESTCLI_NAME ": " str, ##__VA_ARGS__)
@@ -64,6 +64,7 @@ using namespace hwselftest;
 static bool selftest_execute(wa_wsclient *pInst);
 #if WA_DEBUG
 static bool selftest_results(wa_wsclient *pInst, char **out_results);
+static bool selftest_capabilities(wa_wsclient *pInst, char **out_capabilities);
 static bool selftest_enable(wa_wsclient *pInst, bool do_enable);
 static bool selftest_periodic_enable(wa_wsclient *pInst, bool do_enable);
 static bool selftest_periodic_frequency(wa_wsclient *pInst, const char *frequency);
@@ -90,6 +91,7 @@ int main(int argc, char * const argv[])
         CMD_ENABLE,
         CMD_DISABLE,
         CMD_RESULTS,
+        CMD_CAPABILITIES,
         CMD_PERIODIC_ENABLE,
         CMD_PERIODIC_DISABLE,
         CMD_PERIODIC_FREQUENCY,
@@ -127,11 +129,12 @@ int main(int argc, char * const argv[])
                 "    -h,--help        - show this help message\n" \
                 "\n" \
                 "commands:\n" \
-                "    execute          - schedules execution of tests\n"
+                "    execute          - executes the test suite\n"
 #if WA_DEBUG
                 "    enable           - enables hwselftest\n" \
                 "    disable          - disables hwselftest\n" \
                 "    results          - retrieves latest test results\n" \
+                "    cap(abilitie)s   - retrieves agent capabilities\n"
                 "    periodic-enable  - enables hwselftest periodic running\n" \
                 "    periodic-disable - disables hwselftest periodic running\n" \
                 "    periodic-freq N  - sets hwselftest periodic frequency to N minutes\n" \
@@ -153,6 +156,9 @@ int main(int argc, char * const argv[])
 
         else if (!strcasecmp(argv[i], "disable"))
             cmd = CMD_DISABLE;
+
+        else if (!strcasecmp(argv[i], "caps") || !strcasecmp(argv[i], "capabilities"))
+            cmd = CMD_CAPABILITIES;
 
         else if (!strcasecmp(argv[i], "periodic-enable"))
             cmd = CMD_PERIODIC_ENABLE;
@@ -234,6 +240,18 @@ int main(int argc, char * const argv[])
         status = selftest_periodic_dram_threshold(pInst, cmd_param);
         break;
 
+    case CMD_CAPABILITIES:
+        {
+            char *caps = NULL;
+            status = selftest_capabilities(pInst, &caps);
+            if (status && caps)
+            {
+                printf("Capabilities: %s\n", caps);
+                free(caps);
+            }
+        }
+        break;
+
     case CMD_RESULTS:
         {
             char *results = NULL;
@@ -297,6 +315,32 @@ static bool selftest_results(wa_wsclient *pInst, char **out_results)
     }
     else
         cliprintferr("ERROR: failed to get test results\n");
+
+    return status;
+}
+
+static bool selftest_capabilities(wa_wsclient *pInst, char **out_caps)
+{
+    bool status;
+
+    std::string result;
+    status = pInst->get_capabilities(result);
+    if (status)
+    {
+        cliprintf("capabilities retrieved\n");
+
+        if (out_caps)
+        {
+            *out_caps = strdup(result.c_str());
+            if (!out_caps)
+            {
+                cliprintferr("ERROR: failed to allocate memory\n");
+                status = false;
+            }
+        }
+    }
+    else
+        cliprintferr("ERROR: failed to get capabilities\n");
 
     return status;
 }

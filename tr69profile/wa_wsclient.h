@@ -24,6 +24,7 @@
  * STANDARD INCLUDE FILES
  *****************************************************************************/
 #include <string>
+#include <vector>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -46,8 +47,9 @@ public:
     bool is_enabled() const;
     bool enable(bool toggle = true);
 
-    bool execute_tests(bool cli);
-    bool get_results(std::string &results);
+    bool execute_tests(bool cli = false);
+    bool get_results(std::string& results);
+    bool get_capabilities(std::string& caps);
     bool wait();
 
     bool enable_periodic(bool toggle = true, bool destroy = false, bool quiet = false);
@@ -63,12 +65,14 @@ private:
     void operator=(wa_wsclient const &) = delete;
 
     void log(const std::string& message) const;
+    bool execute(const std::string& diag, std::string& results);
 
     wa_service _runner_service;
     wa_service _runner_timer;
 
     wa_settings _settings;
 
+    std::vector<std::string> _available_diags;
     std::string _last_result;
     hwst::Sched *_hwst_scheduler;
 };

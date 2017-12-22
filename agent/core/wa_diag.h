@@ -168,7 +168,7 @@ extern void WA_DIAG_SendProgress(void* instanceHandle, int progress);
  * @retval -1 error
  */
 
-extern int WA_DIAG_Init(WA_DIAG_proceduresConfig_t * const diags);
+extern int WA_DIAG_Init(const WA_DIAG_proceduresConfig_t *diags);
 
 /**
  * Deinitialize the diag module.

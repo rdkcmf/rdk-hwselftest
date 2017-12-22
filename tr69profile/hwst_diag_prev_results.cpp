@@ -67,7 +67,7 @@ std::string DiagPrevResults::getStrStatus() const
         char *client = NULL;
 
         std::unique_ptr<Scenario> scenario = std::unique_ptr<Scenario>(new ScenarioAll());
-        scenario->init("all");
+        scenario->init();
 
         if (json_unpack(jroot, "{s:i}", "results_valid", &valid) || valid)
         {
@@ -118,11 +118,6 @@ std::string DiagPrevResults::getStrStatus() const
                         HWST_DBG("json: invalid results for diag %s\n", e.diag->getName().c_str());
                         break;
                     }
-                }
-                else
-                {
-                    HWST_DBG("json: no diag %\n", e.diag->getName().c_str());
-                    break;
                 }
             }
 

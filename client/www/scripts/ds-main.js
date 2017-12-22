@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-var CLIENT_VERSION = "000b";
+var CLIENT_VERSION = "000c";
 var client_name = "client ver. " + CLIENT_VERSION;
 var screen1SysinfoTimeout = 3; //seconds, 0: disabled
 var screen1Timeout = 300; //seconds, 0: disabled
@@ -36,11 +36,43 @@ if(typeof Object.values !== 'function') {
 }
 
 var sysinfoTimer = null;
+var capabilitiesTimer = null;
 var prevResultsCheckTimer = null;
 var inactivityTimer = null;
 var inprogressTimer = null;
 var cancelling = false;
 var previousResultsAvailable = false;
+
+/*
+    GroupName1: {
+    DiagName1: [ParamsSet1], [ParamsSet2], ...],
+    DiagName2: [ParamsSet1], [ParamsSet2], ...]
+    }
+ */
+var diagGroupsAll = {
+    'Hard Drive': {'hdd_status': []},
+    'Flash Memory': {'flash_status': []},
+    'Dynamic RAM': {'dram_status': []},
+    'HDMI Output': {'hdmiout_status': []},
+    'Cable Card': {'mcard_status': []},
+    'IR Remote Interface': {'ir_status': []},
+    'RF Remote Interface': {'rf4ce_status': []},
+    'MoCA': {'moca_status': []},
+    'Audio/Video Decoder': {'avdecoder_qam_status': []},
+    'Tuner': {'tuner_status': []},
+    'Cable Modem': {'modem_status': []}
+};
+
+/* to be adjusted when reading capabilities */
+var diagGroups = diagGroupsAll;
+
+/* These numbers match the id-s assigned by buildOperationGroup().
+   So first diag name present in diagGroups gets id=1 and so on.
+ */
+var diagOrder = {
+    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11],
+    9: [10] //first av then tuners
+};
 
 var ds = null;
 
@@ -70,6 +102,15 @@ function setSysinfoTimer(timeout) {
     }
     if(timeout > 0) {
         sysinfoTimer = setTimeout(agentMissing, timeout*1000);
+    }
+}
+
+function setCapabilitiesTimer(timeout) {
+    if(capabilitiesTimer != null) {
+        clearTimeout(capabilitiesTimer);
+    }
+    if(timeout > 0) {
+        capabilitiesTimer = setTimeout(capabilitiesMissing, timeout*1000);
     }
 }
 
@@ -105,6 +146,12 @@ function setPrevResultsAvailable(value) {
     setPrevResultsAvailable = function (){};
 }
 
+function capabilitiesMissing() {
+    ds.setCallback(null);
+    setCapabiliteisTimer(0);
+    console.log("capabilitesMissing: timeout occured before the results arrived");
+}
+
 function prevResultsMissing() {
     ds.setCallback(null);
     setPrevResultsCheckTimer(0);
@@ -135,6 +182,70 @@ function findIndexByDiagName(name,data) {
     }
 }
 
+function readCapabilities(caps, allDiags) {
+    var found = false;
+    var availDiags = {};
+
+    capsDiags = caps["diags"];
+    for(var cd in capsDiags) {
+        var newEntry = true;
+        for(var d in availDiags) {
+            if (availDiags[d].hasOwnProperty(capsDiags[cd])) {
+                newEntry = false;
+                break;
+            }
+        }
+        if(newEntry == true) {
+            for(var d in allDiags) {
+                if (allDiags[d].hasOwnProperty(capsDiags[cd])) {
+                console.log("readCapabailities: " + d + " available: " + capsDiags[cd]);
+                availDiags[d] = allDiags[d];
+                found = true;
+                break;
+                }
+            }
+        }
+    }
+
+    // consider no diags found as error; then return all diags
+    if (!found) {
+        console.log("error on capabilities reading, returning all diags");
+        availDiags = allDiags;
+    }
+
+    return availDiags;
+}
+
+function capabilitiesOrder(diags) {
+    var newOrder = {0:[]};
+    var i = 1;
+    var avId=0;
+    var qamId=0;
+
+    for(var g in diags) {
+        for(var d in diags[g]) {
+            switch(d) {
+            case 'tuner_status':
+                qamId = i;
+                break;
+            case 'avdecoder_qam_status':
+                avId = i;
+            default:
+                newOrder[0].push(i);
+            }
+            ++i;
+        }
+    }
+
+    if(qamId != 0) {
+        if(avId === 0) {
+            newOrder[avId].push(qamId);
+        } else {
+            newOrder[avId] = [qamId];
+        }
+    }
+    return newOrder;
+}
 
 function readPreviousResults(data) {
     //console.log("readPreviousResults: raw data: " + JSON.stringify(data));
@@ -236,7 +347,23 @@ function dsCallbackInit(type, cookie, params) {
     else if((type === Diagsys.cbType.eod) && (params === 0)) {
         setSysinfoTimer(0);
         ds.setCallback(null);
-	ds.setCallback(dsCallbackPrevResults);
+        ds.setCallback(dsCallbackCapabilities);
+        setCapabilitiesTimer(screen1SysinfoTimeout);
+        ds.issue(2, "capabilities_info");
+    }
+}
+
+function dsCallbackCapabilities(type, cookie, params) {
+    //console.log("dsCallbackCapabilities(" + type + "," + cookie + "," + params + ")");
+
+    if(type === Diagsys.cbType.log) {
+        diagGroups = readCapabilities(params, diagGroupsAll);
+        diagOrder = capabilitiesOrder(diagGroups);
+    }
+    else if((type === Diagsys.cbType.eod) && (params === 0)) {
+        setCapabilitiesTimer(0);
+        ds.setCallback(null);
+        ds.setCallback(dsCallbackPrevResults);
         setPrevResultsCheckTimer(screen1SysinfoTimeout);
         ds.issue(2, "previous_results");
     }
@@ -435,33 +562,6 @@ function disableStartbuttons() {
 }
 
 /************ Testing page *************/
-/*
-    GroupName1: {
-    DiagName1: [ParamsSet1], [ParamsSet2], ...],
-    DiagName2: [ParamsSet1], [ParamsSet2], ...]
-    }
- */
-var diagGroups = {
-    'Hard Drive': {'hdd_status': []},
-    'Flash Memory': {'flash_status': []},
-    'Dynamic RAM': {'dram_status': []},
-    'HDMI Output': {'hdmiout_status': []},
-    'Cable Card': {'mcard_status': []},
-    'IR Remote Interface': {'ir_status': []},
-    'RF Remote Interface': {'rf4ce_status': []},
-    'MoCA': {'moca_status': []},
-    'Audio/Video Decoder': {'avdecoder_qam_status': []},
-    'Tuner': {'tuner_status': []},
-    'Cable Modem': {'modem_status': []}
-};
-
-/* These numbers match the id-s assigned by buildOperationGroup().
-   So first diag name present in diagGroups gets id=1 and so on.
- */
-var diagOrder = {
-    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11],
-    9: [10] //first av then tuners
-};
 
 var results = {
         notrun: 0,
@@ -669,9 +769,9 @@ function getInfo(elemName, status, data) {
 function setGroupResult(group, showPrevious) {
     var textResult = "PASSED";
     var warningInfo = "";
-    
+
     group.result = results.passed;
-    
+
     for(var e in group.elems) {
         elem = group.elems[e];
         if((elem.result === results.failed) || (elem.result === results.error)) {
@@ -697,7 +797,7 @@ function setGroupResult(group, showPrevious) {
             }
         }
     }
-    
+
     group.img.style.visibility = "visible";
 
     if(!showPrevious) {
@@ -763,11 +863,11 @@ function setResult(id, status, data) {
     if(elem === null) {
         return;
     }
-    
+
     if(!cancelling) {
         setProgress(id, 100);
         setElemResult(elem, status, data);
-        
+
         var group = groupByElemId(elem.id);
         setGroupResult(group, false);
 
@@ -897,13 +997,13 @@ function setProgress(id, progress) {
     if(elem === null) {
         return;
     }
-    
+
     if(progress < 0) {
         progress = 0;
     } else if(progress > 100) {
         progress = 100;
     }
-    
+
     elem.progress = progress;
     var group = groupByElemId(id);
     group.progress = 0;
@@ -1012,13 +1112,13 @@ function elemByElemName(name) {
 
 function runNextSet(lastId) {
     var status = false;
-    
+
     if(typeof diagOrder[lastId] === 'undefined')
         return false;
-        
+
     if(diagOrder[lastId].length == 0)
         return false;
-        
+
     for(d in diagOrder[lastId]) {
         var elem = elemByElemId(diagOrder[lastId][d]);
         if(elem !== null) {
@@ -1131,7 +1231,7 @@ function agentKill() {
 
 /************ No choice buttons section *************/
 function buildNochoiceSection() {
-    
+
 }
 
 function keyhandlerNochoiceResult(keyCode) {
@@ -1243,4 +1343,3 @@ function disableResult() {
     document.getElementById('section_choice').style.display = 'none';
     document.getElementById('section_nochoice').style.display = 'none';
 }
-

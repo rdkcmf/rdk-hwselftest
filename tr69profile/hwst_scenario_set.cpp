@@ -19,7 +19,7 @@
 
 #include "hwst_diag.hpp"
 #include "hwst_diagfactory.hpp"
-#include "hwst_scenario_single.hpp"
+#include "hwst_scenario_set.hpp"
 
 //#define HWST_DEBUG 1
 #ifdef HWST_DEBUG
@@ -33,23 +33,40 @@ using hwst::Diag;
 
 namespace hwst {
 
-ScenarioSingle::ScenarioSingle()
+ScenarioSet::ScenarioSet()
 {
-    HWST_DBG("ScenarioSingle");
+    HWST_DBG("ScenarioSet");
 }
 
-ScenarioSingle::~ScenarioSingle()
+ScenarioSet::~ScenarioSet()
 {
-    HWST_DBG("~ScenarioSingle");
+    HWST_DBG("~ScenarioSet");
 }
 
-bool ScenarioSingle::init(std::string options)
+bool ScenarioSet::init(const std::vector<std::string>& diags, const std::string& param)
 {
-    int test = addElement(DiagFactory::create(options,""));
-    if(!test < 0)
+    /* create list of elements */
+    for (auto diag : diags)
+    {
+        int elem = addElement(DiagFactory::create(diag, param));
+        if (elem >= 0)
+            HWST_DBG("added " + diag + " as: " + std::to_string(elem));
+        else
+            HWST_DBG("error adding " + diag);
+    }
+
+    /* create dependencies */
+    int av = getElement("avdecoder_qam_status");
+    int tuner = getElement("tuner_status");
+
+    if ((av != -1) && (tuner != -1))
+    {
+        if (!addDependency(tuner, av))
             return false;
 
-    HWST_DBG("added " + options + " as:" + std::to_string(test));
+        HWST_DBG("added dependency: tuner after av");
+    }
+
     return true;
 }
 

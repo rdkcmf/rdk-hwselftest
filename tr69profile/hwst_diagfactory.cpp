@@ -21,6 +21,7 @@
 
 #include "hwst_diagfactory.hpp"
 #include "hwst_diag_sysinfo.hpp"
+#include "hwst_diag_capabilities.hpp"
 #include "hwst_diag_prev_results.hpp"
 #include "hwst_diag_hdmiout.hpp"
 #include "hwst_diag_mcard.hpp"
@@ -48,6 +49,7 @@ namespace hwst {
 std::map<std::string, DiagFactory::creator_t> DiagFactory::pool =
 {
     {"sysinfo_info", &creator<DiagSysinfo>},
+    {"capabilities_info", &creator<DiagCapabilities>},
     {"previous_results", &creator<DiagPrevResults>},
     {"hdmiout_status", &creator<DiagHdmiout>},
     {"mcard_status", &creator<DiagMcard>},

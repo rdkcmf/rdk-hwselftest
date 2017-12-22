@@ -91,7 +91,7 @@ static WA_UTILS_LIST_t adaptersHandles;
  * FUNCTION DEFINITIONS
  *****************************************************************************/
 
-int WA_COMM_Init(WA_COMM_adaptersConfig_t * const adapters)
+int WA_COMM_Init(const WA_COMM_adaptersConfig_t *adapters)
 {
     int status = -1, s1;
     WA_COMM_adaptersConfig_t *pAdapter;

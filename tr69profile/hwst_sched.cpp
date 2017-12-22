@@ -24,8 +24,8 @@
 #include <unistd.h>
 
 #include "hwst_sched.hpp"
-#include "hwst_scenario_all.hpp"
-#include "hwst_scenario_single.hpp"
+#include "hwst_scenario_set.hpp"
+#include "hwst_scenario_auto.hpp"
 #include "hwst_diag.hpp"
 #include "hwst_diagfactory.hpp"
 #include "hwst_diag_sysinfo.hpp"
@@ -129,12 +129,11 @@ void Sched::worker(void)
                     Diag::Status s = e.diag->getStatus(true);
                     if(s.modified &&
                         ((s.state == Diag::error) ||
-                        (s.state == Diag::disabled) ||
                         (s.state == Diag::finished)))
                     {
                         HWST_DBG("Running: " + e.diag->name + " finished");
                         std::string tmp = e.diag->getStrStatus();
-                        if (!quiet)
+                        if (!quiet && (tmp.find("Test result:") != std::string::npos))
                             comm->sendRaw("LOG", "{\"rawmessage\": \"" + Log().format(tmp) + "\"}", "null");
                         if (!summary.empty())
                             summary += "\n";
@@ -255,7 +254,7 @@ int Sched::get(std::string &result)
     return status;
 }
 
-int Sched::issue(std::string jobs, const std::string& client)
+int Sched::issue(const std::vector<std::string>& jobs, const std::string& client)
 {
     int status = -1;
     HWST_DBG("issue:" + jobs);
@@ -277,23 +276,18 @@ int Sched::issue(std::string jobs, const std::string& client)
         /* no break */
     case idle:
         HWST_DBG("Sched:idle");
-        quiet = false;
 
-        if (jobs.empty() || (jobs.compare("all") == 0))
-            scenario = std::unique_ptr<Scenario>(new ScenarioAll());
+        // suppress logging when running single job
+        quiet = (jobs.size() == 1);
+
+        if (!jobs.size())
+            scenario = std::unique_ptr<Scenario>(new ScenarioAuto());
         else
-        {
-            scenario = std::unique_ptr<Scenario>(new ScenarioSingle());
+            scenario = std::unique_ptr<Scenario>(new ScenarioSet());
 
-            // special case, do not log to file when running "previous_results" diag
-            if (jobs == "previous_results")
-                quiet = true;
-        }
+        if (!scenario->init(jobs))
+            break;
 
-        if(scenario == nullptr)
-            break;
-        if(!scenario->init(jobs))
-            break;
         HWST_DBG("Scenario created");
 
         connected = false;

@@ -58,19 +58,20 @@ class Scenario
 public:
     Scenario();
     virtual ~Scenario();
-    virtual bool init(std::string options) = 0;
+    virtual bool init(const std::vector<std::string>& diags = {}, const std::string& param = "") = 0;
 
 protected:
+    int getElement(const std::string& elem_name);
     int addElement(std::unique_ptr<Diag> d);//-1: not added, >=0: added at position
     bool addDependency(int e, int dep, bool strict=false);
+    virtual int nextToRun(std::shared_ptr<Diag> &d);//-1: no more to run, 0:some to run but not ready yet, 1-element run
+    std::vector<element_t> elements;
+    std::recursive_mutex elementsMutex;
 
 private:
     std::mutex apiMutex;
-    std::recursive_mutex elementsMutex;
-    std::vector<element_t> elements;
     std::vector<group_t> groups;
     int checkDependencies(int e);//-1: stop with error, 0:wait, 1:dependencies satisfied
-    int nextToRun(std::shared_ptr<Diag> &d);//-1: no more to run, 0:some to run but not ready yet, 1-element run
     bool checkAllDone();
 };
 

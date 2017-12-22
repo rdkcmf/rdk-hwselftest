@@ -82,6 +82,7 @@ public:
     const std::string getName() const { return name; }
     const std::string getPresentationResult() const;
     const std::string getPresentationComment() const;
+    void setEnabled(bool val = true);
 
 protected:
     mutable std::recursive_mutex apiMutex;
@@ -91,7 +92,6 @@ protected:
     virtual std::string getPresentationName() const { return name; };
 
 private:
-    void setEnabled();
     void setIssued();
     void setState(state_t s);
     void setProgress(int progress);

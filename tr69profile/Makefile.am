@@ -43,11 +43,13 @@ libtr69ProfileHwSelfTest_la_SOURCES = \
     hwst_diag_sysinfo.cpp \
     hwst_diag_tuner.cpp \
     hwst_diag_prev_results.cpp \
+    hwst_diag_capabilities.cpp \
     hwst_diagfactory.cpp \
     hwst_log.cpp \
     hwst_scenario.cpp \
+    hwst_scenario_set.cpp \
     hwst_scenario_all.cpp \
-    hwst_scenario_single.cpp \
+    hwst_scenario_auto.cpp \
     hwst_sched.cpp \
     hwst_ws.cpp
 

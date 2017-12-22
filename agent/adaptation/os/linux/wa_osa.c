@@ -689,11 +689,11 @@ int WA_OSA_SemTimedWait(void *handle, unsigned int ms)
     struct timespec absTime;
     struct timeval timeOfDay;
 
-    WA_ENTER("WA_OSA_SemWait(handle=%p)\n", handle);
+    WA_ENTER("WA_OSA_SemTimedWait(handle=%p)\n", handle);
 
     if(!osaInitialized)
     {
-        WA_ERROR("WA_OSA_SemWait(): OSA not initialized.\n");
+        WA_ERROR("WA_OSA_SemTimedWait(): OSA not initialized.\n");
         goto end;
     }
 
@@ -711,11 +711,11 @@ int WA_OSA_SemTimedWait(void *handle, unsigned int ms)
     }
     else if(status != 0)
     {
-        WA_ERROR("WA_OSA_SemWait(): sem_timedwait(): %d\n", status);
+        WA_ERROR("WA_OSA_SemTimedWait(): sem_timedwait(): %d\n", status);
     }
 
     end:
-    WA_RETURN("WA_OSA_SemWait(): %d\n", status);
+    WA_RETURN("WA_OSA_SemTimedWait(): %d\n", status);
     return status;
 }
 
@@ -856,11 +856,11 @@ int WA_OSA_CondTimedWait(void *handle, unsigned int ms)
     struct timespec absTime;
     struct timeval  timeOfDay;
 
-    WA_ENTER("WA_OSA_CondWait(handle=%p)\n", handle);
+    WA_ENTER("WA_OSA_CondTimedWait(handle=%p)\n", handle);
 
     if(!osaInitialized)
     {
-        WA_ERROR("WA_OSA_CondWait(): OSA not initialized.\n");
+        WA_ERROR("WA_OSA_CondTimedWait(): OSA not initialized.\n");
         goto end;
     }
 
@@ -873,18 +873,18 @@ int WA_OSA_CondTimedWait(void *handle, unsigned int ms)
     status = pthread_cond_timedwait(&(pCond->cond), &(pCond->mutex), &absTime);
     if(status == ETIMEDOUT)
     {
-        WA_ERROR("WA_OSA_CondWait() pthread_cond_timedwait(): timeout\n");
+        WA_ERROR("WA_OSA_CondTimedWait() pthread_cond_timedwait(): timeout\n");
         status = 1;
         goto end;
     }
     else if(status != 0)
     {
         status = -1;
-        WA_ERROR("WA_OSA_CondWait() pthread_cond_wait(): %d\n", status);
+        WA_ERROR("WA_OSA_CondTimedWait() pthread_cond_wait(): %d\n", status);
         goto end;
     }
     end:
-    WA_RETURN("WA_OSA_CondWait(): %d\n", status);
+    WA_RETURN("WA_OSA_CondTimedWait(): %d\n", status);
     return status;
 }
 

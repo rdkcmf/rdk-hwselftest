@@ -25,19 +25,8 @@ hwselftest_SOURCES = \
         adaptation/os/linux/wa_osa.c \
         wa_main.c \
         core/diag/wa_diag_sysinfo.c \
+        core/diag/wa_diag_capabilities.c \
         core/diag/wa_diag_prev_results.c \
-        core/diag/wa_diag_file.c \
-        core/diag/wa_diag_dram.c \
-        core/diag/wa_diag_flash.c \
-        core/diag/wa_diag_hdd.c \
-        core/diag/wa_diag_hdmiout.c \
-        core/diag/wa_diag_ir.c \
-        core/diag/wa_diag_mcard.c \
-        core/diag/wa_diag_moca.c \
-        core/diag/wa_diag_modem.c \
-        core/diag/wa_diag_rf4ce.c \
-        core/diag/wa_diag_tuner.c \
-        core/diag/wa_diag_avdecoder_qam.cpp \
         core/utils/fileops/wa_fileops.c \
         core/utils/id/wa_id.c \
         core/utils/json/wa_json.c \
@@ -53,8 +42,47 @@ hwselftest_SOURCES = \
         core/wa_comm.c \
         core/wa_diag.c \
         core/wa_init.c \
+        core/wa_config.c \
         core/wa_log.c \
         core/wa_agg.c
+
+if HAVE_DIAG_FILE
+    hwselftest_SOURCES += core/diag/wa_diag_file.c
+endif
+if HAVE_DIAG_HDD
+    hwselftest_SOURCES += core/diag/wa_diag_hdd.c
+endif
+if HAVE_DIAG_DRAM
+    hwselftest_SOURCES += core/diag/wa_diag_dram.c
+endif
+if HAVE_DIAG_FLASH
+   hwselftest_SOURCES += core/diag/wa_diag_flash.c
+endif
+if HAVE_DIAG_HDMIOUT
+   hwselftest_SOURCES += core/diag/wa_diag_hdmiout.c
+endif
+if HAVE_DIAG_IR
+   hwselftest_SOURCES += core/diag/wa_diag_ir.c
+endif
+if HAVE_DIAG_RF4CE
+   hwselftest_SOURCES += core/diag/wa_diag_rf4ce.c
+endif
+if HAVE_DIAG_MODEM
+   hwselftest_SOURCES += core/diag/wa_diag_modem.c
+endif
+if HAVE_DIAG_MCARD
+   hwselftest_SOURCES += core/diag/wa_diag_mcard.c
+endif
+if HAVE_DIAG_MOCA
+   hwselftest_SOURCES += core/diag/wa_diag_moca.c
+endif
+if HAVE_DIAG_TUNER
+   hwselftest_SOURCES += core/diag/wa_diag_tuner.c
+endif
+if HAVE_DIAG_AVDECODER_QAM
+   hwselftest_SOURCES += core/diag/wa_diag_avdecoder_qam.cpp
+endif
+
 
 WA_DEBUG ?= $(DEFAULT_WA_DEBUG)
 
@@ -78,6 +106,7 @@ hwselftest_LDFLAGS = -ljansson -pthread -lrt -lnetsnmp -lds -ldshalcli -lIARMBus
 hwselftest_CFLAGS = \
         $(RF4CE_ENABLE_FLAG) \
         $(CTRLMGR_ENABLE_FLAG) \
+        $(DIAG_ENABLE_FLAGS) \
         -std=gnu99 \
         -pthread \
         -Wall \
@@ -88,8 +117,8 @@ if USE_MFRLIB
     hwselftest_LDFLAGS += -l$(MFRLIB)
 endif
 
-#if USE_TRM
+if USE_TRM
     hwselftest_SOURCES += core/utils/rdk/wa_trh.cpp
     hwselftest_CFLAGS += -DUSE_TRM
     hwselftest_LDFLAGS += -ltrm -ltrh
-#endif
+endif

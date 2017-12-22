@@ -17,27 +17,28 @@
  * limitations under the License.
 */
 
-#ifndef _HWST_SCENARIO_SINGLE_
-#define _HWST_SCENARIO_SINGLE_
+#ifndef _HWST_DIAG_CAPABILITIES_
+#define _HWST_DIAG_CAPABILITIES_
 
-#include <string>
-#include <memory>
-#include <mutex>
-#include <thread>
-#include <vector>
-
-#include "hwst_scenario.hpp"
+#include "hwst_diag.hpp"
 
 namespace hwst {
 
-class ScenarioSingle: public Scenario
+class Comm;
+
+class DiagCapabilities : public Diag
 {
+    friend class hwst::Comm;
+
 public:
-    ScenarioSingle();
-    ~ScenarioSingle();
-    virtual bool init(std::string options);
+    DiagCapabilities(const std::string &params_ = "");
+    ~DiagCapabilities() {}
+    std::string getStrStatus() const override;
+
+private:
+    std::string getPresentationName() const override;
 };
 
 } // namespace hwst
 
-#endif // _HWST_SCENARIO_SINGLE_
+#endif // _HWST_DIAG_CAPABILITIES_

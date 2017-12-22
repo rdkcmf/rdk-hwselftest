@@ -17,4 +17,24 @@
  * limitations under the License.
 */
 
-#define WA_VERSION "0011"
+#ifndef _HWST_SCENARIO_SET_
+#define _HWST_SCENARIO_SET_
+
+#include <string>
+#include <vector>
+
+#include "hwst_scenario.hpp"
+
+namespace hwst {
+
+class ScenarioSet: public Scenario
+{
+public:
+    ScenarioSet();
+    ~ScenarioSet();
+    virtual bool init(const std::vector<std::string>& diags = {}, const std::string& param = "") override;
+};
+
+} // namespace hwst
+
+#endif // _HWST_SCENARIO_SET_

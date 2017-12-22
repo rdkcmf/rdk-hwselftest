@@ -138,7 +138,7 @@ static const WA_DIAG_localProcedures_t localProcedures[] =
  * FUNCTION DEFINITIONS
  *****************************************************************************/
 
-int WA_DIAG_Init(WA_DIAG_proceduresConfig_t * const diags)
+int WA_DIAG_Init(const WA_DIAG_proceduresConfig_t *diags)
 {
     int status = -1, s1;
     WA_DIAG_proceduresConfig_t *pConfig;
@@ -1076,7 +1076,7 @@ static void *InstanceTask(void *p)
     status = json_unpack(pInstance->json, "{s:O}", "id", &jId); //reference to jId is NOT modified
     if(status != 0)
     {
-        WA_ERROR("DiagTask(): json_unpack() \"id\" missing\n");
+        WA_ERROR("InstanceTask(): json_unpack() \"id\" missing\n");
         goto end;
     }
 

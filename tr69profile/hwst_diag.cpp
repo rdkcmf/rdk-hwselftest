@@ -160,25 +160,31 @@ void Diag::setProgress(int progress)
     }
 }
 
-void Diag::setEnabled()
+void Diag::setEnabled(bool val)
 {
     std::lock_guard<std::recursive_mutex> apiLock(apiMutex);
 
     HWST_DBG("setEnabled:");
-    switch(status.state)
-    {
-    case disabled:
-        setState(enabled);
-        break;
 
-    case running:
-    case enabled:
-    case issued:
-    case finished:
-    case error:
-    default:
-        break;
+    if (val)
+    {
+        switch(status.state)
+        {
+        case disabled:
+            setState(enabled);
+            break;
+
+        case running:
+        case enabled:
+        case issued:
+        case finished:
+        case error:
+        default:
+            break;
+        }
     }
+    else if (status.state == enabled)
+        setState(disabled);
 }
 
 void Diag::setIssued()

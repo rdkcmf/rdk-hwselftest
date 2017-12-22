@@ -18,9 +18,9 @@
 */
 
 /**
- * @file wa_diag_prev_results.c
+ * @file wa_diag_capabilities.c
  *
- * @brief Previous Results - implementation
+ * @brief Agent capabilities - implementation
  */
 
 /** @addtogroup WA_DIAG_PREV_RESULTS
@@ -36,64 +36,58 @@
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
 #include "wa_debug.h"
-#include "wa_diag_prev_results.h"
-#include "wa_agg.h"
-#include "wa_log.h"
+#include "wa_diag_capabilities.h"
 #include "wa_json.h"
+#include "wa_config.h"
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
-#define DEFAULT_EXPIRY_TIME (0) // never
 
 /*****************************************************************************
  * FUNCTION DEFINITIONS
  *****************************************************************************/
-int WA_DIAG_PREV_RESULTS_Info(void *instanceHandle, void *initHandle, json_t **params)
+int WA_DIAG_CAPABILITIES_Info(void *instanceHandle, void *initHandle, json_t **params)
 {
-    WA_ENTER("WA_DIAG_PREV_RESULTS_Info(instanceHandle=%p, initHandle=%p, params=%p)\n",
-            instanceHandle, initHandle, params);
+    WA_ENTER("WA_DIAG_CAPABILITIES_Info(instanceHandle=%p, initHandle=%p, params=%p)\n",
+             instanceHandle, initHandle, params);
 
-    json_t * config = NULL;
     int status = 1;
-    int expiry_time = DEFAULT_EXPIRY_TIME; // minutes
 
     json_decref(*params); //not used
-    *params = NULL;
 
-    /* try to get expiry time from config file */
-    config = ((WA_DIAG_proceduresConfig_t *)initHandle)->config;
-    if (config)
-        json_unpack(config, "{s:i}", "expiry_time", &expiry_time);
-
-    WA_DBG("WA_DIAG_PREV_RESULTS_Info(): results expiry time is %d min (0=never)\n", expiry_time);
-
-    const WA_AGG_AggregateResults_t *results = WA_AGG_GetPreviousResults();
-    if (results)
+    const WA_DIAG_proceduresConfig_t *diags = WA_CONFIG_GetDiags();
+    if (diags)
     {
-        if (!expiry_time || ((time(0) - results->end_time) <= (time_t)(expiry_time * 60)))
+        json_t *jroot = json_object();
+        if (jroot)
         {
-            // results are still valid
-            if (!WA_AGG_Serialise(results, params) && *params)
+            json_t *jdiagsarray = json_array();
+            if (jdiagsarray)
             {
-                json_object_set_new(*params, "results_valid", json_integer(0));
+                for (const WA_DIAG_proceduresConfig_t *diag = &diags[0]; diag && diag->name; diag++)
+                {
+                    if (strstr(diag->name, "_status")) // list only tests
+                        json_array_append_new(jdiagsarray, json_string(diag->name));
+                }
+
+                json_object_set_new(jroot, "diags", jdiagsarray);
+                (*params) = jroot;
                 status = 0;
             }
             else
-                WA_ERROR("WA_DIAG_PREV_RESULTS_Info(): failed to serialise results\n");
+                json_decref(jroot);
         }
-        else
-            WA_DBG("WA_DIAG_PREV_RESULTS_Info(): previous results are too old\n");
+
+        if (status)
+            WA_ERROR("WA_DIAG_CAPABILITIES_Info(): JSON allocation failure.\n");
     }
     else
-        WA_DBG("WA_DIAG_PREV_RESULTS_Info(): previous results unavailable");
+        WA_ERROR("WA_DIAG_CAPABILITIES_Info(): WA_CONFIG_GetDiags() failed.\n");
 
-    if (status)
-        *params = json_pack("{s:i}", "results_valid", 1);
+    WA_RETURN("WA_DIAG_CAPABILITIES_Info(): %d\n", status);
 
-    WA_RETURN("WA_DIAG_PREV_RESULTS_Info(): %d\n", 0);
-
-    return 0; //always success
+    return status;
 }
 
 /* End of doxygen group */

@@ -21,23 +21,20 @@
 #define _HWST_SCENARIO_ALL_
 
 #include <string>
-#include <memory>
-#include <mutex>
-#include <thread>
 #include <vector>
 
-#include "hwst_scenario.hpp"
+#include "hwst_scenario_set.hpp"
 
 namespace hwst {
 
-class ScenarioAll: public Scenario
+class ScenarioAll: public ScenarioSet
 {
 public:
     ScenarioAll();
     ~ScenarioAll();
-    virtual bool init(std::string options);
+    virtual bool init(const std::vector<std::string>& diags = {}, const std::string& param = "") override;
 };
 
 } // namespace hwst
 
-#endif // _HWST_SCENARIO_ALL_
+#endif // _HWST_SCENARIO_SET_

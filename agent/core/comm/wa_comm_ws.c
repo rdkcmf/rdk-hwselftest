@@ -46,7 +46,7 @@
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
  *****************************************************************************/
-extern bool shouldQuit;
+extern void WA_MAIN_Quit(bool);
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
@@ -386,13 +386,13 @@ static int LwsCallback(struct lws *wsi, enum lws_callback_reasons reason, void *
     {
     case LWS_CALLBACK_WSI_CREATE:
         WA_INFO("LwsCallback(): LWS_CALLBACK_WSI_CREATE\n");
+        WA_MAIN_Quit(false);
         ++connectionsNum;
         WA_INFO("LwsCallback(): LWS_CALLBACK_WSI_CREATE END\n");
         break;
     case LWS_CALLBACK_WSI_DESTROY:
         WA_INFO("LwsCallback(): LWS_CALLBACK_WSI_DESTROY\n");
         --connectionsNum;
-        shouldQuit = true;
         WA_INFO("LwsCallback(): LWS_CALLBACK_WSI_DESTROY END\n");
         break;
     case LWS_CALLBACK_FILTER_NETWORK_CONNECTION:
@@ -426,7 +426,7 @@ static int LwsCallback(struct lws *wsi, enum lws_callback_reasons reason, void *
         if(pConnection->registrationHandle == NULL)
         {
             WA_ERROR("LwsCallback(): WA_COMM_Register(): null\n");
- 
+
             status = WA_OSA_CondDestroy(pConnection->conVarSend);
             if(status != 0)
             {
@@ -570,6 +570,15 @@ static int LwsCallback(struct lws *wsi, enum lws_callback_reasons reason, void *
         WA_INFO("LwsCallback(): LWS_CALLBACK_RECEIVE END\n");
         break;
 
+    default:
+        break;
+    }
+
+    switch(reason)
+    {
+    case LWS_CALLBACK_CLOSED:
+    case LWS_CALLBACK_WSI_DESTROY:
+        WA_MAIN_Quit(true);
     default:
         break;
     }

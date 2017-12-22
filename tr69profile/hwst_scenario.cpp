@@ -66,6 +66,15 @@ int Scenario::addElement(std::unique_ptr<Diag> d)
     return s;
 }
 
+int Scenario::getElement(const std::string& elem_name)
+{
+    for (int i = 0; i < elements.size(); i++)
+        if (elements[i].diag->getName() == elem_name)
+            return i;
+
+    return -1;
+}
+
 /** @note: No check against cross-dependancy! */
 bool Scenario::addDependency(int e, int dep, bool strict)
 {

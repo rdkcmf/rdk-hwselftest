@@ -18,15 +18,18 @@
 */
 
 /**
- * @file wa_init.h
+ * @file wa_config.h
+ *
+ * @brief Interface of agent configuration functionality.
+ *
  */
 
-/** @addtogroup WA_INIT
+/** @addtogroup WA_CONFIG
  *  @{
  */
 
-#ifndef WA_INIT_H
-#define WA_INIT_H
+#ifndef WA_CONFIG_H
+#define WA_CONFIG_H
 
 /*****************************************************************************
  * STANDARD INCLUDE FILES
@@ -35,8 +38,10 @@
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
-#include "wa_comm.h"
+#include "wa_config.h"
 #include "wa_diag.h"
+#include "wa_comm.h"
+#include "wa_json.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -44,54 +49,47 @@ extern "C"
 #endif
 
 /*****************************************************************************
- * EXPORTED DEFINITIONS
- *****************************************************************************/
-
-/*****************************************************************************
  * EXPORTED TYPES
  *****************************************************************************/
-
-/*****************************************************************************
- * EXPORTED VARIABLES
- *****************************************************************************/
-extern void *WA_INIT_IncomingQ;
 
 /*****************************************************************************
  * EXPORTED FUNCTIONS
  *****************************************************************************/
 
 /**
- * This function is called as a first thing during system
- * initialization. It is responsible for initializing
- * the agent internal data structures.
+ * @brief Initialises internal configuration structures.
  *
- * @brief Initializes the agent.
- *
- * @param adapters the array of comm adapters to attach to the system
- * @param diags the array of diag procedures to attach to the system
- *
- * @retval 0  The agent was successfully initialized.
- * @retval -1 The agent initialization failed.
+ * @returns Operation status.
+ * @retval 0 for success, non-zero otherwise
  */
-
-extern int WA_INIT_Init(const WA_COMM_adaptersConfig_t *adapters,
-        const WA_DIAG_proceduresConfig_t *diags);
-
+int WA_CONFIG_Init();
 
 /**
- * This function must be called during system uninitialization.
- * It is responsible for the uninitialization of the agent
- * internal data structures.
+ * @brief Frees internal configuration structures.
  *
- * @brief This function un-initializes the agent.
- *
- * @retval 0  The agent was successfully uninitialized.
- * @retval -1 The agent un-initialization failed.
+ * @returns Operation status.
+ * @retval 0 for success, non-zero otherwise
  */
-extern int WA_INIT_Exit(void);
+int WA_CONFIG_Exit();
+
+/**
+ * @brief Retrieve diags.
+ *
+ * @returns Diags configuration.
+ */
+const WA_DIAG_proceduresConfig_t *WA_CONFIG_GetDiags();
+
+/**
+ * @brief Retrieve adapters.
+ *
+ * @returns Adapters configuration.
+ */
+const WA_COMM_adaptersConfig_t *WA_CONFIG_GetAdapters();
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* WA_INIT_H */
+#endif /* WA_CONFIG_H */
+
+/* EOF */

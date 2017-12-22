@@ -25,9 +25,6 @@ AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_SRCDIR([agent/core/wa_comm.h])
 AC_CONFIG_HEADERS([config.h])
 
-RF4CE_ENABLE_FLAG=" "
-CTRLMGR_ENABLE_FLAG=" "
-
 LT_INIT
 
 AC_ARG_WITH([wwwdir],
@@ -67,11 +64,11 @@ AC_ARG_ENABLE([agent-build],
                 m4_if(m4_sysval,[0],[SUBDIRS_AGENT="agent"]) ;;
            no) AGENT_ENABLE=false;;
            esac
-        ], 
+        ],
         [echo "agent build is disabled"])
 
 AC_ARG_ENABLE([client-build],
-        AS_HELP_STRING([--enable-client],[enable client build (default is no)]),
+        AS_HELP_STRING([--enable-client--build],[enable client build (default is no)]),
         [
           case "${enableval}" in
            yes) CLIENT_ENABLE=true
@@ -80,7 +77,7 @@ AC_ARG_ENABLE([client-build],
                 m4_if(m4_sysval,[0],[SUBDIRS_CLIENT="client"]) ;;
            no) CLIENT_ENABLE=false;;
            esac
-        ], 
+        ],
         [echo "client build is disabled"])
 
 AC_ARG_ENABLE([tr69profile-build],
@@ -93,8 +90,8 @@ AC_ARG_ENABLE([tr69profile-build],
                 m4_if(m4_sysval,[0],[SUBDIRS_TR69PROFILE="tr69profile"]) ;;
            no) TR69PROFILE_ENABLE=false;;
            esac
-        ], 
-        [echo "tr60profile build is disabled"])
+        ],
+        [echo "tr69profile build is disabled"])
 
 AC_ARG_ENABLE([cli-build],
         AS_HELP_STRING([--enable-cli-build],[enable CLI tool build (default is no)]),
@@ -109,36 +106,118 @@ AC_ARG_ENABLE([cli-build],
         ],
         [echo "cli build is disabled"])
 
+AC_SUBST([COMPONENTS], ["${SUBDIRS_AGENT} ${SUBDIRS_CLIENT} ${SUBDIRS_TR69PROFILE} ${SUBDIRS_CLI}"])
+
+
+# Select RF4CE test method...
+
+RF4CE_ENABLE_FLAG=" "
 AC_ARG_ENABLE([rf4ce],
         AS_HELP_STRING([--enable-rf4ce],[enable RF4CE Support (default is no)]),
         [
           case "${enableval}" in
            yes) RF4CE_SUPPORT_ENABLED=true
-                RF4CE_ENABLE_FLAG="-DUSE_RF4CEMGR";; 
+                RF4CE_ENABLE_FLAG="-DUSE_RF4CEMGR";;
            no) RF4CE_SUPPORT_ENABLED=false AC_MSG_ERROR([RF4CE support is disabled]) ;;
           *) AC_MSG_ERROR([bad value ${enableval} for --enable-rf4ce ]) ;;
            esac
            ],
          [echo "RF4CE support is disabled"])
 AM_CONDITIONAL([WITH_RF4CE_SUPPORT], [test x$RF4CE_SUPPORT_ENABLED = xtrue])
+AC_SUBST(RF4CE_ENABLE_FLAG)
 
+CTRLMGR_ENABLE_FLAG=" "
 AC_ARG_ENABLE([ctrlmgr],
         AS_HELP_STRING([--enable-ctrlmgr],[enable CTRLMGR Support (default is no)]),
         [
           case "${enableval}" in
            yes) CTRLMGR_SUPPORT_ENABLED=true
-                CTRLMGR_ENABLE_FLAG="-DUSE_CTRLMGR";; 
+                CTRLMGR_ENABLE_FLAG="-DUSE_CTRLMGR";;
            no) CTRLMGR_SUPPORT_ENABLED=false AC_MSG_ERROR([CTRLMGR support is disabled]) ;;
           *) AC_MSG_ERROR([bad value ${enableval} for --enable-ctrlmgr ]) ;;
            esac
            ],
          [echo "CTRLMGR support is disabled"])
 AM_CONDITIONAL([WITH_CTRLMGR_SUPPORT], [test x$CTRLMGR_SUPPORT_ENABLED = xtrue])
-
-AC_SUBST([COMPONENTS], ["${SUBDIRS_AGENT} ${SUBDIRS_CLIENT} ${SUBDIRS_TR69PROFILE} ${SUBDIRS_CLI}"])
-AC_SUBST([USE_TRM])
-AC_SUBST(RF4CE_ENABLE_FLAG)
 AC_SUBST(CTRLMGR_ENABLE_FLAG)
+
+
+# Select diags to compile...
+
+DIAG_ENABLE_FLAGS=""
+
+AC_ARG_WITH([diag-hdd],
+        AS_HELP_STRING([--with-diag-hdd],[enable HDD test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_HDD" DIAG_HDD_ENABLE=true]),
+        [echo "HDD test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_HDD], [test x$DIAG_HDD_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-dram],
+        AS_HELP_STRING([--with-diag-hdd],[enable DRAM test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_DRAM" DIAG_DRAM_ENABLE=true]),
+        [echo "DRAM test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_DRAM], [test x$DIAG_DRAM_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-flash],
+        AS_HELP_STRING([--with-diag-flash],[enable FLASH test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_FLASH" DIAG_FLASH_ENABLE=true]),
+        [echo "FLASH test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_FLASH], [test x$DIAG_FLASH_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-hdmiout],
+        AS_HELP_STRING([--with-diag-hdmiout],[enable HDMIOUT test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_HDMIOUT" DIAG_HDMIOUT_ENABLE=true]),
+        [echo "HDMIOUT test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_HDMIOUT], [test x$DIAG_HDMIOUT_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-ir],
+        AS_HELP_STRING([--with-diag-ir],[enable IR test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_IR" DIAG_IR_ENABLE=true]),
+        [echo "IR test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_IR], [test x$DIAG_IR_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-rf4ce],
+        AS_HELP_STRING([--with-diag-rf4ce],[enable RF4CE test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_RF4CE" DIAG_RF4CE_ENABLE=true]),
+        [echo "RF4CE test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_RF4CE], [test x$DIAG_RF4CE_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-modem],
+        AS_HELP_STRING([--with-diag-modem],[enable MODEM test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_MODEM" DIAG_MODEM_ENABLE=true]),
+        [echo "MODEM test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_MODEM], [test x$DIAG_MODEM_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-mcard],
+        AS_HELP_STRING([--with-diag-mcard],[enable MCARD test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_MCARD" DIAG_MCARD_ENABLE=true]),
+        [echo "MCARD test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_MCARD], [test x$DIAG_MCARD_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-moca],
+        AS_HELP_STRING([--with-diag-moca],[enable MOCA test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_MOCA" DIAG_MOCA_ENABLE=true]),
+        [echo "MOCA test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_MOCA], [test x$DIAG_MOCA_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-tuner],
+        AS_HELP_STRING([--with-diag-tuner],[enable TUNER test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_TUNER" DIAG_TUNER_ENABLE=true]),
+        [echo "TUNER test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_TUNER], [test x$DIAG_TUNER_ENABLE = xtrue])
+AM_CONDITIONAL([USE_TRM], [test x$DIAG_TUNER_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-avdecoder-qam],
+        AS_HELP_STRING([--with-diag-avdecoder-qam],[enable AVDECODER_QAM test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_AVDECODER_QAM" DIAG_AVDECODER_QAM_ENABLE=true]),
+        [echo "AVDECODER_QAM test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_AVDECODER_QAM], [test x$DIAG_AVDECODER_QAM_ENABLE = xtrue])
+
+AM_CONDITIONAL([HAVE_DIAG_FILE], [test x$DIAG_FLASH_ENABLE = xtrue -o x$DIAG_DRAM_ENABLE = xtrue])
+
+AC_SUBST([DIAG_ENABLE_FLAGS])
+
+
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC

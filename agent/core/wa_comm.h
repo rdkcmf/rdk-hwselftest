@@ -158,7 +158,7 @@ extern int WA_COMM_SendTxt(void *handle, char *msg, size_t len);
  * @retval 0 success.
  * @retval -1 error
  */
-extern int WA_COMM_Init(WA_COMM_adaptersConfig_t * const adapters);
+extern int WA_COMM_Init(const WA_COMM_adaptersConfig_t * adapters);
 
 /**
  * Deinitialize the comm module.

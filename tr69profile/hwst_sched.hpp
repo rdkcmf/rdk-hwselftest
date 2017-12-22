@@ -44,7 +44,7 @@ public:
 
     Sched(std::string host, std::string port, int timeout);
     ~Sched();
-    int issue(std::string jobs, const std::string& client = "");
+    int issue(const std::vector<std::string>& jobs, const std::string& client = "");
     int get(std::string &result);
 
 private:

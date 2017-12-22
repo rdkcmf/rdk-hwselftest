@@ -103,8 +103,7 @@ int WA_AGG_Init(const WA_DIAG_proceduresConfig_t *diags)
         /* set defaults for each diag of the bank */
         for (const WA_DIAG_proceduresConfig_t *pDiag = diags; pDiag && pDiag->fnc; pDiag++)
         {
-            // omit sysinfo nad previous_results diags
-            if ((strcasecmp(pDiag->name, "sysinfo_info")) && (strcasecmp(pDiag->name, "previous_results")))
+            if (strstr(pDiag->name, "_status"))
             {
                 void *tmp = realloc(agg_results[i].diag_results, (count + 1) * sizeof(WA_AGG_DiagResult_t));
                 if (tmp)

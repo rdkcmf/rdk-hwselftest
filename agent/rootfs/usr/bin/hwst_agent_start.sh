@@ -8,6 +8,16 @@ HWST_CPU_RLIMIT_PERCENT=5
 HWST_MEM_CG="/sys/fs/cgroup/memory/hwst_mem"
 HWST_CPU_CG="/sys/fs/cgroup/cpu/hwst_cpu"
 
+# quit - print error message and quit from running agent
+# args:
+#   $1: quit reason
+#
+function quit() {
+
+    echo "`/bin/date "+%Y-%m-%d %H:%M:%S"` Runtime limits not applied, agent not started." >> /opt/logs/hwselftest.log
+    exit $1
+}
+
 # create_cg - create control group by absolute path
 # args:
 #   $1: cgroup absolute path
@@ -22,7 +32,7 @@ function create_cg() {
             echo "create_cg: group: $1 created"
         else
             echo "create_cg: could not create $1 group, exiting"
-            exit 1
+            quit 1
         fi
     else
         echo "create_cg: group: $1 already exist"
@@ -45,7 +55,7 @@ function remove_cg() {
             echo "remove_cg: group: $1 removed"
         else
             echo "remove_cg: could not remove group, exiting"
-            exit 2
+            quit 2
         fi
     else
         echo "remove_cg: group: $1 not found"
@@ -61,7 +71,7 @@ function set_dram_limit() {
 
     if [ ! -d $1 ]; then
         echo "set_dram_limit: missing group $1, exiting"
-        exit 3
+        quit 3
     else
         OLD_LIMIT_B=`cat $1/memory.limit_in_bytes`
         OLD_LIMIT_MB=$(( $OLD_LIMIT_B / 1024 / 1024 ))
@@ -82,7 +92,7 @@ function set_cpu_limit() {
 
     if [ ! -d $1 ]; then
         echo "set_cpu_limit: missing group $1, exiting"
-        exit 4
+        quit 4
     else
         OLD_LIMIT_RAW=`cat $1/cpu.shares`
         OLD_LIMIT_PERCENT=$(( $OLD_LIMIT_RAW * 100 / 1024 ))
@@ -110,12 +120,12 @@ function cap_process_to_cg() {
 #
 if [ "$#" -ne 1 ]; then
     echo "Missing pid, exiting"
-    exit 5
+    quit 5
 fi
 
 if [ ! -d /proc/$1 ]; then
     echo "No such process, exiting"
-    exit 6
+    quit 6
 fi
 
 remove_cg $HWST_MEM_CG
@@ -130,3 +140,7 @@ set_cpu_limit $HWST_CPU_CG $HWST_CPU_RLIMIT_PERCENT
 cap_process_to_cg $1 $HWST_MEM_CG
 cap_process_to_cg $1 $HWST_CPU_CG
 
+/usr/bin/hwselftest
+if [ $? -ne 0 ]; then
+    echo "`/bin/date -u "+%Y-%m-%d %H:%M:%S"` Agent failed to start." >> /opt/logs/hwselftest.log
+fi

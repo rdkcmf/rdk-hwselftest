@@ -987,7 +987,7 @@ int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void)
     if (o)
     {
         int status = o[0] == 'y'? 0 : 1;
-        free(o)
+        free(o);
         WA_DBG("WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(): *%i\n", status);
         return status;
     }

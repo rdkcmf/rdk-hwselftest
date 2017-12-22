@@ -17,4 +17,31 @@
  * limitations under the License.
 */
 
-#define WA_VERSION "0011"
+#ifndef _HWST_SCENARIO_AUTO_
+#define _HWST_SCENARIO_AUTO_
+
+#include <string>
+#include <vector>
+
+#include "hwst_scenario_all.hpp"
+
+namespace hwst {
+
+class ScenarioAuto: public ScenarioAll
+{
+public:
+    ScenarioAuto();
+    ~ScenarioAuto();
+    virtual bool init(const std::vector<std::string>& diags = {}, const std::string& param = "") override;
+
+protected:
+    virtual int nextToRun(std::shared_ptr<Diag> &diag) override;
+
+private:
+    int caps_elem;
+    bool caps_retrieved;
+};
+
+} // namespace hwst
+
+#endif // _HWST_SCENARIO_AUTO_

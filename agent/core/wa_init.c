@@ -46,6 +46,7 @@
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
  *****************************************************************************/
+extern void WA_MAIN_Quit(bool);
 void *WA_INIT_IncomingQ = NULL;
 
 /*****************************************************************************
@@ -74,8 +75,8 @@ static void *agentTaskHandle;
  * FUNCTION DEFINITIONS
  *****************************************************************************/
 
-int WA_INIT_Init(WA_COMM_adaptersConfig_t * const adapters,
-        WA_DIAG_proceduresConfig_t * const diags)
+int WA_INIT_Init(const WA_COMM_adaptersConfig_t *adapters,
+        const WA_DIAG_proceduresConfig_t *diags)
 {
     int status = -1, s1;
     WA_ENTER("WA_INIT_Init(adapters=%p)\n", adapters);
@@ -91,7 +92,7 @@ int WA_INIT_Init(WA_COMM_adaptersConfig_t * const adapters,
     if(status != 0)
     {
         WA_ERROR("WA_INIT_Init(): WA_UTILS_ID_Init():%d\n", status);
-        goto id_err;
+        goto end;
     }
 
     {
@@ -103,13 +104,6 @@ int WA_INIT_Init(WA_COMM_adaptersConfig_t * const adapters,
     {
         WA_ERROR("WA_INIT_Init(): WA_OSA_QCreate(WA_INIT_IncomingQ) error\n");
         goto income_q_err;
-    }
-
-    status = WA_COMM_Init(adapters);
-    if(status != 0)
-    {
-        WA_ERROR("WA_INIT_Init(): WA_COMM_Init():%d\n", status);
-        goto comm_err;
     }
 
     status = WA_DIAG_Init(diags);
@@ -133,9 +127,21 @@ int WA_INIT_Init(WA_COMM_adaptersConfig_t * const adapters,
         goto agent_task_err;
     }
 
-    /*  */
+    status = WA_COMM_Init(adapters);
+    if(status != 0)
+    {
+        WA_ERROR("WA_INIT_Init(): WA_COMM_Init():%d\n", status);
+        goto comm_err;
+    }
 
     goto end;
+
+comm_err:
+    s1 = WA_OSA_TaskDestroy(agentTaskHandle);
+    if(s1 != 0)
+    {
+        WA_ERROR("WA_INIT_Exit(): WA_OSA_TaskDestroy(AgentTask): error %d\n", s1);
+    }
 
 agent_task_err:
     s1 = WA_AGG_Exit();
@@ -145,20 +151,13 @@ agent_task_err:
     }
 
 agg_err:
-    s1 = WA_COMM_Exit();
-    if(s1 != 0)
+    s1 = WA_DIAG_Exit();
+    if(status != 0)
     {
-        WA_ERROR("WA_INIT_Init(): WA_COMM_Exit():%d\n", s1);
+        WA_ERROR("WA_INIT_Init(): WA_DIAG_Exit():%d\n", s1);
     }
 
 diag_err:
-    s1 = WA_OSA_QDestroy(WA_DIAG_IncomingQ);
-    if(s1 != 0)
-    {
-        WA_ERROR("WA_INIT_Init():  WA_OSA_QDestroy(WA_DIAG_IncomingQ): %d\n", s1);
-    }
-
-comm_err:
     s1 = WA_OSA_QDestroy(WA_INIT_IncomingQ);
     if(s1 != 0)
     {
@@ -171,7 +170,9 @@ income_q_err:
     {
         WA_ERROR("WA_INIT_Init(): WA_UTILS_ID_Exit():%d\n", s1);
     }
-id_err:
+
+    /* no JSON exit */
+
 end:
     WA_RETURN("%d\n", status);
     return status;
@@ -181,6 +182,12 @@ int WA_INIT_Exit(void)
 {
     int status = -1;
     WA_ENTER("WA_INIT_Exit()\n");
+
+    status = WA_COMM_Exit();
+    if(status != 0)
+    {
+        WA_ERROR("WA_INIT_Exit(): WA_COMM_Exit():%d\n", status);
+    }
 
     status = WA_OSA_QSend(WA_INIT_IncomingQ,
             NULL,
@@ -215,12 +222,6 @@ int WA_INIT_Exit(void)
         WA_ERROR("WA_INIT_Exit(): WA_DIAG_Exit():%d\n", status);
     }
 
-    status = WA_COMM_Exit();
-    if(status != 0)
-    {
-        WA_ERROR("WA_INIT_Exit(): WA_COMM_Exit():%d\n", status);
-    }
-
     status = WA_OSA_QDestroy(WA_INIT_IncomingQ);
     if(status != 0)
     {
@@ -242,8 +243,8 @@ int WA_INIT_Exit(void)
 /*****************************************************************************
  * LOCAL FUNCTIONS
  *****************************************************************************/
-extern bool shouldQuit;
-static void *AgentTask(void *p)
+
+ static void *AgentTask(void *p)
 {
     int status;
     WA_OSA_Qjmsg_t qjmsg;
@@ -309,8 +310,8 @@ static void *AgentTask(void *p)
                 {
                     WA_INFO("AgentTask() got exit message.\n");
                     json_decref(qjmsg.json);
-                       shouldQuit = true;
-                       break;
+                    WA_MAIN_Quit(true);
+                    break;
                 }
                 status = WA_OSA_QTimedRetrySend(WA_DIAG_IncomingQ,
                         (const char * const)&qjmsg,

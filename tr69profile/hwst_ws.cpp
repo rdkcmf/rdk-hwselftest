@@ -230,7 +230,7 @@ int Ws::connect(std::string host, std::string port, int timeout)
     if(timeout <= 0)
         timeout = 10; //as we go away from nopoll no separate thread for polling on_ready
     HWST_DBG("wait ready");
-    if(nopoll_conn_wait_until_connection_ready (conn.get(), timeout, NULL) == nopoll_true)
+    if(nopoll_conn_wait_until_connection_ready (conn.get(), timeout, 0,  NULL) == nopoll_true)
     {
         status = 0;
         cbConnected();

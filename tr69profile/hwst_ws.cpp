@@ -208,6 +208,7 @@ int Ws::connect(std::string host, std::string port, int timeout)
     std::lock_guard<std::recursive_mutex> apiLock(apiMutex);
     HWST_DBG("wa::connect ENTER");
     int status = -1;
+    int npStatus;
 
     if(ctx == nullptr)
         goto end;
@@ -230,7 +231,7 @@ int Ws::connect(std::string host, std::string port, int timeout)
     if(timeout <= 0)
         timeout = 10; //as we go away from nopoll no separate thread for polling on_ready
     HWST_DBG("wait ready");
-    if(nopoll_conn_wait_until_connection_ready (conn.get(), timeout, 0,  NULL) == nopoll_true)
+    if(nopoll_conn_wait_until_connection_ready (conn.get(), timeout, &npStatus,  NULL) == nopoll_true)
     {
         status = 0;
         cbConnected();

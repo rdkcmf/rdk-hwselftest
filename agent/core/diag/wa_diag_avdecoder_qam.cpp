@@ -946,6 +946,7 @@ int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void)
 {
     char *o = NULL;
 
+    /* pacexg1v3: "VIDEO[0,0] started:            yes" */
     o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_FILE, "VIDEO[%*d,%*d] started:%*[ ]ye");
 
     if(WA_OSA_TaskCheckQuit())
@@ -983,7 +984,9 @@ int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void)
     }
 
     /* fall back to trying the /proc/brcm/ file */
-    o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_BRCM_FILE, "%*[ ]started=");
+    /* arrisxg1v3: "  started=y, codec=2, pid=0x46, pidCh=a7d5d400, stcCh=e92e9fb0" */
+    /* arrisxg1v4: "  started=y: codec=2, pid=0x46, pidCh=c9068000, stcCh=cce9e800" */
+    o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_BRCM_FILE, " started=");
     if (o)
     {
         int status = o[0] == 'y'? 0 : 1;
@@ -1000,6 +1003,7 @@ int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void)
 {
     char *o = NULL;
 
+    /* pacexg1v3: "AUDIO[0] started:       yes" */
     o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_FILE, "AUDIO[%*d] started:%*[ ]ye");
     if(WA_OSA_TaskCheckQuit())
     {
@@ -1025,9 +1029,10 @@ int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void)
         WA_DBG("WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(): 1\n");
         return 1;
     }
-
     /* fall back to trying the /proc/brcm/ file */
-    o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_BRCM_FILE, "%*[ ]%*s%*[ ]started=");
+    /* arrisxg1v1: "  dspIndex=0 started=y, codec=7, pid=68, pidChannel=a7c11280, stcChannel=e92e9fb0" */
+    /* arrisxg1v4: "  dsp index=0 started=y, codec=7, pid=56, pidCh=ca3bca00, stcCh=c750aa00" */
+    o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_BRCM_FILE, "%*[^=]%*s started=");
     if (o)
     {
         int status = o[0] == 'y'? 0 : 1;

@@ -17,11 +17,10 @@
 # limitations under the License.
 ##########################################################################
 [Unit]
-Description=hwselftest proxy
-After=hwselftest.service
-BindsTo=hwselftest.service
-OnFailure=hwselftest-socket-restart.service
+Description=hwselftest socket restart
+Conflicts=hwselftest-proxy.socket
+OnFailure=hwselftest-proxy.socket
 
 [Service]
-ExecStart=/lib/systemd/systemd-socket-proxyd 127.0.0.1:8003
+ExecStart=/bin/false
 

@@ -992,7 +992,10 @@ static bool closeTuneSessions(TuneSession_t *sessions, size_t sessionCount)
         switch(parseMode)
         {
         case parseFe:
-            snprintf(format, LINE_LEN, "%%*22cacquired %%%ds", LINE_LEN);
+            /* pacexg1v3 : "frontend 0: ae49ea00, acquired y" */
+            /* arrisxg1v3: "frontend 0: af2cfa00, acquired y" */
+            /* arrisxg1v4: "frontend  0: cbabdc00:cb96a000, acquired y" */
+            snprintf(format, LINE_LEN, "%%*[^,], acquired %%%ds", LINE_LEN);
             if (sscanf(buf, format, result) == 1)
             {
                 WA_DBG("GetTunerStatusses(): Frontend[%d]:%s\n", frontend, result);
@@ -1009,6 +1012,9 @@ static bool closeTuneSessions(TuneSession_t *sessions, size_t sessionCount)
             }
             break;
         case parseLock:
+            /* pacexg1v3 : "    lockStatus=locked, snr=0dB (est), fecCorrected=0, fecUncorrected=0" */
+            /* arrisxg1v3: "    lockStatus=locked, snr=43dB (est), fecCorrected=0, fecUncorrected=0" */
+            /* arrisxg1v4: "    lockStatus=locked, snr=0dB (est), fecCorrected=0, fecUncorrected=0" */
             snprintf(format, LINE_LEN, " lockStatus=%%%ds", LINE_LEN);
             if (sscanf(buf, format, result) == 1)
             {

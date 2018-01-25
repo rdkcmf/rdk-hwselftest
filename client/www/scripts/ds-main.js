@@ -16,9 +16,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-var CLIENT_VERSION = "000c";
+var CLIENT_VERSION = "000d";
 var client_name = "client ver. " + CLIENT_VERSION;
-var screen1SysinfoTimeout = 3; //seconds, 0: disabled
+var screen1SysinfoTimeout = 4; //seconds, 0: disabled
 var screen1Timeout = 300; //seconds, 0: disabled
 var screen2InprogressTimeout = 180; //seconds, 0: disabled
 var screen2Timeout = 600; //seconds, 0: disabled
@@ -60,7 +60,8 @@ var diagGroupsAll = {
     'MoCA': {'moca_status': []},
     'Audio/Video Decoder': {'avdecoder_qam_status': []},
     'Tuner': {'tuner_status': []},
-    'Cable Modem': {'modem_status': []}
+    'Cable Modem': {'modem_status': []},
+    'Bluetooth': {'bluetooth_status': []}
 };
 
 /* to be adjusted when reading capabilities */
@@ -70,7 +71,7 @@ var diagGroups = diagGroupsAll;
    So first diag name present in diagGroups gets id=1 and so on.
  */
 var diagOrder = {
-    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11],
+    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12],
     9: [10] //first av then tuners
 };
 
@@ -83,6 +84,7 @@ function dsOnload() {
         window.top.processKey = window.top.processKeyDummy;
         enableInit();
         ds = new Diagsys(wsEvent, dsCallbackInit);
+        setSysinfoTimer(screen1SysinfoTimeout);
         ds.connect(wsAddress);
     }
 }
@@ -329,7 +331,6 @@ function wsEvent(type, evt) {
         //do not handle message here
         break;
     case Diagsys.evType.open:
-        setSysinfoTimer(screen1SysinfoTimeout);
         ds.issue(1, "sysinfo_info");
         break;
     case Diagsys.evType.close:
@@ -386,6 +387,7 @@ function dsCallbackPrevResults(type, cookie, params) {
 
 function agentMissing() {
     ds.setCallback(null);
+    ds.disconnect();
     var store = document.getElementById('devinfo');
     store.style.textAlign = 'center';
     store.innerHTML="WARNING:<br>No connection to agent, will exit in 3 seconds. Please retry after few minutes";
@@ -404,9 +406,10 @@ function tableCreateInit(data) {
     tbl.className = 'frames';
     var tbdy = document.createElement('tbody');
 
+    data["Model"] = data["Vendor"] + " " + data["Model"];
+
     for (var i = 0; i < Object.keys(data).length; i++) {
         switch(Object.keys(data)[i]) {
-        case "Vendor":
         case "Model":
         case "Serial":
         case "RDK":
@@ -1342,4 +1345,8 @@ function disableResult() {
     document.getElementById('section_summary').style.display = 'none';
     document.getElementById('section_choice').style.display = 'none';
     document.getElementById('section_nochoice').style.display = 'none';
+}
+
+function onAnimationTick() {
+    /* This is dummy function to prevent log flooding as it is apparently is called repeatedly by the reciever */
 }

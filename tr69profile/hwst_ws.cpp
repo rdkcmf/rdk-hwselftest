@@ -230,16 +230,25 @@ int Ws::connect(std::string host, std::string port, int timeout)
     */
     if(timeout <= 0)
         timeout = 10; //as we go away from nopoll no separate thread for polling on_ready
-    HWST_DBG("wait ready");
+
+    HWST_DBG("wa::connect set non-blocking");
+    if(nopoll_conn_set_sock_block(nopoll_conn_socket(conn.get()), nopoll_false) == nopoll_false)
+    {
+        HWST_DBG("wa::connect cannot set non-blocking socket");
+        goto end;
+    }
+    HWST_DBG("wa::connect wait ready");
     if(nopoll_conn_wait_until_connection_ready (conn.get(), timeout, &npStatus,  NULL) == nopoll_true)
     {
+        HWST_DBG("wa::connect ready");
         status = 0;
         cbConnected();
         npThread = std::unique_ptr<std::thread>(new std::thread(&Ws::npLoop, this));
     }
-    HWST_DBG("ready:" + status);
 
 end:
+    HWST_DBG("wa::connect status:" + std::to_string(status));
+
     return status;
 }
 
@@ -259,7 +268,7 @@ int Ws::send(std::string msg)
     if(length == msg.length())
         status = 0;
 
-    HWST_DBG("ws-send:" + status);
+    HWST_DBG("ws-send:" + std::to_string(status));
 end:
     return status;
 }

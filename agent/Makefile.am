@@ -82,6 +82,9 @@ endif
 if HAVE_DIAG_AVDECODER_QAM
    hwselftest_SOURCES += core/diag/wa_diag_avdecoder_qam.cpp
 endif
+if HAVE_DIAG_BLUETOOTH
+   hwselftest_SOURCES += core/diag/wa_diag_bluetooth.c
+endif
 
 
 WA_DEBUG ?= $(DEFAULT_WA_DEBUG)

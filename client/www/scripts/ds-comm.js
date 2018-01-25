@@ -62,7 +62,7 @@ function Diagsys(wsEvent, callback)
         }
     };
 
-    this.wsErroreHandler = function (evt) {
+    this.wsErrorHandler = function (evt) {
         if (typeof wsEvent === 'function') {
             wsEvent(Diagsys.evType.error, evt);
         }
@@ -343,7 +343,7 @@ Diagsys.prototype.disconnect = function() {
     this.websocket.onmessage = function () {};
     this.websocket.onerror = function () {};
     this.websocket.close();
-    delete this.websocket;
+    this.websocket = null;
 };
 
 Diagsys.prototype.setCallback = function(callback) {

@@ -213,6 +213,12 @@ AC_ARG_WITH([diag-avdecoder-qam],
         [echo "AVDECODER_QAM test support is disabled"])
 AM_CONDITIONAL([HAVE_DIAG_AVDECODER_QAM], [test x$DIAG_AVDECODER_QAM_ENABLE = xtrue])
 
+AC_ARG_WITH([diag-bluetooth],
+        AS_HELP_STRING([--with-diag-bluetooth],[enable BLUETOOTH test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_BLUETOOTH" DIAG_BLUETOOTH_ENABLE=true]),
+        [echo "BLUETOOTH test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_BLUETOOTH], [test x$DIAG_BLUETOOTH_ENABLE = xtrue])
+
 AM_CONDITIONAL([HAVE_DIAG_FILE], [test x$DIAG_FLASH_ENABLE = xtrue -o x$DIAG_DRAM_ENABLE = xtrue])
 
 AC_SUBST([DIAG_ENABLE_FLAGS])

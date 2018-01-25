@@ -84,6 +84,9 @@
 #ifdef HAVE_DIAG_MODEM
 #include "wa_diag_modem.h"
 #endif
+#ifdef HAVE_DIAG_BLUETOOTH
+#include "wa_diag_bluetooth.h"
+#endif
 
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
@@ -153,6 +156,9 @@ static WA_DIAG_proceduresConfig_t diags[] =
 #endif
 #ifdef HAVE_DIAG_MODEM
     {"modem_status", NULL, NULL, WA_DIAG_MODEM_status, NULL, NULL, NULL },
+#endif
+#ifdef HAVE_DIAG_BLUETOOTH
+    {"bluetooth_status", NULL, NULL, WA_DIAG_BLUETOOTH_status, NULL, NULL, NULL },
 #endif
 
     {"previous_results", NULL, NULL, WA_DIAG_PREV_RESULTS_Info, NULL, NULL, NULL },

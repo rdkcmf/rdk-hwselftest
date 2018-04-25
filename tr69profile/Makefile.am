@@ -34,6 +34,7 @@ libtr69ProfileHwSelfTest_la_SOURCES = \
     hwst_diag_dram.cpp \
     hwst_diag_flash.cpp \
     hwst_diag_hdd.cpp \
+    hwst_diag_sdcard.cpp \
     hwst_diag_hdmiout.cpp \
     hwst_diag_ir.cpp \
     hwst_diag_mcard.cpp \

@@ -17,4 +17,26 @@
  * limitations under the License.
 */
 
-#define WA_VERSION "0013"
+#include <iostream>
+#include <memory>
+#include <sstream>
+
+#include "hwst_diag_sdcard.hpp"
+#include "hwst_comm.hpp"
+#include "hwst_log.hpp"
+
+using hwst::Comm;
+
+namespace hwst {
+
+DiagSdcard::DiagSdcard(const std::string &params_):
+    Diag("sdcard_status", params_)
+{
+}
+
+std::string DiagSdcard::getPresentationName() const
+{
+    return "SD Card";
+};
+
+} // namespace hwst

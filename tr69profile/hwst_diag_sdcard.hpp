@@ -17,4 +17,26 @@
  * limitations under the License.
 */
 
-#define WA_VERSION "0013"
+#ifndef _HWST_DIAG_SDCARD_
+#define _HWST_DIAG_SDCARD_
+
+#include "hwst_diag.hpp"
+
+namespace hwst {
+
+class Comm;
+
+class DiagSdcard: public Diag
+{
+    friend class hwst::Comm;
+public:
+    DiagSdcard(const std::string &params_ = "");
+    ~DiagSdcard() {}
+
+private:
+    std::string getPresentationName() const override;
+};
+
+} // namespace hwst
+
+#endif // _HWST_DIAG_SDCARD_

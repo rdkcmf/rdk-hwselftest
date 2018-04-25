@@ -152,6 +152,12 @@ AC_ARG_WITH([diag-hdd],
         [echo "HDD test support is disabled"])
 AM_CONDITIONAL([HAVE_DIAG_HDD], [test x$DIAG_HDD_ENABLE = xtrue])
 
+AC_ARG_WITH([diag-sdcard],
+        AS_HELP_STRING([--with-diag-sdcard],[enable SDCARD test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_SDCARD" DIAG_SDCARD_ENABLE=true]),
+        [echo "SDCARD test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_SDCARD], [test x$DIAG_SDCARD_ENABLE = xtrue])
+
 AC_ARG_WITH([diag-dram],
         AS_HELP_STRING([--with-diag-hdd],[enable DRAM test (default is no)]),
         AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_DRAM" DIAG_DRAM_ENABLE=true]),

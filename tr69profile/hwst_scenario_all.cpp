@@ -46,7 +46,7 @@ bool ScenarioAll::init(const std::vector<std::string>& diags, const std::string&
 {
     return ScenarioSet::init({"avdecoder_qam_status", "tuner_status", "dram_status", "flash_status",
                               "hdd_status", "hdmiout_status", "ir_status", "mcard_status", "moca_status",
-                              "modem_status", "bluetooth_status", "rf4ce_status"}, param);
+                              "modem_status", "bluetooth_status", "rf4ce_status", "sdcard_status" }, param);
 }
 
 } // namespace hwst

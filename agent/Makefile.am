@@ -52,6 +52,9 @@ endif
 if HAVE_DIAG_HDD
     hwselftest_SOURCES += core/diag/wa_diag_hdd.c
 endif
+if HAVE_DIAG_SDCARD
+    hwselftest_SOURCES += core/diag/wa_diag_sdcard.c
+endif
 if HAVE_DIAG_DRAM
     hwselftest_SOURCES += core/diag/wa_diag_dram.c
 endif

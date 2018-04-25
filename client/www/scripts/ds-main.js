@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-var CLIENT_VERSION = "000d";
+var CLIENT_VERSION = "000e";
 var client_name = "client ver. " + CLIENT_VERSION;
 var screen1SysinfoTimeout = 4; //seconds, 0: disabled
 var screen1Timeout = 300; //seconds, 0: disabled
@@ -51,6 +51,7 @@ var previousResultsAvailable = false;
  */
 var diagGroupsAll = {
     'Hard Drive': {'hdd_status': []},
+    'SD Card': {'sdcard_status': []},
     'Flash Memory': {'flash_status': []},
     'Dynamic RAM': {'dram_status': []},
     'HDMI Output': {'hdmiout_status': []},
@@ -71,8 +72,8 @@ var diagGroups = diagGroupsAll;
    So first diag name present in diagGroups gets id=1 and so on.
  */
 var diagOrder = {
-    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12],
-    9: [10] //first av then tuners
+    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13],
+    10: [11] //first av then tuners
 };
 
 var ds = null;
@@ -150,8 +151,8 @@ function setPrevResultsAvailable(value) {
 
 function capabilitiesMissing() {
     ds.setCallback(null);
-    setCapabiliteisTimer(0);
-    console.log("capabilitesMissing: timeout occured before the results arrived");
+    setCapabilitiesTimer(0);
+    console.log("capabilitiesMissing: timeout occured before the results arrived");
 }
 
 function prevResultsMissing() {
@@ -200,7 +201,7 @@ function readCapabilities(caps, allDiags) {
         if(newEntry == true) {
             for(var d in allDiags) {
                 if (allDiags[d].hasOwnProperty(capsDiags[cd])) {
-                console.log("readCapabailities: " + d + " available: " + capsDiags[cd]);
+                console.log("readCapabilities: " + d + " available: " + capsDiags[cd]);
                 availDiags[d] = allDiags[d];
                 found = true;
                 break;

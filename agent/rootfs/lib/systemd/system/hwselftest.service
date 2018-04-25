@@ -18,9 +18,8 @@
 ##########################################################################
 [Unit]
 Description=RDK Hardware Self Test application
-Wants=moca.service rmfstreamer.service
+Wants=moca.service rmfstreamer.service snmpd.service syssnmpagent.service
 After=snmpd.service syssnmpagent.service moca.service rmfstreamer.service network.target
-Requires=snmpd.service syssnmpagent.service
 
 [Service]
 Environment="DtcpSrmFilePath=/tmp/hwselftest-dtcp.srm"

@@ -54,6 +54,9 @@
 #ifdef HAVE_DIAG_HDD
 #include "wa_diag_hdd.h"
 #endif
+#ifdef HAVE_DIAG_SDCARD
+#include "wa_diag_sdcard.h"
+#endif
 #ifdef HAVE_DIAG_TUNER
 #include "wa_diag_tuner.h"
 #endif
@@ -126,6 +129,9 @@ static WA_DIAG_proceduresConfig_t diags[] =
 
 #ifdef HAVE_DIAG_HDD
     {"hdd_status", NULL, NULL, WA_DIAG_HDD_status, NULL, NULL, NULL },
+#endif
+#ifdef HAVE_DIAG_SDCARD
+    {"sdcard_status", NULL, NULL, WA_DIAG_SDCARD_status, NULL, NULL, NULL },
 #endif
 #ifdef HAVE_DIAG_FLASH
     {"flash_status", NULL, NULL, WA_DIAG_FLASH_status, NULL, NULL, NULL },

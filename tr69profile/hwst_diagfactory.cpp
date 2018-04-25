@@ -26,6 +26,7 @@
 #include "hwst_diag_hdmiout.hpp"
 #include "hwst_diag_mcard.hpp"
 #include "hwst_diag_hdd.hpp"
+#include "hwst_diag_sdcard.hpp"
 #include "hwst_diag_moca.hpp"
 #include "hwst_diag_tuner.hpp"
 #include "hwst_diag_bluetooth.hpp"
@@ -55,6 +56,7 @@ std::map<std::string, DiagFactory::creator_t> DiagFactory::pool =
     {"hdmiout_status", &creator<DiagHdmiout>},
     {"mcard_status", &creator<DiagMcard>},
     {"hdd_status", &creator<DiagHdd>},
+    {"sdcard_status", &creator<DiagSdcard>},
     {"moca_status", &creator<DiagMoca>},
     {"ir_status", &creator<DiagIr>},
     {"rf4ce_status", &creator<DiagRf4ce>},

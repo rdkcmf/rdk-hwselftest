@@ -143,4 +143,5 @@ cap_process_to_cg $1 $HWST_CPU_CG
 /usr/bin/hwselftest
 if [ $? -ne 0 ]; then
     echo "`/bin/date -u "+%Y-%m-%d %H:%M:%S"` Agent failed to start." >> /opt/logs/hwselftest.log
+    quit 7
 fi

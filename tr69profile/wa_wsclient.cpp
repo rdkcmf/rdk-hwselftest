@@ -48,7 +48,7 @@
 #define WA_DBG(f, ...) (void)0
 #endif
 
-#define HWSELFTEST_WSCLIENT_VERSION "0007"
+#define HWSELFTEST_WSCLIENT_VERSION "0008"
 
 
 namespace {

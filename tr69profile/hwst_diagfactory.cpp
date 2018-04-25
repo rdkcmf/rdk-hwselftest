@@ -28,6 +28,7 @@
 #include "hwst_diag_hdd.hpp"
 #include "hwst_diag_moca.hpp"
 #include "hwst_diag_tuner.hpp"
+#include "hwst_diag_bluetooth.hpp"
 #include "hwst_diag_av.hpp"
 #include "hwst_diag_modem.hpp"
 #include "hwst_diag_flash.hpp"
@@ -58,6 +59,7 @@ std::map<std::string, DiagFactory::creator_t> DiagFactory::pool =
     {"ir_status", &creator<DiagIr>},
     {"rf4ce_status", &creator<DiagRf4ce>},
     {"tuner_status", &creator<DiagTuner>},
+    {"bluetooth_status", &creator<DiagBluetooth>},
     {"avdecoder_qam_status", &creator<DiagAv>},
     {"modem_status", &creator<DiagModem>},
     {"flash_status", &creator<DiagFlash>},

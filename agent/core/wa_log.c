@@ -46,7 +46,6 @@
  *****************************************************************************/
 #include "wa_log.h"
 #include "wa_debug.h"
-#include "wa_version.h"
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
@@ -73,7 +72,6 @@ bool WA_LOG_Init()
         WA_ERROR("rdk_logger_init returned %i\n", (int)re);
         return false;
     }
-    CLIENT_LOG("Agent started, ver. %s", WA_VERSION);
     return true;
 }
 

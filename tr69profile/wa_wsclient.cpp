@@ -41,7 +41,6 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
-//#define WA_DEBUG 1
 #if WA_DEBUG
 #define WA_DBG(f, ...) printf(f, ##__VA_ARGS__)
 #else
@@ -62,8 +61,8 @@ const char *HWSELFTEST_AGENT_SERVER_PORT = "8002";
 const char *HWSELFTEST_ENABLE_FILE = "/tmp/.hwselftest_enable";
 const char *HWSELFTEST_SETTINGS_FILE = "/tmp/.hwselftest_settings";
 
-const int CONNECTION_TIMEOUT = 1; // sec
-const int PREV_RESULTS_FETCH_TIMEOUT = 500; // msec
+const int CONNECTION_TIMEOUT = 5; // sec
+const int PREV_RESULTS_FETCH_TIMEOUT = 1000; // msec
 
 const char *SYSTEMD_SERVICE_PATH = "/run/systemd/system";
 const char *HWSELFTEST_RUNNER_TIMER = "hwselftest-runner.timer";

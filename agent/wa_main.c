@@ -54,6 +54,7 @@
 #include "wa_snmp_client.h"
 #include "wa_log.h"
 #include "wa_config.h"
+#include "wa_version.h"
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
@@ -88,7 +89,7 @@ static void sig_usr(int signo);
 
 int main(int argc, char *argv[])
 {
-    int status, exitStatus;
+    int status, exitStatus, exitReason;
     const char * configFileName = NULL;
     struct sigaction sa_new, sa_old;
     pid_t ppid, pid, sid;
@@ -160,7 +161,7 @@ int main(int argc, char *argv[])
     else
     {
         /* Failed to create child process */
-        fprintf(stderr, "hwselftest: ailed to create child process, fork returned %d\n", pid);
+        fprintf(stderr, "hwselftest: failed to create child process, fork returned %d\n", pid);
         exit(1);
     }
 
@@ -186,6 +187,7 @@ int main(int argc, char *argv[])
     if(status != 0)
     {
         WA_ERROR("WA_OSA_Init():%d\n", status);
+        exitReason = 1;
         goto end;
     }
 
@@ -193,6 +195,7 @@ int main(int argc, char *argv[])
     if(quitCondVar == NULL)
     {
         WA_ERROR("WA_OSA_CondCreate()\n");
+        exitReason = 2;
         goto err_cond;
     }
 
@@ -200,6 +203,7 @@ int main(int argc, char *argv[])
     if(status != 0)
     {
         WA_ERROR("WA_CONFIG_Init():%d\n", status);
+        exitReason = 3;
         goto err_config;
     }
 
@@ -207,6 +211,7 @@ int main(int argc, char *argv[])
     if(status != 0)
     {
         WA_ERROR("WA_UTILS_IARM_Init():%d\n", status);
+        exitReason = 4;
         goto err_iarm;
     }
 
@@ -214,6 +219,7 @@ int main(int argc, char *argv[])
     if(status != 0)
     {
         WA_ERROR("WA_UTILS_SNMP_Init():%d\n", status);
+        exitReason = 5;
         goto err_snmp;
     }
 
@@ -224,6 +230,7 @@ int main(int argc, char *argv[])
     if(status != 0)
     {
         WA_ERROR("WA_INIT_Init():%d\n", status);
+        exitReason = 6;
         goto err_init;
     }
 
@@ -233,6 +240,10 @@ int main(int argc, char *argv[])
     WA_INFO("main(): child process started\n");
     WA_OSA_CondLock(quitCondVar);
 
+    CLIENT_LOG("Agent started, ver. %s", WA_VERSION);
+
+    exitReason = 0;
+
     if (getenv("HW_TEST_NO_CONN_INIT_TIMEOUT") != NULL)
         printf("hwselftest: diagnostic agent will not timeout if no connection\n");
     else
@@ -241,6 +252,7 @@ int main(int argc, char *argv[])
             if(WA_OSA_CondTimedWait(quitCondVar, NO_CONNECTION_TIMEOUT) == 1) //timeout
             {
                 WA_INFO("main(): no connection, quitting...\n");
+                exitReason = 7;
                 quitState = quitQuit;
             }
     }
@@ -292,7 +304,10 @@ err_cond:
         WA_ERROR("WA_OSA_Exit(): error %d\n", exitStatus);
 
 end:
-    CLIENT_LOG("Agent exited");
+    if(exitReason)
+        CLIENT_LOG("Agent exited (%d)", exitReason);
+    else
+        CLIENT_LOG("Agent exited");
 
     if (status)
         fprintf(stderr, "hwselftest: agent failed\n");

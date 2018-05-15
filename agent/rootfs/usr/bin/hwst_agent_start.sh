@@ -13,8 +13,7 @@ HWST_CPU_CG="/sys/fs/cgroup/cpu/hwst_cpu"
 #   $1: quit reason
 #
 function quit() {
-
-    echo "`/bin/date "+%Y-%m-%d %H:%M:%S"` Runtime limits not applied, agent not started." >> /opt/logs/hwselftest.log
+    echo "`/bin/date "+%Y-%m-%d %H:%M:%S"` Runtime limits not applied, agent not started. ($1)" >> /opt/logs/hwselftest.log
     exit $1
 }
 
@@ -140,8 +139,9 @@ set_cpu_limit $HWST_CPU_CG $HWST_CPU_RLIMIT_PERCENT
 cap_process_to_cg $1 $HWST_MEM_CG
 cap_process_to_cg $1 $HWST_CPU_CG
 
-/usr/bin/hwselftest
-if [ $? -ne 0 ]; then
-    echo "`/bin/date -u "+%Y-%m-%d %H:%M:%S"` Agent failed to start." >> /opt/logs/hwselftest.log
+/usr/bin/hwselftest >> /tmp/hwselftest.dbg
+exitCode=$?
+if [ $exitCode -ne 0 ]; then
+    echo "`/bin/date -u "+%Y-%m-%d %H:%M:%S"` Agent failed to start. ($exitCode)" >> /opt/logs/hwselftest.log
     quit 7
 fi

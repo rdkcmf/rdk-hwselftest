@@ -57,6 +57,7 @@ void *WA_INIT_IncomingQ = NULL;
 #define WA_INIT_INCOME_Q_EXIT_MSG "exit"
 
 #define WA_MSG_ID_SUFFIX_MASK 0x0000ffff
+
 /*****************************************************************************
  * LOCAL TYPES
  *****************************************************************************/

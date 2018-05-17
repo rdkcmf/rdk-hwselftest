@@ -18,7 +18,7 @@
 */
 var CLIENT_VERSION = "000e";
 var client_name = "client ver. " + CLIENT_VERSION;
-var screen1SysinfoTimeout = 4; //seconds, 0: disabled
+var screen1SysinfoTimeout = 10; //seconds, 0: disabled
 var screen1Timeout = 300; //seconds, 0: disabled
 var screen2InprogressTimeout = 180; //seconds, 0: disabled
 var screen2Timeout = 600; //seconds, 0: disabled

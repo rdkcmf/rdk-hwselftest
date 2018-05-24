@@ -53,8 +53,8 @@ public:
     bool wait();
 
     bool enable_periodic(bool toggle = true, bool destroy = false, bool quiet = false);
-    bool set_periodic_frequency(unsigned int frequency);
-    bool set_periodic_cpu_threshold(unsigned int threshold);
+    bool set_periodic_frequency(bool *invalidParam, unsigned int frequency);
+    bool set_periodic_cpu_threshold(bool *invalidParam, unsigned int threshold);
     bool set_periodic_dram_threshold(unsigned int threshold);
 
 private:

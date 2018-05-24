@@ -276,19 +276,26 @@ static bool selftest_execute(wa_wsclient *pInst)
 {
     bool status;
 
-    status = pInst->execute_tests(true /* execute from cli */);
-    if (status)
+    if(!pInst->is_enabled())
     {
-        cliprintf("self test scheduled\n");
-        status = pInst->wait();
-        if(status)
-            cliprintf("self test finished\n");
-        else
-            cliprintf("self test not finished\n");
+        cliprintf("self test not scheduled, feature disabled\n");
+        status = true;
     }
     else
-        cliprintferr("ERROR: failed to schedule self test\n");
-
+    {
+        status = pInst->execute_tests(true /* execute from cli */);
+        if (status)
+        {
+            cliprintf("self test scheduled\n");
+            status = pInst->wait();
+            if(status)
+                cliprintf("self test finished\n");
+            else
+                cliprintf("self test not finished\n");
+        }
+        else
+            cliprintferr("ERROR: failed to schedule self test\n");
+    }
     return status;
 }
 
@@ -297,25 +304,33 @@ static bool selftest_results(wa_wsclient *pInst, char **out_results)
 {
     bool status;
 
-    std::string result;
-    status = pInst->get_results(result);
-    if (status)
+    if(!pInst->is_enabled())
     {
-        cliprintf("test results retrieved\n");
-
-        if (out_results)
-        {
-            *out_results = strdup(result.c_str());
-            if (!out_results)
-            {
-                cliprintferr("ERROR: failed to allocate memory\n");
-                status = false;
-            }
-        }
+        cliprintf("test results not retrieved, feature disabled\n");
+        status = true;
     }
     else
-        cliprintferr("ERROR: failed to get test results\n");
+    {
+        std::string result;
+        status = pInst->get_results(result);
+        if (status)
+        {
+            cliprintf("test results retrieved\n");
+            status = true;
 
+            if (out_results)
+            {
+                *out_results = strdup(result.c_str());
+                if (!out_results)
+                {
+                    cliprintferr("ERROR: failed to allocate memory\n");
+                    status = false;
+                }
+            }
+        }
+        else
+            cliprintferr("ERROR: failed to get test results\n");
+    }
     return status;
 }
 
@@ -362,54 +377,93 @@ static bool selftest_periodic_enable(wa_wsclient *pInst, bool do_enable)
 {
     bool status;
 
-    status = pInst->enable_periodic(do_enable);
-    if (status)
-        cliprintf("self test periodic run %s\n", do_enable? "enabled" : "disabled");
+    if(!pInst->is_enabled())
+    {
+        cliprintf("self test periodic run not %s, feature disabled\n", do_enable? "enabled" : "disabled");
+        status = true;
+    }
     else
-        cliprintferr("ERROR: failed to %s self test periodic run\n", do_enable? "enable" : "disable");
-
+    {
+        status = pInst->enable_periodic(do_enable);
+        if (status)
+            cliprintf("self test periodic run %s\n", do_enable? "enabled" : "disabled");
+        else
+            cliprintferr("ERROR: failed to %s self test periodic run\n", do_enable? "enable" : "disable");
+    }
     return status;
 }
 
 static bool selftest_periodic_frequency(wa_wsclient *pInst, const char *frequency)
 {
     bool status;
-    int value = atoi(frequency ? frequency : "0");
 
-    status = pInst->set_periodic_frequency(value);
-    if (status)
-        cliprintf("self test periodic run frequency set to %s\n", frequency);
+    if(!pInst->is_enabled())
+    {
+        cliprintf("self test periodic run frequency not set, feature disabled\n");
+        status = true;
+    }
     else
-        cliprintferr("ERROR: failed to set self test periodic run frequency\n");
+    {
+        bool invalidParam = false;
+        int value = atoi(frequency ? frequency : "0");
 
+        status = pInst->set_periodic_frequency(&invalidParam, value);
+        if (status)
+            cliprintf("self test periodic run frequency set to %s\n", frequency);
+        else
+            if(invalidParam)
+                cliprintf("self test periodic run frequency not set, invalid parameter: '%i'\n", value);
+            else
+                cliprintferr("ERROR: failed to set self test periodic run frequency\n");
+    }
     return status;
 }
 
 static bool selftest_periodic_cpu_threshold(wa_wsclient *pInst, const char *threshold)
 {
     bool status;
-    int value = atoi(threshold ? threshold : "0");
 
-    status = pInst->set_periodic_cpu_threshold(value);
-    if (status)
-        cliprintf("self test periodic run cpu threshold set to %s\n", threshold);
+    if(!pInst->is_enabled())
+    {
+        cliprintf("self test periodic run cpu threshold not set, feature disabled\n");
+        status = true;
+    }
     else
-        cliprintferr("ERROR: failed to set self test periodic run cpu threshold\n");
+    {
+        bool invalidParam = false;
+        int value = atoi(threshold ? threshold : "0");
 
+        status = pInst->set_periodic_cpu_threshold(&invalidParam, value);
+        if (status)
+            cliprintf("self test periodic run cpu threshold set to %s\n", threshold);
+        else
+            if(invalidParam)
+                cliprintf("self test periodic run cpu threshold not set, invalid parameter: '%i%%'\n", value);
+            else
+                cliprintferr("ERROR: failed to set self test periodic run cpu threshold\n");
+    }
     return status;
 }
 
 static bool selftest_periodic_dram_threshold(wa_wsclient *pInst, const char *threshold)
 {
     bool status;
-    int value = atoi(threshold ? threshold : "0");
 
-    status = pInst->set_periodic_dram_threshold(value);
-    if (status)
-        cliprintf("self test periodic run dram threshold set to %s\n", threshold);
+    if(!pInst->is_enabled())
+    {
+        cliprintf("self test periodic run dram threshold not set, feature disabled\n");
+        status = true;
+    }
     else
-        cliprintferr("ERROR: failed to set self test periodic run dram threshold\n");
+    {
+        int value = atoi(threshold ? threshold : "0");
 
+        status = pInst->set_periodic_dram_threshold(value);
+        if (status)
+            cliprintf("self test periodic run dram threshold set to %s\n", threshold);
+        else
+            cliprintferr("ERROR: failed to set self test periodic run dram threshold\n");
+    }
     return status;
 }
 #endif /* WA_DEBUG */

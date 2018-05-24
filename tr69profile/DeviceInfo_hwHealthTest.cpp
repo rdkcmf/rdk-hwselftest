@@ -41,6 +41,17 @@
  * EXPORTED FUNCTIONS
  *****************************************************************************/
 
+namespace {
+
+void create_emptyStrResponse(HOSTIF_MsgData_t *buf)
+{
+    buf->paramValue[0] = '\0';
+    buf->paramLen = 0;
+    buf->paramtype = hostIf_StringType;
+}
+
+}
+
 namespace hwselftest {
 
 bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_Enable(const char *log_module, HOSTIF_MsgData_t *stMsgData)
@@ -48,6 +59,12 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_Enable(const char *log_mo
     bool ret = false;
 
     RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to enable/disable the hwselftest component...\n", FILE, __FUNCTION__);
+
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE, __FUNCTION__);
+        return ret;
+    }
 
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
@@ -72,20 +89,40 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_ExecuteTest(const char *l
 
     RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to execute tests...\n", FILE, __FUNCTION__);
 
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE, __FUNCTION__);
+        return ret;
+    }
+
+    create_emptyStrResponse(stMsgData);
+    stMsgData->faultCode = fcInternalError;
+
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
-        ret = pInst->execute_tests(false /* execution from tr69 */);
-
-        if (ret)
-            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] tests scheduled successfully\n", FILE, __FUNCTION__);
+        if(!pInst->is_enabled())
+        {
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] tests not scheduled, feature disabled\n", FILE, __FUNCTION__);
+            stMsgData->faultCode = fcNoFault;
+        }
         else
-            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to schedule test execution\n", FILE, __FUNCTION__);
+        {
+            ret = pInst->execute_tests(false /* execution from tr69 */);
+
+            if (ret)
+            {
+                RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] tests scheduled successfully\n", FILE, __FUNCTION__);
+                stMsgData->faultCode = fcNoFault;
+            }
+            else
+                RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to schedule test execution\n", FILE, __FUNCTION__);
+        }
     }
     else
         RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
 
-    return ret;
+    return true;
 }
 
 bool get_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_Results(const char *log_module, HOSTIF_MsgData_t *stMsgData)
@@ -94,28 +131,44 @@ bool get_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_Results(const char *log_m
 
     RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to retrieve test results...\n", FILE, __FUNCTION__);
 
-    stMsgData->paramValue[0] = '\0';
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE, __FUNCTION__);
+        return ret;
+    }
+
+    create_emptyStrResponse(stMsgData);
+    stMsgData->faultCode = fcInternalError;
 
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
-        std::string result;
-        ret = pInst->get_results(result);
-
-        if (ret)
+        if(!pInst->is_enabled())
         {
-            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] test results retrieved successfully\n", FILE, __FUNCTION__);
-            strncpy(stMsgData->paramValue, result.c_str(), TR69HOSTIFMGR_MAX_PARAM_LEN - 1)[TR69HOSTIFMGR_MAX_PARAM_LEN - 1] = '\0';
-            stMsgData->paramLen = (result.length() > TR69HOSTIFMGR_MAX_PARAM_LEN - 1? TR69HOSTIFMGR_MAX_PARAM_LEN - 1 : result.length()) + 1;
-            stMsgData->paramtype = hostIf_StringType;
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] test results not read, feature disabled\n", FILE, __FUNCTION__);
+            stMsgData->faultCode = fcNoFault;
         }
         else
-            RDK_LOG(RDK_LOG_ERROR,log_module,"[%s:%s] failed to retrieve test results\n", FILE, __FUNCTION__);
+        {
+            std::string result;
+
+            ret = pInst->get_results(result);
+
+            if (ret)
+            {
+                RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] test results retrieved successfully\n", FILE, __FUNCTION__);
+                strncpy(stMsgData->paramValue, result.c_str(), TR69HOSTIFMGR_MAX_PARAM_LEN - 1)[TR69HOSTIFMGR_MAX_PARAM_LEN - 1] = '\0';
+                stMsgData->paramLen = (result.length() > TR69HOSTIFMGR_MAX_PARAM_LEN - 1? TR69HOSTIFMGR_MAX_PARAM_LEN - 1 : result.length()) + 1;
+                stMsgData->faultCode = fcNoFault;
+            }
+            else
+                RDK_LOG(RDK_LOG_ERROR,log_module,"[%s:%s] failed to retrieve test results\n", FILE, __FUNCTION__);
+        }
     }
     else
         RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
 
-    return ret;
+    return true;
 }
 
 bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_EnablePeriodicRun(const char *log_module, HOSTIF_MsgData_t *stMsgData)
@@ -124,21 +177,42 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_EnablePeriodicRun(const c
 
     RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to enable/disable the hwselftest periodic run...\n", FILE, __FUNCTION__);
 
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE, __FUNCTION__);
+        return ret;
+    }
+
+    create_emptyStrResponse(stMsgData);
+    stMsgData->faultCode = fcInternalError;
+
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
         bool value = *(reinterpret_cast<bool *>(stMsgData->paramValue));
-        ret = pInst->enable_periodic(value);
 
-        if (ret)
-            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest periodic run %s successfully\n", FILE, __FUNCTION__, (value? "enabled" : "disabled"));
+        if(!pInst->is_enabled())
+        {
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest periodic run not %s, feature disabled\n", FILE, __FUNCTION__, (value? "enabled" : "disabled"));
+            stMsgData->faultCode = fcNoFault;
+        }
         else
-            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to %s hwselftest periodic run\n", FILE, __FUNCTION__, (value? "enable" : "disable"));
+        {
+            ret = pInst->enable_periodic(value);
+
+            if (ret)
+            {
+                RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest periodic run %s request processed successfully\n", FILE, __FUNCTION__, (value? "enable" : "disable"));
+                stMsgData->faultCode = fcNoFault;
+            }
+            else
+                RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to %s hwselftest periodic run\n", FILE, __FUNCTION__, (value? "enable" : "disable"));
+        }
     }
     else
         RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
 
-    return ret;
+    return true;
 }
 
 bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_PeriodicRunFrequency(const char *log_module, HOSTIF_MsgData_t *stMsgData)
@@ -147,21 +221,51 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_PeriodicRunFrequency(cons
 
     RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set the hwselftest periodic run frequency...\n", FILE, __FUNCTION__);
 
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE, __FUNCTION__);
+        return ret;
+    }
+
+    create_emptyStrResponse(stMsgData);
+    stMsgData->faultCode = fcInternalError;
+
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
-        unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
-        ret = pInst->set_periodic_frequency(value);
-
-        if (ret)
-            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest periodic run frequency set to %i\n", FILE, __FUNCTION__, value);
+        if(!pInst->is_enabled())
+        {
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] periodic run frequency not set, feature disabled\n", FILE, __FUNCTION__);
+            stMsgData->faultCode = fcNoFault;
+        }
         else
-            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to set hwselftest periodic run frequency to %i\n", FILE, __FUNCTION__, value);
+        {
+            unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
+            bool invalidParam = false;
+
+            ret = pInst->set_periodic_frequency(&invalidParam, value);
+
+            if (ret)
+            {
+                RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest periodic run frequency set to %i\n", FILE, __FUNCTION__, value);
+                stMsgData->faultCode = fcNoFault;
+            }
+            else
+            {
+                if(invalidParam)
+                {
+                    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] periodic run frequency not set, invalid parameter value '%i'\n", FILE, __FUNCTION__, value);
+                    stMsgData->faultCode = fcInvalidParameterValue;
+                }
+                else
+                    RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to set hwselftest periodic run frequency to %i\n", FILE, __FUNCTION__, value);
+            }
+        }
     }
     else
         RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
 
-    return ret;
+    return true;
 }
 
 bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_CpuThreshold(const char *log_module, HOSTIF_MsgData_t *stMsgData)
@@ -170,21 +274,52 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_CpuThreshold(const char *
 
     RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set hwselftest CPU threshold...\n", FILE, __FUNCTION__);
 
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE, __FUNCTION__);
+        return ret;
+    }
+
+    create_emptyStrResponse(stMsgData);
+    stMsgData->faultCode = fcInternalError;
+
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
         unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
-        ret = pInst->set_periodic_cpu_threshold(value);
 
-        if (ret)
-            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest CPU threshold set to %i\n", FILE, __FUNCTION__, value);
+        if(!pInst->is_enabled())
+        {
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest CPU threshold not set, feature disabled\n", FILE, __FUNCTION__, value);
+            stMsgData->faultCode = fcNoFault;
+        }
         else
-            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to set CPU threshold to %i\n", FILE, __FUNCTION__, value);
+        {
+            bool invalidParam = false;
+
+            ret = pInst->set_periodic_cpu_threshold(&invalidParam, value);
+
+            if (ret)
+            {
+                RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest CPU threshold set to %i\n", FILE, __FUNCTION__, value);
+                stMsgData->faultCode = fcNoFault;
+            }
+            else
+            {
+                if(invalidParam)
+                {
+                    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest CPU threshold not set, invalid parameter value '%i'\n",FILE, __FUNCTION__, value);
+                    stMsgData->faultCode = fcInvalidParameterValue;
+                }
+                else
+                    RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to set CPU threshold to %i\n", FILE, __FUNCTION__, value);
+            }
+        }
     }
     else
         RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
 
-    return ret;
+    return true;
 }
 
 bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_DramThreshold(const char *log_module, HOSTIF_MsgData_t *stMsgData)
@@ -193,21 +328,42 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_DramThreshold(const char 
 
     RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set hwselftest DRAM threshold...\n", FILE, __FUNCTION__);
 
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE, __FUNCTION__);
+        return ret;
+    }
+
+    create_emptyStrResponse(stMsgData);
+    stMsgData->faultCode = fcInternalError;
+
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
         unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
-        ret = pInst->set_periodic_dram_threshold(value);
 
-        if (ret)
-            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest DRAM threshold set to %i\n", FILE, __FUNCTION__, value);
+        if(!pInst->is_enabled())
+        {
+            RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest DRAM threshold not set, feature disabled\n", FILE, __FUNCTION__, value);
+            stMsgData->faultCode = fcNoFault;
+        }
         else
-            RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to set DRAM threshold to %i\n", FILE, __FUNCTION__, value);
+        {
+            ret = pInst->set_periodic_dram_threshold(value);
+
+            if (ret)
+            {
+                RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest DRAM threshold set to %i\n", FILE, __FUNCTION__, value);
+                stMsgData->faultCode = fcNoFault;
+            }
+            else
+                RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to set DRAM threshold to %i\n", FILE, __FUNCTION__, value);
+         }
     }
     else
         RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to get wa_wsclient instance\n", FILE, __FUNCTION__);
 
-    return ret;
+    return true;
 }
 
 } // namespace hwselftest

@@ -41,6 +41,7 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
+//#define WA_DEBUG 1
 #if WA_DEBUG
 #define WA_DBG(f, ...) printf(f, ##__VA_ARGS__)
 #else
@@ -181,38 +182,30 @@ bool wa_wsclient::get_results(std::string& results)
 {
     int retval = false;
 
-    if (is_enabled())
+    if (_hwst_scheduler)
     {
-        if (_hwst_scheduler)
+        std::string test_results;
+
+        WA_DBG("wa_wsclient::get_results(): attempting to retrieve previous results from agent...\n");
+
+        if (execute("previous_results", test_results))
         {
-            std::string test_results;
-
-            WA_DBG("wa_wsclient::get_results(): attempting to retrieve previous results from agent...\n");
-
-            if (execute("previous_results", test_results))
-            {
-                _last_result = test_results;
-                WA_DBG("wa_wsclient::get_results(): retrieved last results from agent\n");
-            }
-
-            if (_last_result.empty())
-            {
-                // no results available
-                WA_DBG("wa_wsclient::get_results(): returning 'not initiated'\n");
-                _last_result = "Not Initiated";
-            }
-
-            retval = true; // will always return something
-            results = _last_result;
+            _last_result = test_results;
+            WA_DBG("wa_wsclient::get_results(): retrieved last results from agent\n");
         }
-        else
-            WA_DBG("wa_wsclient::get_results(): scheduler not avaialable\n");
+
+        if (_last_result.empty())
+        {
+            // no results available
+            WA_DBG("wa_wsclient::get_results(): returning 'not initiated'\n");
+            _last_result = "Not Initiated";
+        }
+
+        retval = true; // will always return something
+        results = _last_result;
     }
     else
-    {
-        WA_DBG("wa_wsclient::get_results(): service disabled\n");
-        log("Feature disabled. Results request ignored.\n");
-    }
+        WA_DBG("wa_wsclient::get_results(): scheduler not avaialable\n");
 
     return retval;
 }
@@ -228,30 +221,22 @@ bool wa_wsclient::get_capabilities(std::string& caps)
 {
     int retval = false;
 
-    if (is_enabled())
+    if (_hwst_scheduler)
     {
-        if (_hwst_scheduler)
+        WA_DBG("wa_wsclient::get_results(): attempting to agent capabilities...\n");
+
+        // currently this only returns available diags list
+        if (execute("capabilities_info", caps))
         {
-            WA_DBG("wa_wsclient::get_results(): attempting to agent capabilities...\n");
-
-            // currently this only returns available diags list
-            if (execute("capabilities_info", caps))
-            {
-                WA_DBG("wa_wsclient::get_capabilities(): successfully retrieved capabilities\n");
-                retval = true;
-            }
-            else
-                WA_DBG("wa_wsclient::get_capabilities(): failed to retrieve capabilities\n");
-
+            WA_DBG("wa_wsclient::get_capabilities(): successfully retrieved capabilities\n");
+            retval = true;
         }
         else
-            WA_DBG("wa_wsclient::get_capabilities(): scheduler not avaialable\n");
+            WA_DBG("wa_wsclient::get_capabilities(): failed to retrieve capabilities\n");
+
     }
     else
-    {
-        WA_DBG("wa_wsclient::get_capabilities(): service disabled\n");
-        log("Feature disabled. Capabilities request ignored.\n");
-    }
+        WA_DBG("wa_wsclient::get_capabilities(): scheduler not avaialable\n");
 
     return retval;
 }
@@ -267,36 +252,28 @@ bool wa_wsclient::execute_tests(bool cli)
 {
     int retval = false;
 
-    if (is_enabled())
+    if (_hwst_scheduler)
     {
-        if (_hwst_scheduler)
-        {
-            WA_DBG("wa_wsclient::execute_tests(): attempting to execute tests...\n");
-            int status = _hwst_scheduler->issue({}, (cli? HWSELFTEST_WSCLIENT_PERIODIC : HWSELFTEST_WSCLIENT_REMOTE));
+        WA_DBG("wa_wsclient::execute_tests(): attempting to execute tests...\n");
+        int status = _hwst_scheduler->issue({}, (cli? HWSELFTEST_WSCLIENT_PERIODIC : HWSELFTEST_WSCLIENT_REMOTE));
 
-            switch(status)
-            {
-            case -1:
-            default:
-                WA_DBG("wa_wsclient::execute_tests(): scheduler failed (%i)\n", status);
-                break;
-            case 1:
-                WA_DBG("wa_wsclient::execute_tests(): scheduler busy\n");
-                break;
-            case 0:
-                WA_DBG("wa_wsclient::execute_tests(): successfully scheduled tests\n");
-                retval = true;
-                break;
-            }
+        switch(status)
+        {
+        case -1:
+        default:
+            WA_DBG("wa_wsclient::execute_tests(): scheduler failed (%i)\n", status);
+            break;
+        case 1:
+            WA_DBG("wa_wsclient::execute_tests(): scheduler busy\n");
+            break;
+        case 0:
+            WA_DBG("wa_wsclient::execute_tests(): successfully scheduled tests\n");
+            retval = true;
+            break;
         }
-        else
-            WA_DBG("wa_wsclient::execute_tests(): scheduler not avaialable\n");
     }
     else
-    {
-        WA_DBG("wa_wsclient::execute_tests(): service disabled\n");
-        log("Feature disabled. ExecuteTest request ignored.\n");
-    }
+        WA_DBG("wa_wsclient::execute_tests(): scheduler not avaialable\n");
 
     return retval;
 }
@@ -348,69 +325,61 @@ bool wa_wsclient::enable_periodic(bool enable, bool destroy, bool quiet)
 {
     int retval = false;
 
-    if (is_enabled())
+    _runner_timer.stop();
+
+    if (enable)
     {
-        _runner_timer.stop();
+        int status = 0;
 
-        if (enable)
+        if (_runner_timer.exists() != 0)
         {
-            int status = 0;
+            _runner_timer.set_on_unit_active_sec(DEFAULT_PERIODIC_FREQUENCY);
+            _settings.set(HWST_PERIODIC_FREQ_NAME, DEFAULT_PERIODIC_FREQUENCY);
 
-            if (_runner_timer.exists() != 0)
+            status = _runner_timer.create();
+            if (status != 0)
+                WA_DBG("wa_wsclient::enable_periodic(): can't create runner timer file\n");
+        }
+
+        if (status == 0)
+        {
+            if (_runner_timer.start() == 0)
             {
-                _runner_timer.set_on_unit_active_sec(DEFAULT_PERIODIC_FREQUENCY);
-                _settings.set(HWST_PERIODIC_FREQ_NAME, DEFAULT_PERIODIC_FREQUENCY);
-
-                status = _runner_timer.create();
-                if (status != 0)
-                    WA_DBG("wa_wsclient::enable_periodic(): can't create runner timer file\n");
-            }
-
-            if (status == 0)
-            {
-                if (_runner_timer.start() == 0)
+                if (_runner_service.start() == 0)
                 {
-                    if (_runner_service.start() == 0)
-                    {
-                        WA_DBG("wa_wsclient::enable_periodic(): periodic run enabled\n");
+                    WA_DBG("wa_wsclient::enable_periodic(): periodic run enabled\n");
 
-                        if (!quiet)
-                        {
-                            log("Periodic run enabled.\n");
-                            log("Periodic run frequency is " + _settings.get(HWST_PERIODIC_FREQ_NAME) + " min.\n");
-                            log("Periodic run CPU threshold is " + _settings.get(HWST_CPU_THRESHOLD_NAME) + " %.\n");
-                            log("Periodic run DRAM threshold is " + _settings.get(HWST_DRAM_THRESHOLD_NAME) + " MB.\n");
-                        }
-
-                        retval = true;
-                    }
-                    else
+                    if (!quiet)
                     {
-                        _runner_timer.stop();
-                        WA_DBG("wa_wsclient::enable_periodic(): can't start runner service\n");
+                        log("Periodic run enabled.\n");
+                        log("Periodic run frequency is " + _settings.get(HWST_PERIODIC_FREQ_NAME) + " min.\n");
+                        log("Periodic run CPU threshold is " + _settings.get(HWST_CPU_THRESHOLD_NAME) + " %.\n");
+                        log("Periodic run DRAM threshold is " + _settings.get(HWST_DRAM_THRESHOLD_NAME) + " MB.\n");
                     }
+
+                    retval = true;
                 }
                 else
-                    WA_DBG("wa_wsclient::enable_periodic(): can't start runner timer\n");
+                {
+                    _runner_timer.stop();
+                    WA_DBG("wa_wsclient::enable_periodic(): can't start runner service\n");
+                }
             }
-        }
-        else
-        {
-            retval = true;
-
-            if (destroy)
-                _runner_timer.destroy();
-
-            WA_DBG("wa_wsclient::enable_periodic(): periodic run disabled\n");
-
-            if (!quiet)
-                log("Periodic run disabled.\n");
+            else
+                WA_DBG("wa_wsclient::enable_periodic(): can't start runner timer\n");
         }
     }
     else
     {
-        WA_DBG("wa_wsclient::enable_periodic(): service disabled\n");
-        log("Feature disabled. EnablePeriodicRun request ignored.\n");
+        retval = true;
+
+        if (destroy)
+            _runner_timer.destroy();
+
+        WA_DBG("wa_wsclient::enable_periodic(): periodic run disabled\n");
+
+        if (!quiet)
+            log("Periodic run disabled.\n");
     }
 
     return retval;
@@ -422,46 +391,41 @@ bool wa_wsclient::enable_periodic(bool enable, bool destroy, bool quiet)
  * @retval true   Operation succeeded
  * @retval false  Operation failed
  */
-bool wa_wsclient::set_periodic_frequency(unsigned int frequency)
+bool wa_wsclient::set_periodic_frequency(bool *invalidParam, unsigned int frequency)
 {
     int retval = false;
 
-    if (is_enabled())
+    if (frequency == 0)
+        frequency = DEFAULT_PERIODIC_FREQUENCY;
+
+    if (frequency >= MIN_PERIODIC_FREQUENCY)
     {
-        if (frequency == 0)
-            frequency = DEFAULT_PERIODIC_FREQUENCY;
+        _runner_timer.set_on_unit_active_sec(frequency);
+        _settings.set(HWST_PERIODIC_FREQ_NAME, frequency);
 
-        if (frequency >= MIN_PERIODIC_FREQUENCY)
+        if (_runner_timer.create() == 0)
         {
-            _runner_timer.set_on_unit_active_sec(frequency);
-            _settings.set(HWST_PERIODIC_FREQ_NAME, frequency);
-
-            if (_runner_timer.create() == 0)
+            // if already running, then apply the new frequency immediately
+            if (_runner_timer.status() == 0)
             {
-                // if already running, then apply the new frequency immediately
-                if (_runner_timer.status() == 0)
-                {
-                    retval = enable_periodic(true, false, true);
-                    if (retval)
-                        WA_DBG("wa_wsclient::set_periodic_frequency(): changed periodic frequency to %i min\n", frequency);
-                    else
-                        WA_DBG("wa_wsclient::set_periodic_frequency(): failed to apply new periodic run frequency\n");
-                }
+                retval = enable_periodic(true, false, true);
+                if (retval)
+                    WA_DBG("wa_wsclient::set_periodic_frequency(): changed periodic frequency to %i min\n", frequency);
                 else
-                    retval = true;
-
-                log("Periodic run frequency set to " + std::to_string(frequency) + " min.\n");
+                    WA_DBG("wa_wsclient::set_periodic_frequency(): failed to apply new periodic run frequency\n");
             }
             else
-                WA_DBG("wa_wsclient::enable_periodic(): can't create timer file\n");
+                retval = true;
+
+            log("Periodic run frequency set to " + std::to_string(frequency) + " min.\n");
         }
         else
-            WA_DBG("wa_wsclient::set_periodic_frequency(): invalid frequency value\n");
+            WA_DBG("wa_wsclient::enable_periodic(): can't create timer file\n");
     }
     else
     {
-        WA_DBG("wa_wsclient::set_periodic_frequency(): service disabled\n");
-        log("Feature disabled. PeriodicRunFrequency request ignored.\n");
+        *invalidParam = true;
+        WA_DBG("wa_wsclient::set_periodic_frequency(): invalid frequency value: '%i'\n", frequency);
     }
 
     return retval;
@@ -473,30 +437,25 @@ bool wa_wsclient::set_periodic_frequency(unsigned int frequency)
  * @retval true   Operation succeeded
  * @retval false  Operation failed
  */
-bool wa_wsclient::set_periodic_cpu_threshold(unsigned int threshold)
+bool wa_wsclient::set_periodic_cpu_threshold(bool *invalidParam, unsigned int threshold)
 {
     int retval = false;
 
-    if (is_enabled())
+    if (threshold <= 100)
     {
-        if (threshold <= 100)
+        retval = _settings.set(HWST_CPU_THRESHOLD_NAME, threshold);
+        if (retval)
         {
-            retval = _settings.set(HWST_CPU_THRESHOLD_NAME, threshold);
-            if (retval)
-            {
-                WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): changed periodic run cpu threshold to %i%%\n", threshold);
-                log("Periodic run CPU threshold set to " + std::to_string(threshold) + "%.\n");
-            }
-            else
-                WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): failed to apply new periodic run cpu threshold\n");
+            WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): changed periodic run cpu threshold to %i%%\n", threshold);
+            log("Periodic run CPU threshold set to " + std::to_string(threshold) + "%.\n");
         }
         else
-            WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): invalid threshold value\n");
+            WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): failed to apply new periodic run cpu threshold\n");
     }
     else
     {
-        WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): service disabled\n");
-        log("Feature disabled. cpuThreshold request ignored.\n");
+        *invalidParam = true;
+        WA_DBG("wa_wsclient::set_periodic_cpu_threshold(): invalid threshold value: '%i%%'\n", threshold);
     }
 
     return retval;
@@ -512,23 +471,15 @@ bool wa_wsclient::set_periodic_dram_threshold(unsigned int threshold)
 {
     int retval = false;
 
-    if (is_enabled())
+    retval = _settings.set(HWST_DRAM_THRESHOLD_NAME, threshold);
+    if (retval)
     {
-        retval = _settings.set(HWST_DRAM_THRESHOLD_NAME, threshold);
-        if (retval)
-        {
-            WA_DBG("wa_wsclient::set_periodic_dram_threshold(): changed periodic run dram threshold to %i%%\n", threshold);
-            log("Periodic run DRAM threshold set to " + std::to_string(threshold) + " MB.\n");
-        }
-        else
-            WA_DBG("wa_wsclient::set_periodic_dram_threshold(): failed to apply new periodic run dram threshold\n");
+        WA_DBG("wa_wsclient::set_periodic_dram_threshold(): changed periodic run dram threshold to %i%%\n", threshold);
+        log("Periodic run DRAM threshold set to " + std::to_string(threshold) + " MB.\n");
     }
     else
-    {
-        WA_DBG("wa_wsclient::set_periodic_dram_threshold(): service disabled\n");
-        log("Feature disabled. dramThreshold request ignored.\n");
-    }
-
+        WA_DBG("wa_wsclient::set_periodic_dram_threshold(): failed to apply new periodic run dram threshold\n");
+ 
     return retval;
 }
 

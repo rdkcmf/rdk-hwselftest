@@ -104,6 +104,7 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_ExecuteTest(const char *l
         if(!pInst->is_enabled())
         {
             RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] tests not scheduled, feature disabled\n", FILE, __FUNCTION__);
+            pInst->log("Feature disabled. ExecuteTest request ignored.\n");
             stMsgData->faultCode = fcNoFault;
         }
         else
@@ -146,6 +147,7 @@ bool get_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_Results(const char *log_m
         if(!pInst->is_enabled())
         {
             RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] test results not read, feature disabled\n", FILE, __FUNCTION__);
+            pInst->log("Feature disabled. Results request ignored.\n");
             stMsgData->faultCode = fcNoFault;
         }
         else
@@ -194,6 +196,7 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_EnablePeriodicRun(const c
         if(!pInst->is_enabled())
         {
             RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest periodic run not %s, feature disabled\n", FILE, __FUNCTION__, (value? "enabled" : "disabled"));
+            pInst->log("Feature disabled. EnablePeriodicRun request ignored.\n");
             stMsgData->faultCode = fcNoFault;
         }
         else
@@ -236,6 +239,7 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_PeriodicRunFrequency(cons
         if(!pInst->is_enabled())
         {
             RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] periodic run frequency not set, feature disabled\n", FILE, __FUNCTION__);
+            pInst->log("Feature disabled. PeriodicRunFrequency request ignored.\n");
             stMsgData->faultCode = fcNoFault;
         }
         else
@@ -291,6 +295,7 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_CpuThreshold(const char *
         if(!pInst->is_enabled())
         {
             RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest CPU threshold not set, feature disabled\n", FILE, __FUNCTION__, value);
+            pInst->log("Feature disabled. cpuThreshold request ignored.\n");
             stMsgData->faultCode = fcNoFault;
         }
         else
@@ -345,6 +350,7 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_DramThreshold(const char 
         if(!pInst->is_enabled())
         {
             RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest DRAM threshold not set, feature disabled\n", FILE, __FUNCTION__, value);
+            pInst->log("Feature disabled. dramThreshold request ignored.\n");
             stMsgData->faultCode = fcNoFault;
         }
         else

@@ -279,6 +279,7 @@ static bool selftest_execute(wa_wsclient *pInst)
     if(!pInst->is_enabled())
     {
         cliprintf("self test not scheduled, feature disabled\n");
+        pInst->log("Feature disabled. ExecuteTest request ignored.\n");
         status = true;
     }
     else
@@ -307,6 +308,7 @@ static bool selftest_results(wa_wsclient *pInst, char **out_results)
     if(!pInst->is_enabled())
     {
         cliprintf("test results not retrieved, feature disabled\n");
+        pInst->log("Feature disabled. Results request ignored.\n");
         status = true;
     }
     else
@@ -338,25 +340,33 @@ static bool selftest_capabilities(wa_wsclient *pInst, char **out_caps)
 {
     bool status;
 
-    std::string result;
-    status = pInst->get_capabilities(result);
-    if (status)
+    if(!pInst->is_enabled())
     {
-        cliprintf("capabilities retrieved\n");
-
-        if (out_caps)
-        {
-            *out_caps = strdup(result.c_str());
-            if (!out_caps)
-            {
-                cliprintferr("ERROR: failed to allocate memory\n");
-                status = false;
-            }
-        }
+        cliprintf("capabilities not retrieved, feature disabled\n");
+        pInst->log("Feature disabled. Capabilities request ignored.\n");
+        status = true;
     }
     else
-        cliprintferr("ERROR: failed to get capabilities\n");
+    {
+        std::string result;
+        status = pInst->get_capabilities(result);
+        if (status)
+        {
+            cliprintf("capabilities retrieved\n");
 
+            if (out_caps)
+            {
+                *out_caps = strdup(result.c_str());
+                if (!out_caps)
+                {
+                    cliprintferr("ERROR: failed to allocate memory\n");
+                    status = false;
+                }
+            }
+        }
+        else
+            cliprintferr("ERROR: failed to get capabilities\n");
+    }
     return status;
 }
 
@@ -380,6 +390,7 @@ static bool selftest_periodic_enable(wa_wsclient *pInst, bool do_enable)
     if(!pInst->is_enabled())
     {
         cliprintf("self test periodic run not %s, feature disabled\n", do_enable? "enabled" : "disabled");
+        pInst->log("Feature disabled. EnablePeriodicRun request ignored.\n");
         status = true;
     }
     else
@@ -400,6 +411,7 @@ static bool selftest_periodic_frequency(wa_wsclient *pInst, const char *frequenc
     if(!pInst->is_enabled())
     {
         cliprintf("self test periodic run frequency not set, feature disabled\n");
+        pInst->log("Feature disabled. PeriodicRunFrequency request ignored.\n");
         status = true;
     }
     else
@@ -426,6 +438,7 @@ static bool selftest_periodic_cpu_threshold(wa_wsclient *pInst, const char *thre
     if(!pInst->is_enabled())
     {
         cliprintf("self test periodic run cpu threshold not set, feature disabled\n");
+        pInst->log("Feature disabled. cpuThreshold request ignored.\n");
         status = true;
     }
     else
@@ -452,6 +465,7 @@ static bool selftest_periodic_dram_threshold(wa_wsclient *pInst, const char *thr
     if(!pInst->is_enabled())
     {
         cliprintf("self test periodic run dram threshold not set, feature disabled\n");
+        pInst->log("Feature disabled. dramThreshold request ignored.\n");
         status = true;
     }
     else

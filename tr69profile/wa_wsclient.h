@@ -56,6 +56,7 @@ public:
     bool set_periodic_frequency(bool *invalidParam, unsigned int frequency);
     bool set_periodic_cpu_threshold(bool *invalidParam, unsigned int threshold);
     bool set_periodic_dram_threshold(unsigned int threshold);
+    void log(const std::string& message) const;
 
 private:
     wa_wsclient();
@@ -64,7 +65,6 @@ private:
     wa_wsclient(wa_wsclient const &) = delete;
     void operator=(wa_wsclient const &) = delete;
 
-    void log(const std::string& message) const;
     bool execute(const std::string& diag, std::string& results);
 
     wa_service _runner_service;

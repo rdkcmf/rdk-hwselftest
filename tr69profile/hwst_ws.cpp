@@ -238,7 +238,7 @@ int Ws::connect(std::string host, std::string port, int timeout)
         goto end;
     }
     HWST_DBG("wa::connect wait ready");
-    if(nopoll_conn_wait_until_connection_ready (conn.get(), timeout, &npStatus,  NULL) == nopoll_true)
+    if(nopoll_conn_wait_for_status_until_connection_ready (conn.get(), timeout, &npStatus,  NULL) == nopoll_true)
     {
         HWST_DBG("wa::connect ready");
         status = 0;

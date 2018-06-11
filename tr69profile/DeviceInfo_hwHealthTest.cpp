@@ -185,14 +185,14 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_EnablePeriodicRun(const c
         return ret;
     }
 
+    bool value = *(reinterpret_cast<bool *>(stMsgData->paramValue));
+
     create_emptyStrResponse(stMsgData);
     stMsgData->faultCode = fcInternalError;
 
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
-        bool value = *(reinterpret_cast<bool *>(stMsgData->paramValue));
-
         if(!pInst->is_enabled())
         {
             RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest periodic run not %s, feature disabled\n", FILE, __FUNCTION__, (value? "enabled" : "disabled"));
@@ -230,6 +230,8 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_PeriodicRunFrequency(cons
         return ret;
     }
 
+    unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
+
     create_emptyStrResponse(stMsgData);
     stMsgData->faultCode = fcInternalError;
 
@@ -244,7 +246,6 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_PeriodicRunFrequency(cons
         }
         else
         {
-            unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
             bool invalidParam = false;
 
             ret = pInst->set_periodic_frequency(&invalidParam, value);
@@ -284,14 +285,14 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_CpuThreshold(const char *
         return ret;
     }
 
+    unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
+
     create_emptyStrResponse(stMsgData);
     stMsgData->faultCode = fcInternalError;
 
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
-        unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
-
         if(!pInst->is_enabled())
         {
             RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest CPU threshold not set, feature disabled\n", FILE, __FUNCTION__, value);
@@ -339,14 +340,14 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_DramThreshold(const char 
         return ret;
     }
 
+    unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
+
     create_emptyStrResponse(stMsgData);
     stMsgData->faultCode = fcInternalError;
 
     wa_wsclient *pInst = wa_wsclient::instance();
     if (pInst)
     {
-        unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
-
         if(!pInst->is_enabled())
         {
             RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest DRAM threshold not set, feature disabled\n", FILE, __FUNCTION__, value);

@@ -260,10 +260,11 @@ static char *get_modem_ip(void)
  */
 static int is_modem_operational(const char *snmp_server)
 {
-    long oper, width, mod, interleave;
+    WA_UTILS_SNMP_Resp_t oper, width, mod, interleave;
     int status = WA_DIAG_ERRCODE_SUCCESS;
 
-    if(!WA_UTILS_SNMP_GetLong(snmp_server, OID_MODEM_STATUS, &oper, WA_UTILS_SNMP_REQ_TYPE_WALK))
+    oper.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    if(!WA_UTILS_SNMP_GetNumber(snmp_server, OID_MODEM_STATUS, &oper, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
         return WA_DIAG_ERRCODE_FAILURE;
     }
@@ -274,7 +275,8 @@ static int is_modem_operational(const char *snmp_server)
         return WA_DIAG_ERRCODE_CANCELLED;
     }
 
-    if(!WA_UTILS_SNMP_GetLong(snmp_server, OID_DOWN_WIDTH, &width, WA_UTILS_SNMP_REQ_TYPE_WALK))
+    width.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    if(!WA_UTILS_SNMP_GetNumber(snmp_server, OID_DOWN_WIDTH, &width, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
         return WA_DIAG_ERRCODE_FAILURE;
     }
@@ -285,7 +287,8 @@ static int is_modem_operational(const char *snmp_server)
         return WA_DIAG_ERRCODE_CANCELLED;
     }
 
-    if(!WA_UTILS_SNMP_GetLong(snmp_server, OID_DOWN_MODULATION, &mod, WA_UTILS_SNMP_REQ_TYPE_WALK))
+    mod.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    if(!WA_UTILS_SNMP_GetNumber(snmp_server, OID_DOWN_MODULATION, &mod, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
         return WA_DIAG_ERRCODE_FAILURE;
     }
@@ -296,7 +299,8 @@ static int is_modem_operational(const char *snmp_server)
         return WA_DIAG_ERRCODE_CANCELLED;
     }
 
-    if(!WA_UTILS_SNMP_GetLong(snmp_server, OID_DOWN_INTERLEAVE, &interleave, WA_UTILS_SNMP_REQ_TYPE_WALK))
+    interleave.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    if(!WA_UTILS_SNMP_GetNumber(snmp_server, OID_DOWN_INTERLEAVE, &interleave, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
         return WA_DIAG_ERRCODE_FAILURE;
     }
@@ -307,7 +311,7 @@ static int is_modem_operational(const char *snmp_server)
         return WA_DIAG_ERRCODE_CANCELLED;
     }
 
-    if((oper != IOD_VALUE_OPERATIONAL) || (width == 0) || (mod == 1) || (interleave == 1))
+    if((oper.data.l != IOD_VALUE_OPERATIONAL) || (width.data.l == 0) || (mod.data.l == 1) || (interleave.data.l == 1))
     {
         status = WA_DIAG_ERRCODE_CM_NO_SIGNAL;
     }

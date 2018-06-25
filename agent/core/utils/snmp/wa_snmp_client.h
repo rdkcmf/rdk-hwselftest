@@ -60,6 +60,32 @@ typedef enum
 
 } WA_UTILS_SNMP_ReqType_t;
 
+typedef enum
+{
+    WA_UTILS_SNMP_RESP_TYPE_LONG,
+    WA_UTILS_SNMP_RESP_TYPE_COUNTER64
+
+} WA_UTILS_SNMP_RespType_t;
+
+typedef struct
+{
+    long high;
+    long low;
+} c64_t;
+
+typedef union
+{
+    long l;
+    c64_t c64;
+}WA_UTILS_SNMP_RespData_t;
+
+typedef struct
+{
+    WA_UTILS_SNMP_RespType_t type;
+    WA_UTILS_SNMP_RespData_t data;
+
+}WA_UTILS_SNMP_Resp_t;
+
 /*****************************************************************************
  * EXPORTED VARIABLES
  *****************************************************************************/
@@ -91,20 +117,33 @@ int WA_UTILS_SNMP_Exit();
  * @param oid OID to retrieve
  * @param[out] buffer The retrieved string value
  * @param bufSize Capacity of the buffer
+ * @param[in] reqType The type of snmp request
  *
  * @return @a true if a string value associated with the specified OID was retrieved and placed in @a buffer (even if truncated), false otherwise.
  */
 bool WA_UTILS_SNMP_GetString(const char *server, const char * oid, char * buffer, size_t bufSize, WA_UTILS_SNMP_ReqType_t reqType);
 
 /**
- * Retrieves an integer value associated with the specified OID from the default SNMP server.
+ * Retrieves a numeric value associated with the specified OID from the default SNMP server.
  *
  * @param server the server to connect to
  * @param oid OID to retrieve
- * @param[out] buffer The retrieved integer
+ * @param[out] buffer The retrieved value
+ * @param[in] reqType The type of snmp request
  *
- * @return @a true if an integer value associated with the specified OID was retrieved and placed in @a buffer, false otherwise.
+ * @return @a true if a numeric value associated with the specified OID was retrieved and placed in @a buffer, false otherwise.
  */
-bool WA_UTILS_SNMP_GetLong(const char *server, const char * reqoid, long * buffer, WA_UTILS_SNMP_ReqType_t reqType);
+bool WA_UTILS_SNMP_GetNumber(const char *server, const char *reqoid, WA_UTILS_SNMP_Resp_t *buffer, WA_UTILS_SNMP_ReqType_t reqType);
+
+/**
+ * Retrieves variable associated with next OID (using getnext method) from SNMP server and uses it to find interface index/oid instance.
+ *
+ * @param server the server to connect to
+ * @param oid OID to use
+ * @param[out] ifIndex The retrieved integer
+ *
+ * @return @a true if an interface index/oid instance was retrieved and placed in @a ifIndex, false otherwise.
+ */
+bool WA_UTILS_SNMP_FindIfIndex(const char *server, const char *reqoid, int *ifIndex);
 
 #endif

@@ -87,6 +87,7 @@ typedef struct WaSnmpSingleResult_tag
  * LOCAL FUNCTION PROTOTYPES
  *****************************************************************************/
 
+static bool waSnmpFindIndexInOid(oid *input, size_t input_length, int *index);
 static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOidText, WA_UTILS_SNMP_ReqType_t reqType);
 
 static void waSnmpSingleResultCleanup(WaSnmpSingleResult result);
@@ -161,40 +162,136 @@ bool WA_UTILS_SNMP_GetString(const char *server, const char * reqoid, char * buf
     return true;
 }
 
-bool WA_UTILS_SNMP_GetLong(const char *server, const char * reqoid, long * buffer, WA_UTILS_SNMP_ReqType_t reqType)
+bool WA_UTILS_SNMP_GetNumber(const char *server, const char *reqoid, WA_UTILS_SNMP_Resp_t *buffer, WA_UTILS_SNMP_ReqType_t reqType)
 {
+    bool ret_val;
+
     if (!server || !reqoid || !buffer)
     {
-        WA_ERROR("WA_UTILS_SNMP_GetLong(): Invalid parameters\n");
+        WA_ERROR("WA_UTILS_SNMP_GetNumber(): Invalid parameters\n");
         return false;
     }
 
     if(!snmpMutex || WA_OSA_MutexLock(snmpMutex))
     {
-        WA_ERROR("WA_UTILS_SNMP_GetLong(): Failed to acquire mutex\n");
+        WA_ERROR("WA_UTILS_SNMP_GetNumber(): Failed to acquire mutex\n");
         return false;
     }
 
     WaSnmpSingleResult result = waSnmpGetSingle(server, reqoid, reqType);
     if (!result)
     {
-        WA_ERROR("WA_UTILS_SNMP_GetLong(): waSnmpGetSingle() failed\n");
+        WA_ERROR("WA_UTILS_SNMP_GetNumber(): waSnmpGetSingle() failed\n");
         WA_OSA_MutexUnlock(snmpMutex);
         return false;
     }
 
-    *buffer = *result->var->val.integer;
-    WA_INFO("WA_UTILS_SNMP_GetLong(%s, %s, 0x%08x, %i): returned %li\n", server, reqoid, (int)buffer, reqType, *buffer);
+    switch(buffer->type)
+    {
+	case WA_UTILS_SNMP_RESP_TYPE_LONG:
+
+	    buffer->data.l = *result->var->val.integer;
+            WA_INFO("WA_UTILS_SNMP_GetNumber(server: %s, oid: %s, long: 0x%08x, reqType: %i): returned %lu\n",
+                server, reqoid, (int)buffer->data.l, reqType, *result->var->val.integer);
+            ret_val = true;
+            break;
+
+        case WA_UTILS_SNMP_RESP_TYPE_COUNTER64:
+
+            buffer->data.c64.high = result->var->val.counter64->high;
+            buffer->data.c64.low = result->var->val.counter64->low;
+            WA_INFO("WA_UTILS_SNMP_GetNumber(server: %s, oid: %s, counter64: len: %u, high: %lu, low: %lu]\n",
+                 server, reqoid, result->var->val_len, result->var->val.counter64->high, result->var->val.counter64->low);
+            ret_val = true;
+            break;
+
+        default:
+            WA_ERROR("WA_UTILS_SNMP_GetNumber(): Invalid response type specified\n");
+            ret_val = false;
+            break;
+    }
 
     waSnmpSingleResultDestroy(result);
     WA_OSA_MutexUnlock(snmpMutex);
 
-    return true;
+    return ret_val;
+}
+
+
+bool WA_UTILS_SNMP_FindIfIndex(const char *server, const char *reqoid, int *ifIndex)
+{
+    int idx;
+    bool ret_val;
+
+    if (!server || !reqoid || !ifIndex)
+    {
+        WA_ERROR("WA_UTILS_SNMP_FindIfIndex(): Invalid parameters\n");
+        return false;
+    }
+
+    if(!snmpMutex || WA_OSA_MutexLock(snmpMutex))
+    {
+        WA_ERROR("WA_UTILS_SNMP_FindIfIndex(): Failed to acquire mutex\n");
+        return false;
+    }
+
+    WaSnmpSingleResult result = waSnmpGetSingle(server, reqoid, WA_UTILS_SNMP_REQ_TYPE_WALK);
+    if (!result)
+    {
+        WA_ERROR("WA_UTILS_SNMP_FindIfIndex(): waSnmpGetSingle() failed\n");
+        WA_OSA_MutexUnlock(snmpMutex);
+        return false;
+    }
+
+    WA_DBG("WA_UTILS_SNMP_FindIfIndex(): response:\n");
+    //print_objid(result->var->name, result->var->name_length);
+
+    if(!waSnmpFindIndexInOid(result->var->name, result->var->name_length, &idx))
+    {
+        WA_ERROR("WA_UTILS_SNMP_FindIfIndex(): index not found\n");
+        ret_val = false;
+    }
+    else
+    {
+        WA_DBG("WA_UTILS_SNMP_FindIfIndex(): index: %d\n", idx);
+        *ifIndex = idx;
+        ret_val = true;
+    }
+
+    waSnmpSingleResultDestroy(result);
+    WA_OSA_MutexUnlock(snmpMutex);
+
+    return ret_val;
 }
 
 /*****************************************************************************
  * LOCAL FUNCTIONS
  *****************************************************************************/
+/**
+ * Parses oid looking for ifIndex
+ */
+static bool waSnmpFindIndexInOid(oid *input, size_t input_length, int *index)
+{
+    int idx;
+    char oid_str[MAX_OID_LEN];
+    char buff[MAX_OID_LEN];
+
+    //print_objid(input, input_length);
+
+    snprint_objid(oid_str, sizeof(oid_str), input, input_length);
+
+    if(sscanf(oid_str, "%[^.].%d", buff, &idx) != 2)
+    {
+        WA_ERROR("WA_UTILS_SNMP_waSnmpFindIndexInOid(): index not found\n");
+        return false;
+    }
+
+    WA_DBG("WA_UTILS_SNMP_waSnmpFindIndexInOid(): buff: %s, index: %d\n", buff, idx);
+    *index = idx;
+
+    return true;
+}
+
 
 /**
  * Retrieves a single value associated with the OID specified from SNMP server.
@@ -219,7 +316,7 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
 
     snmp_sess_init(&session);
     session.peername = (char *)server;
-    session.version = SNMP_VERSION_1;
+    session.version = SNMP_VERSION_2c;
     session.community = (u_char*)WA_UTILS_SNMP_COMMUNITY;
     session.community_len = strlen((char*)session.community);
 
@@ -253,14 +350,28 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
             return NULL;
         }
 
-        get_node(reqOidText, reqOid, &reqOidLength);
+        reqOidLength = MAX_OID_LEN;
+        if(get_node(reqOidText, reqOid, &reqOidLength))
+        {
+            WA_DBG("waSnmpGetSingle(): get_node: node correct: %s\n", reqOidText);
+            print_objid(reqOid, reqOidLength);
+        }
+        else
+        {
+            WA_DBG("waSnmpGetSingle(): get_node: incorrect node: %s\n", reqOidText);
+            waSnmpSessionDataCleanup(&sd);
+            return NULL;
+        }
+
         snmp_add_null_var(pdu, reqOid, reqOidLength);
 
         int rc = snmp_synch_response(sd.session, pdu, &sd.response);
 
         if ((rc != STAT_SUCCESS) || (sd.response->errstat != SNMP_ERR_NOERROR) || !sd.response->variables)
         {
-            WA_ERROR("waSnmpGetSingle(): snmp_synch_response() returned %i\n", rc);
+            WA_ERROR("waSnmpGetSingle(): snmp_synch_response() returned %i, errstat: %li, vars: %s\n",
+                rc, sd.response->errstat, (sd.response->variables ? "ok" : "nok"));
+
             waSnmpSessionDataCleanup(&sd);
 
             if (rc == STAT_TIMEOUT)
@@ -285,6 +396,9 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
 
     for(vars = sd.response->variables; vars; vars = vars->next_variable)
     {
+        //print_objid(vars->name, vars->name_length);
+        //print_value(vars->name, vars->name_length, vars);
+
         if(netsnmp_oid_is_subtree(reqOid, reqOidLength, vars->name, vars->name_length))
         {
             WA_ERROR("waSnmpGetSingle(): not corelated response, giving up...\n");

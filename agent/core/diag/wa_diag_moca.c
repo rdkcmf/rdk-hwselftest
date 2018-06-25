@@ -114,11 +114,15 @@ typedef enum {
  * LOCAL FUNCTION PROTOTYPES
  *****************************************************************************/
 static int moca_supported(const char *interface);
-static int getMocaOptionStatus(MocaOption_t opt, long *value);
-static int getMocaIfEnableStatus(int group, long *value);
-static int getMocaIfNodesCount(void* instanceHandle, int group, long *value, int progress);
-static int getMocaIfRxPacketsCount(void* instanceHandle, int group, long *value, int progress);
-static int verifyOptionValue(MocaOption_t opt, long *value);
+static int getMocaOptionStatus(MocaOption_t opt, int index, WA_UTILS_SNMP_Resp_t *value,
+    WA_UTILS_SNMP_ReqType_t reqType);
+static int getMocaIfEnableStatus(int group, int index, WA_UTILS_SNMP_Resp_t *value,
+    WA_UTILS_SNMP_ReqType_t reqType);
+static int getMocaIfNodesCount(void* instanceHandle, int group, int index,
+    WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType, int progress);
+static int getMocaIfRxPacketsCount(void* instanceHandle, int group, int index,
+    WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType, int progress);
+static int verifyOptionValue(MocaOption_t opt,  WA_UTILS_SNMP_Resp_t *value);
 static int setReturnData(int status, json_t **param);
 
 /*****************************************************************************
@@ -148,46 +152,122 @@ static int moca_supported(const char *interface)
     return WA_UTILS_FILEOPS_OptionSupported(DEV_CONFIG_FILE_PATH, FILE_MODE, MOCA_OPTION_STR, interface);
 }
 
-static int getMocaOptionStatus(MocaOption_t opt, long *value)
+static int getMocaOptionStatus(MocaOption_t opt, int index, WA_UTILS_SNMP_Resp_t *value,
+    WA_UTILS_SNMP_ReqType_t reqType)
 {
     int ret = -1;
     char oid[256];
 
-    WA_ENTER("getMocaOptionStatus (%s).\n", MocaOptions[opt]);
+    WA_UTILS_SNMP_Resp_t val;
+    val.type = value->type;
 
-    ret = snprintf(oid, sizeof(oid), "%s", MocaOptions[opt]);
+    WA_ENTER("getMocaOptionStatus (opt: %s, index: %d, reqType: %d).\n", MocaOptions[opt], index, reqType);
+
+    if(index == -1)
+        ret = snprintf(oid, sizeof(oid), "%s", MocaOptions[opt]);
+    else
+        ret = snprintf(oid, sizeof(oid), "%s.%d", MocaOptions[opt], index);
+
+    WA_DBG("getMocaOptionStatus(): oid: %s, snprintf ret: %d\n", oid, ret);
+
     if ((ret >= sizeof(oid)) || (ret < 0))
     {
         WA_ERROR("getMocaOptionStatus, unable to generate OID.\n");
         return -1;
     }
 
-    if(!WA_UTILS_SNMP_GetLong(SNMP_SERVER, oid, value, WA_UTILS_SNMP_REQ_TYPE_WALK))
+    WA_DBG("getMocaOptionStatus, oid generated: %s, oid len %d\n", oid, strlen(oid));
+
+    if(!WA_UTILS_SNMP_GetNumber(SNMP_SERVER, oid, &val, reqType))
     {
-        WA_ERROR("getMocaOptionStatus, option: %s, failed.\n", MocaOptions[opt]);
-        return -1;
+        if(reqType == WA_UTILS_SNMP_REQ_TYPE_GET)
+        {
+            /* Try with walk request if get did not succeed */
+            if(!WA_UTILS_SNMP_GetNumber(SNMP_SERVER, oid, &val, WA_UTILS_SNMP_REQ_TYPE_WALK))
+            {
+                WA_ERROR("getMocaOptionStatus, option: %s, failed for both get and walk query.\n", MocaOptions[opt]);
+                return -1;
+            }
+
+            WA_INFO("getMocaOptionStatus, option: %s, failed for get but succeeded for walk query.\n", MocaOptions[opt]);
+
+        }
+        else
+        {
+            WA_ERROR("getMocaOptionStatus, option: %s, failed.\n", MocaOptions[opt]);
+            return -1;
+        }
     }
 
-    WA_RETURN("getMocaOptionStatus, option: %s, state: %ld (%p).\n", MocaOptions[opt], *value, value);
+    switch(value->type)
+    {
+        case WA_UTILS_SNMP_RESP_TYPE_LONG:
+            value->data.l = val.data.l;
+            WA_DBG("getMocaOptionStatus, option: %s, state: %ld (%p).\n",
+                MocaOptions[opt], value->data.l, &value->data.l);
+            break;
+
+        case WA_UTILS_SNMP_RESP_TYPE_COUNTER64:
+            value->data.c64.high = val.data.c64.high;
+            value->data.c64.low = val.data.c64.low;
+            WA_DBG("getMocaOptionStatus, option: %s, state.low %ld state.high %ld (%p).\n",
+                MocaOptions[opt], value->data.c64.high, value->data.c64.low, &value->data.c64);
+            break;
+
+        default:
+            return -1;
+    }
 
     return verifyOptionValue(opt, value);
 }
 
-static int getMocaIfEnableStatus(int group, long *value)
+static bool getMocaIfIndex(int group, int *index)
 {
-    return getMocaOptionStatus(MOCA11_OPT_IF_ENABLE_STATUS + group, value);
+    int idx, ret;
+    char oid[256];
+    MocaOption_t opt = MOCA11_OPT_IF_ENABLE_STATUS + group;
+
+    WA_ENTER("getMocaIfIndex\n");
+
+    ret = snprintf(oid, sizeof(oid), "%s", MocaOptions[opt]);
+    if ((ret >= sizeof(oid)) || (ret < 0))
+    {
+        WA_ERROR("getMocaIfIndex, unable to generate OID.\n");
+        return false;
+    }
+
+    WA_DBG("getMocaIfIndex, generated OID: %s.\n", oid);
+
+    if(!WA_UTILS_SNMP_FindIfIndex(SNMP_SERVER, oid, &idx))
+    {
+         WA_ERROR("getMocaIfIndex, index not found (oid: %s).\n", oid);
+         return false;
+    }
+
+    WA_RETURN("getMocaIfIndex, option %s, index: %d.\n", MocaOptions[opt], idx);
+    *index = idx;
+
+    return true;
 }
 
-static int getMocaIfNodesCount(void* instanceHandle, int group, long *value, int progress)
+
+static int getMocaIfEnableStatus(int group, int index, WA_UTILS_SNMP_Resp_t *value,
+    WA_UTILS_SNMP_ReqType_t reqType)
+{
+    return getMocaOptionStatus(MOCA11_OPT_IF_ENABLE_STATUS + group, index, value, reqType);
+}
+
+static int getMocaIfNodesCount(void* instanceHandle, int group, int index,  WA_UTILS_SNMP_Resp_t *value,
+    WA_UTILS_SNMP_ReqType_t reqType, int progress)
 {
     int status;
     int step = 0;
-    
+
     while(1)
     {
         ++step;
 
-        status = getMocaOptionStatus(MOCA11_OPT_IF_NODES_COUNT + group, value);
+        status = getMocaOptionStatus(MOCA11_OPT_IF_NODES_COUNT + group, index, value, reqType);
 
         if(WA_OSA_TaskCheckQuit())
         {
@@ -209,16 +289,17 @@ static int getMocaIfNodesCount(void* instanceHandle, int group, long *value, int
     return status;
 }
 
-static int getMocaIfRxPacketsCount(void* instanceHandle, int group, long *value, int progress)
+static int getMocaIfRxPacketsCount(void* instanceHandle, int group, int index, WA_UTILS_SNMP_Resp_t *value,
+    WA_UTILS_SNMP_ReqType_t reqType, int progress)
 {
     int status;
     int step = 0;
-    
+
     while(1)
     {
         ++step;
 
-        status = getMocaOptionStatus(MOCA11_OPT_IF_RX_PACKETS_COUNT + group, value);
+        status = getMocaOptionStatus(MOCA11_OPT_IF_RX_PACKETS_COUNT + group, index, value, reqType);
 
         if(WA_OSA_TaskCheckQuit())
         {
@@ -240,7 +321,7 @@ static int getMocaIfRxPacketsCount(void* instanceHandle, int group, long *value,
     return status;
 }
 
-static int verifyOptionValue(MocaOption_t opt, long *value)
+static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
 {
     int ret = -1;
 
@@ -256,7 +337,7 @@ static int verifyOptionValue(MocaOption_t opt, long *value)
     {
         case MOCA11_OPT_IF_ENABLE_STATUS:
         case MOCA20_OPT_IF_ENABLE_STATUS:
-            switch (*value)
+            switch (value->data.l)
             {
                 case MOCA_IF_ENABLE_STATUS_MOCA_DISABLED:
                     ret = 0;
@@ -275,12 +356,12 @@ static int verifyOptionValue(MocaOption_t opt, long *value)
 
         case MOCA11_OPT_IF_NODES_COUNT:
         case MOCA20_OPT_IF_NODES_COUNT:
-            ret = (*value >= MOCA_IF_NODES_COUNT_MIN ? 1 : 0);
+            ret = (value->data.l >= MOCA_IF_NODES_COUNT_MIN ? 1 : 0);
             break;
 
         case MOCA11_OPT_IF_RX_PACKETS_COUNT:
         case MOCA20_OPT_IF_RX_PACKETS_COUNT:
-            ret = (*value >= 1 ? 1 : 0);
+            ret = ((value->data.c64.high > 0 || value->data.c64.low > 0) ? 1 : 0);
             break;
 
         default:
@@ -343,8 +424,9 @@ static int setReturnData(int status, json_t **param)
 int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
 {
     int ret;
-    long value;
-    json_t * jsonConfig = NULL;    
+    int ifIndex = -1;
+    WA_UTILS_SNMP_Resp_t value;
+    json_t * jsonConfig = NULL;
     const char *interface = MOCA_AVAILABLE_STR;
     int group = MOCA_GROUP_11;
 
@@ -352,12 +434,12 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
     *params = NULL;
 
     WA_ENTER("moca_status\n");
-    
+
     jsonConfig = ((WA_DIAG_proceduresConfig_t*)initHandle)->config;
-    
+
     /* Use interface name from config if present */
     if (jsonConfig)
-        json_unpack(jsonConfig, "{ss}", "interface", &interface);    
+        json_unpack(jsonConfig, "{ss}", "interface", &interface);
 
     ret = moca_supported(interface);
     if(ret < 0)
@@ -378,14 +460,16 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
     }
     WA_DBG("MoCA supported.\n");
 
-    ret = getMocaIfEnableStatus(group, &value);
+    value.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    ret = getMocaIfEnableStatus(group, ifIndex, &value, WA_UTILS_SNMP_REQ_TYPE_WALK);
     if(ret < 0)
     {
         group = MOCA_GROUP_20;
-        ret = getMocaIfEnableStatus(group, &value);
+        ret = getMocaIfEnableStatus(group, ifIndex, &value, WA_UTILS_SNMP_REQ_TYPE_WALK);
     }
     if(ret < 1)
     {
+
         if(WA_OSA_TaskCheckQuit())
         {
             WA_DBG("getMocaIfEnableStatus: test cancelled\n");
@@ -408,7 +492,10 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
 
     WA_DBG("MoCA status read successfully.\n");
 
-    ret = getMocaIfNodesCount(instanceHandle, group, &value, 0);
+    getMocaIfIndex(group, &ifIndex);
+    WA_DBG("MoCA interface index: %d.\n", ifIndex);
+
+    ret = getMocaIfNodesCount(instanceHandle, group, ifIndex, &value, WA_UTILS_SNMP_REQ_TYPE_GET, 0);
     if(ret < 1)
     {
         if(WA_OSA_TaskCheckQuit())
@@ -421,8 +508,12 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
         return setReturnData((ret == 0 ? WA_DIAG_ERRCODE_MOCA_NO_CLIENTS : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR), params);
     }
 
+    WA_DBG("MoCA nodes count read successfully.\n");
+
     // If nodes count grater than 1, still need to check if any packets received
-    ret = getMocaIfRxPacketsCount(instanceHandle, group, &value, NODESCOUNT_STEPS);
+    value.type = WA_UTILS_SNMP_RESP_TYPE_COUNTER64;
+    ret = getMocaIfRxPacketsCount(instanceHandle, group, ifIndex, &value,
+        WA_UTILS_SNMP_REQ_TYPE_GET, NODESCOUNT_STEPS);
     if(ret < 1)
     {
         if(WA_OSA_TaskCheckQuit())

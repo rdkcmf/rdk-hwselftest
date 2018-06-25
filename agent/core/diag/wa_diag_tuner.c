@@ -944,22 +944,23 @@ static bool closeTuneSessions(TuneSession_t *sessions, size_t sessionCount)
              return false;
          }
 
-         long tunerState = 0;
-
-         if (!WA_UTILS_SNMP_GetLong(SNMP_SERVER, oid, &tunerState, WA_UTILS_SNMP_REQ_TYPE_GET))
+         WA_UTILS_SNMP_Resp_t tunerState;
+         tunerState.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+         tynerState.data.l = 0;
+         if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER, oid, &tunerState, WA_UTILS_SNMP_REQ_TYPE_GET))
          {
              WA_ERROR("Tuner %i failed to get status\n", (int)tunerIndex);
              return false;
          }
 
          statuses[tunerIndex].used = true;
-         statuses[tunerIndex].locked = tunerState == TUNER_LOCKED;
+         statuses[tunerIndex].locked = tunerState.data.l == TUNER_LOCKED;
          if (statuses[tunerIndex].locked)
          {
              notLockedCount--;
          }
 
-         WA_INFO("Tuner %i state %i\n", (int)tunerIndex, (int)tunerState);
+         WA_INFO("Tuner %i state %i\n", (int)tunerIndex, (int)tunerState.data.l);
      }
 
      if (pAllLocked)

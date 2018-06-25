@@ -247,16 +247,18 @@ static int setReturnData(int status, json_t **param)
 int isCardInserted()
 {
     int status = 0;
-    long ready = 0;
+    WA_UTILS_SNMP_Resp_t ready;
+    ready.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    ready.data.l = 0;
 
-    if (!WA_UTILS_SNMP_GetLong(SNMP_SERVER, OID_MCARD_AUTH_KEY_STATUS, &ready, WA_UTILS_SNMP_REQ_TYPE_WALK))
+    if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER, OID_MCARD_AUTH_KEY_STATUS, &ready, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
       WA_ERROR("isCardInserted: SNMP read failed\n");
       status = -1;
     }
     else
     {
-      status = (ready == SNMP_MCARD_AUTH_KEY_READY);
+      status = (ready.data.l == SNMP_MCARD_AUTH_KEY_READY);
       WA_INFO("isCardInserted: card present: %s\n", (status? "YES" : "NO"));
     }
 

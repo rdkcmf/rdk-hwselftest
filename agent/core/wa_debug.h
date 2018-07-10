@@ -44,12 +44,12 @@
 /* Debug definitions. */
 #if WA_DEBUG
 #include <stdio.h>
-#define WA_ENTER(fmt, ...) printf(fmt, ## __VA_ARGS__)
-#define WA_RETURN(fmt, ...) printf(fmt, ## __VA_ARGS__)
-#define WA_ERROR(fmt, ...) printf(fmt, ## __VA_ARGS__)
-#define WA_WARN(fmt, ...) printf(fmt, ## __VA_ARGS__)
-#define WA_INFO(fmt, ...) printf(fmt, ## __VA_ARGS__)
-#define WA_DBG(fmt, ...) printf(fmt, ## __VA_ARGS__)
+#define WA_ENTER(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
+#define WA_RETURN(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
+#define WA_ERROR(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
+#define WA_WARN(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
+#define WA_INFO(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
+#define WA_DBG(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
 #else
 #define WA_ENTER(...)
 #define WA_RETURN(...)

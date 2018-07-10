@@ -80,7 +80,7 @@ function Diagsys(wsEvent, callback)
             json = JSON.parse(evt.data);
         }
         catch(e) {
-            console.log("Invalid json.");
+            dbgWrite("Invalid json.");
             return;
         }
 
@@ -100,65 +100,65 @@ function Diagsys(wsEvent, callback)
         var data;
         var error;
 
-        //console.log("keys: " + keys);
+        //dbgWrite("keys: " + keys);
         if(((index = keys.indexOf("jsonrpc")) < 0) || (vals[index] !== "2.0")) {
-            console.log("jsonrpc 2.0 missing.");
+            dbgWrite("jsonrpc 2.0 missing.");
             return;
         }
 
         if((idxId = keys.indexOf("id")) < 0) {
             // Id must be present
-            console.log("Id missing.");
+            dbgWrite("Id missing.");
             return;
         }
 
         jsonId = vals[idxId];
-        //console.log("jsonId: " + jsonId + ", idxId:" + idxId);
+        //dbgWrite("jsonId: " + jsonId + ", idxId:" + idxId);
 
         if((index = keys.indexOf("result")) >= 0) {
-            //console.log("RESULT");
+            //dbgWrite("RESULT");
             if(jsonId === null) {
-                console.log("Invalid json id (null)");
+                dbgWrite("Invalid json id (null)");
                 return;
             }
 
             if(typeof that.requests[jsonId] === 'undefined') {
-                console.log("Unknown reference.");
+                dbgWrite("Unknown reference.");
                 return;
             }
 
             diagId = that.requests[jsonId].cookie;
-            //console.log("result: " + index);
-            //console.log("result for id: " + diagId);
-            //console.log("result for diag: " + that.requests[jsonId].diag);
+            //dbgWrite("result: " + index);
+            //dbgWrite("result for id: " + diagId);
+            //dbgWrite("result for diag: " + that.requests[jsonId].diag);
 
             params = vals[index];
 
             if((typeof params !== 'object') || ((index = Object.keys(params).indexOf("diag")) < 0)) {
-                //console.log("Result missing diag param.");
+                //dbgWrite("Result missing diag param.");
                 that.cb(Diagsys.cbType.status, that.requests[jsonId].cookie, Diagsys.cbStatus.error);
                 delete that.requests[jsonId];
                 return;
             }
 
             diag = Object.values(params)[index];
-            //console.log("diag: " + diag);
+            //dbgWrite("diag: " + diag);
 
             if((index = Object.keys(params).indexOf("message")) >= 0) {
                 data = Object.values(params)[index];
-                //console.log("error message: " + JSON.stringify(data));
+                //dbgWrite("error message: " + JSON.stringify(data));
                 that.cb(Diagsys.cbType.errLog, that.requests[jsonId].cookie, data);
             }
 
             if(diag === null) {
-                //console.log("Diag startup error.");
+                //dbgWrite("Diag startup error.");
                 that.cb(Diagsys.cbType.status, that.requests[jsonId].cookie, Diagsys.cbStatus.error);
                 delete that.requests[jsonId];
                 return;
             }
 
             if(typeof that.instances[diag] !== 'undefined') {
-                //console.log("Response for already existing diag.");
+                //dbgWrite("Response for already existing diag.");
                 that.cb(Diagsys.cbType.status, that.requests[jsonId].cookie, Diagsys.cbStatus.error);
                 delete that.requests[jsonId];
                 return;
@@ -169,45 +169,45 @@ function Diagsys(wsEvent, callback)
             that.cb(Diagsys.cbType.status, that.instances[diag].cookie, Diagsys.cbStatus.started);
             return;
         } else if((index = keys.indexOf("method")) >= 0) {
-            //console.log("method: " + index);
+            //dbgWrite("method: " + index);
 
             method = vals[index];
-            //console.log("method: " + method);
+            //dbgWrite("method: " + method);
 
             if(typeof (instance = that.instances[method]) !== 'undefined') {
                 // diag instance
-                //console.log("method for instance: " + instance.cookie + "[" + that.instances.diag + "]");
+                //dbgWrite("method for instance: " + instance.cookie + "[" + that.instances.diag + "]");
 
                 if(jsonId !== null) {
                     // for now ignore messages (so methods with id=null), handle only
-                    //console.log("method with id - ignoring");
+                    //dbgWrite("method with id - ignoring");
                     return;
                 }
 
                 if((index = keys.indexOf("params")) >= 0) {
                     params = vals[index];
-                    //console.log("params: " + params);
+                    //dbgWrite("params: " + params);
 
                     if(typeof params !== 'object') {
-                        console.log("method with invalid params - ignore");
+                        dbgWrite("method with invalid params - ignore");
                         return;
                     }
 
                     if((index = Object.keys(params).indexOf("progress")) >= 0) {
                         progress = Object.values(params)[index];
-                        //console.log("progress: " + progress);
+                        //dbgWrite("progress: " + progress);
                         that.cb(Diagsys.cbType.progress, instance.cookie, progress);
                     }
 
                     if((index = Object.keys(params).indexOf("log")) >= 0) {
                         log = Object.values(params)[index];
-                        //console.log("log: " + log);
+                        //dbgWrite("log: " + log);
                         that.cb(Diagsys.cbType.log, instance.cookie, log);
                     }
 
                     if((index = Object.keys(params).indexOf("error")) >= 0) {
                         errorLog = Object.values(params)[index];
-                        //console.log("errorLog: " + errorLog);
+                        //dbgWrite("errorLog: " + errorLog);
                         that.cb(Diagsys.cbType.errLog, instance.cookie, errorLog);
                     }
 
@@ -215,51 +215,51 @@ function Diagsys(wsEvent, callback)
                 }
                 return;
             } else if(method === "eod") {
-                //console.log("eod");
+                //dbgWrite("eod");
 
                 if(jsonId !== null) {
-                    console.log("eod with id - ignoring");
+                    dbgWrite("eod with id - ignoring");
                     return;
                 }
 
                 if((index = keys.indexOf("params")) < 0) {
-                    console.log("eod missing params");
+                    dbgWrite("eod missing params");
                     return;
                 }
 
                 params = vals[index];
-                //console.log("params: " + params);
+                //dbgWrite("params: " + params);
 
                 if(typeof params !== 'object') {
-                    console.log("eod with invalid params - ignore");
+                    dbgWrite("eod with invalid params - ignore");
                     return;
                 }
 
                 if((index = Object.keys(params).indexOf("status")) < 0) {
-                    console.log("eod - params missing status - ignore");
+                    dbgWrite("eod - params missing status - ignore");
                     return;
                 }
                 status = Object.values(params)[index];
-                //console.log("status: " + status);
+                //dbgWrite("status: " + status);
 
                 if((index = Object.keys(params).indexOf("diag")) < 0) {
-                    console.log("eod - params missing diag - ignore");
+                    dbgWrite("eod - params missing diag - ignore");
                     return;
                 }
 
                 diag = Object.values(params)[index];
-                //console.log("diag: " + diag);
+                //dbgWrite("diag: " + diag);
 
                 if(typeof (instance = that.instances[diag]) === 'undefined') {
-                    console.log("eod - params invalid diag instance - ignore");
+                    dbgWrite("eod - params invalid diag instance - ignore");
                     return;
                 }
 
-                //console.log("eod for instance: " + instance.cookie + "[" + instance.diag + "]");
+                //dbgWrite("eod for instance: " + instance.cookie + "[" + instance.diag + "]");
 
                 if((index = Object.keys(params).indexOf("data")) >= 0) {
                     data = Object.values(params)[index];
-                    //console.log("data: " + JSON.stringify(data));
+                    //dbgWrite("data: " + JSON.stringify(data));
 
                     if(status === 0) {
                         that.cb(Diagsys.cbType.log, instance.cookie, data);
@@ -278,27 +278,27 @@ function Diagsys(wsEvent, callback)
                 return;
             }
         } else if((index = keys.indexOf("error")) >= 0) {
-            //console.log("error response");
+            //dbgWrite("error response");
             if(jsonId !== null) {
-                //console.log("error with id: " + jsonId);
+                //dbgWrite("error with id: " + jsonId);
 
                 if(typeof that.requests[jsonId] !== 'undefined') {
                     diagId = that.requests[jsonId].cookie;
-                    //console.log("error for diag: " + index);
+                    //dbgWrite("error for diag: " + index);
                     delete that.requests[jsonId];
                     that.cb(Diagsys.cbType.status, diagId, Diagsys.cbStatus.error);
 
                     error = vals[index];
                     if((index = Object.keys(error).indexOf("code")) >= 0) {
                         status = Object.values(error)[index];
-                        //console.log("error code: " + status);
+                        //dbgWrite("error code: " + status);
 
                         if((index = Object.keys(error).indexOf("message")) < 0) {
-                            console.log("missing error message");
+                            dbgWrite("missing error message");
                             return;
                         }
                         data = Object.values(error)[index];
-                        //console.log("error message: " + JSON.stringify(data));
+                        //dbgWrite("error message: " + JSON.stringify(data));
                         that.cb(Diagsys.cbType.errLog, diagId, status, data);
                     }
                     return;
@@ -308,7 +308,7 @@ function Diagsys(wsEvent, callback)
 
             return;
         } else {
-            console.log("UNKNOWN");
+            dbgWrite("UNKNOWN");
         }
     };
 
@@ -320,14 +320,14 @@ function Diagsys(wsEvent, callback)
 }
 
 Diagsys.prototype.connect = function(addr) {
-    //console.log("CONNECT");
+    //dbgWrite("CONNECT");
     if(this.websocket !== null) {
         return;
     }
 
     this.websocket = new WebSocket(addr);
-    console.log(this.websocket);
-    this.websocket.onopen = this.wsOpenHandler; 
+    dbgWrite(this.websocket);
+    this.websocket.onopen = this.wsOpenHandler;
     this.websocket.onclose = this.wsCloseHandler;
     this.websocket.onmessage = this.wsMessageHandler;
     this.websocket.onerror = this.wsErrorHandler;
@@ -358,14 +358,14 @@ Diagsys.prototype.issue = function(cookie, diag, params) {
     if(cookie == null) {
         return Diagsys.prototype.notify(diag, params);
     }
-    
+
     for(var i=0; typeof this.requests[this.jsonId] !== 'undefined'; ++i, ++this.jsonId) {
         if(i === Number.MAX_SAFE_INTEGER) {
             return false;
         }
     }
 
-    //console.log("Issue(" + cookie + "," + diag + "," + params + ")" + "jsonId:" + this.jsonId);
+    //dbgWrite("Issue(" + cookie + "," + diag + "," + params + ")" + "jsonId:" + this.jsonId);
 
     this.requests[this.jsonId] = {'cookie':cookie, 'diag':diag, 'params':params};
 

@@ -48,7 +48,7 @@
 #define WA_DBG(f, ...) (void)0
 #endif
 
-#define HWSELFTEST_WSCLIENT_VERSION "0008"
+#define HWSELFTEST_WSCLIENT_VERSION "0009"
 
 
 namespace {
@@ -485,7 +485,7 @@ bool wa_wsclient::set_periodic_dram_threshold(unsigned int threshold)
 
 void wa_wsclient::log(const std::string& message) const
 {
-    hwst::Log().toFile(hwst::Log().format(std::string("[TR69] ") + message));
+    hwst::Log().writeToLog(hwst::Log().format(std::string("[TR69] ") + message));
 }
 
 bool wa_wsclient::execute(const std::string& diag, std::string& result)

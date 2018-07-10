@@ -28,7 +28,7 @@
 
 //#define HWST_DEBUG 1
 #ifdef HWST_DEBUG
-#define HWST_DBG(str) do {std::cout << str << std::endl;} while(false)
+#define HWST_DBG(str) do {std::cout << "HWST_DBG |" << str << std::endl;} while(false)
 #else
 #define HWST_DBG(str) do {} while(false)
 #endif

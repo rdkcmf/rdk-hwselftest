@@ -18,8 +18,8 @@
 ##########################################################################
 #
 
-echo `date +"%F %T"`" [UI] "`cat <&0` >> /opt/logs/hwselftest.log
+MSG=`cat <&0`
+echo "$MSG" | systemd-cat -t tr69hostif
 
 echo "Content-Type: text/html"
 echo ""
-

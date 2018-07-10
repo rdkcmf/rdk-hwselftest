@@ -30,24 +30,24 @@ function ScrollText(container) {
     }
 
     function tail() {
-        //console.log("tail: " + container[0].innerText);
-        timer = setTimeout(function(){console.log("tailTimer: " + container[0].innerText); start(); }, time);
-        //console.log("tail timer: " + timer);
+        //dbgWrite("tail: " + container[0].innerText);
+        timer = setTimeout(function(){ /* dbgWrite("tailTimer: " + container[0].innerText);*/ start(); }, time);
+        //dbgWrite("tail timer: " + timer);
     }
 
     function stop() {
-        //console.log("stop");
+        //dbgWrite("stop");
         if(timer !== null) {
             clearTimeout(timer);
             container.stop();
-            //console.log("stop timer: " + timer);
+            //dbgWrite("stop timer: " + timer);
             timer = null;
         }
         container.css('text-indent', '0px');
     }
 
     function set(text) {
-        //console.log("set:" + text);
+        //dbgWrite("set:" + text);
         stop();
         container.css('text-indent', '0px');
         container[0].innerHTML = text;
@@ -55,17 +55,17 @@ function ScrollText(container) {
 
     function start() {
         var shift = container.width() == 0 ? 0 :textWidth(container[0].innerText) - container.width();
-        //console.log("start: " + shift + " " + container[0].innerText);
+        //dbgWrite("start: " + shift + " " + container[0].innerText);
         container.css('text-indent', '0px');
         if(shift > 0) {
-            //console.log("timer: " + container[0].innerText);
+            //dbgWrite("timer: " + container[0].innerText);
             timer = setTimeout(function() {
-                //console.log("scrolltimer: " + shift);
+                //dbgWrite("scrolltimer: " + shift);
                 container.animate({
                     'textIndent': -shift
                 }, shift * 30, 'linear', tail);
             }, time);
-            //console.log("start timer: " + timer);
+            //dbgWrite("start timer: " + timer);
         }
     }
 

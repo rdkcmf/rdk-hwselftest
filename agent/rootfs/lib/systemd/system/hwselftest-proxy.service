@@ -23,5 +23,6 @@ BindsTo=hwselftest.service
 OnFailure=hwselftest-socket-restart.service
 
 [Service]
+SyslogIdentifier=tr69hostif
 ExecStart=/lib/systemd/systemd-socket-proxyd 127.0.0.1:8003
 

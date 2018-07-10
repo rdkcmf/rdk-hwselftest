@@ -2,5 +2,6 @@
 Description=RDK Hardware Self Test periodic run service
 
 [Service]
+SyslogIdentifier=tr69hostif
 EnvironmentFile=/tmp/.hwselftest_settings
 ExecStart=/bin/sh -c '/usr/bin/hwst_periodic_trigger.sh ${HWST_DRAM_THRESHOLD} ${HWST_CPU_THRESHOLD}'

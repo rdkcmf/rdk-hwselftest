@@ -22,6 +22,7 @@ Wants=moca.service rmfstreamer.service snmpd.service syssnmpagent.service
 After=snmpd.service syssnmpagent.service moca.service rmfstreamer.service network.target
 
 [Service]
+SyslogIdentifier=tr69hostif
 Environment="DtcpSrmFilePath=/tmp/hwselftest-dtcp.srm"
 Environment="HW_TEST_SVC=1"
 Type=forking

@@ -270,13 +270,13 @@ static json_t *loadConfigFile(const char * filename)
     json_error_t error;
     json_t *result;
 
-    printf("Loading config file from: %s\n", filename);
+    printf("HWST_DBG |Loading config file from: %s\n", filename);
 
     result = json_load_file(filename, 0, &error);
     if (!result)
     {
         WA_ERROR("Unable to parse configuration file \"%s\", position %i: %s\n", filename, error.position, error.text);
-        fprintf(stderr, "Failed to open config file \"%s\"\n", filename);
+        fprintf(stderr, "HWST_DBG |Failed to open config file \"%s\"\n", filename);
         result = json_object();
     }
 
@@ -313,14 +313,14 @@ static char *findConfigFile()
             buf[dirNameSize + 1 + baseNameSize] = 0;
         }
 
-        printf("Looking for %s... ", buf);
+        printf("HWST_DBG |Looking for %s... ", buf);
         if (access(buf, F_OK) == 0)
         {
             printf("found.\n");
             return buf;
         }
 
-        printf("not found.");
+        printf("not found.\n");
     }
 
     return NULL;

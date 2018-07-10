@@ -152,14 +152,14 @@ function setPrevResultsAvailable(value) {
 function capabilitiesMissing() {
     ds.setCallback(null);
     setCapabilitiesTimer(0);
-    console.log("capabilitiesMissing: timeout occured before the results arrived");
+    dbgWrite("capabilitiesMissing: timeout occured before the results arrived");
 }
 
 function prevResultsMissing() {
     ds.setCallback(null);
     setPrevResultsCheckTimer(0);
     setPrevResultsAvailable(false);
-    console.log("prevResultsMissing: timeout occured before the results arrived");
+    dbgWrite("prevResultsMissing: timeout occured before the results arrived");
     setInactivityTimer(screen1Timeout);
     enableStartbuttons();
 }
@@ -170,17 +170,17 @@ function prevResultsPresent() {
 
 function findIndexByDiagName(name,data) {
     if(typeof data !== 'object') {
-        console.log("findIndexByDiagName: data is not an object!");
+        dbgWrite("findIndexByDiagName: data is not an object!");
         return -1;
     }
 
     var index = -1;
 
     if((index = Object.keys(data).indexOf(name)) < 0) {
-        console.log("findIndexByDiagName: index of" + name + " not found!");
+        dbgWrite("findIndexByDiagName: index of" + name + " not found!");
         return -1;
     } else {
-        //console.log("findIndexByDiagName: index of" + name + " is: " + index);
+        //dbgWrite("findIndexByDiagName: index of" + name + " is: " + index);
         return index;
     }
 }
@@ -201,7 +201,7 @@ function readCapabilities(caps, allDiags) {
         if(newEntry == true) {
             for(var d in allDiags) {
                 if (allDiags[d].hasOwnProperty(capsDiags[cd])) {
-                console.log("readCapabilities: " + d + " available: " + capsDiags[cd]);
+                dbgWrite("readCapabilities: " + d + " available: " + capsDiags[cd]);
                 availDiags[d] = allDiags[d];
                 found = true;
                 break;
@@ -212,7 +212,7 @@ function readCapabilities(caps, allDiags) {
 
     // consider no diags found as error; then return all diags
     if (!found) {
-        console.log("error on capabilities reading, returning all diags");
+        dbgWrite("error on capabilities reading, returning all diags");
         availDiags = allDiags;
     }
 
@@ -251,12 +251,12 @@ function capabilitiesOrder(diags) {
 }
 
 function readPreviousResults(data) {
-    //console.log("readPreviousResults: raw data: " + JSON.stringify(data));
-    //console.log("readPreviousResults: keys and values: " + "(" + Object.keys(data).length + " found" + ")");
+    //dbgWrite("readPreviousResults: raw data: " + JSON.stringify(data));
+    //dbgWrite("readPreviousResults: keys and values: " + "(" + Object.keys(data).length + " found" + ")");
 
-    //console.log("readPrevResults: enter");
+    //dbgWrite("readPrevResults: enter");
     if(typeof data !== 'object') {
-        console.log("readPrevResults: exit, not an object data");
+        dbgWrite("readPrevResults: exit, not an object data");
         setPrevResultsAvailable(false);
         return;
     }
@@ -266,38 +266,38 @@ function readPreviousResults(data) {
 
     index = findIndexByDiagName("results_valid", data);
     if(index < 0) {
-        //console.log("readPreviousResults: exit, results_valid index not found");
+        //dbgWrite("readPreviousResults: exit, results_valid index not found");
         setPrevResultsAvailable(false);
         return;
     }
-    //console.log("readPreviousResults: results_valid index: " + index);
+    //dbgWrite("readPreviousResults: results_valid index: " + index);
 
     value = Object.values(data)[index];
     if(value !== 0) {
-        //console.log("readPreviousResults: exit, results_valid " + value + " (no previous results)");
+        //dbgWrite("readPreviousResults: exit, results_valid " + value + " (no previous results)");
         setPrevResultsAvailable(false);
         return;
     }
-    //console.log("readPreviousResults: results_valid: " + value);
+    //dbgWrite("readPreviousResults: results_valid: " + value);
 
     index = findIndexByDiagName("start_time",data);
     if(index < 0) {
-        //console.log("readPreviousResults: exit, start_time index not found");
+        //dbgWrite("readPreviousResults: exit, start_time index not found");
         setPrevResultsAvailable(false);
         return;
     }
     var startTimeVal = Object.values(data)[index];
-    //console.log("readPreviousResults: start_time index = " + index + ", value = " + startTimeVal);
+    //dbgWrite("readPreviousResults: start_time index = " + index + ", value = " + startTimeVal);
 
     index = findIndexByDiagName("end_time",data);
     if(index < 0) {
-        //console.log("readPreviousResults: end_time index not found");
+        //dbgWrite("readPreviousResults: end_time index not found");
         setPrevResultsAvailable(false);
         return;
     }
     var endTimeVal = Object.values(data)[index];
     document.getElementById('timestamp').innerHTML = endTimeVal + " UTC";
-    //console.log("readPreviousResults: end_time index = " + index + ", value = " + endTimeVal);
+    //dbgWrite("readPreviousResults: end_time index = " + index + ", value = " + endTimeVal);
 
     buildOperationGroup(diagGroups);
     tableCreateGroupProgress();
@@ -306,26 +306,26 @@ function readPreviousResults(data) {
     for (var e in data.results) {
         elem = elemByElemName(e);
         if(elem === null) {
-            console.log("readPrevResults: unknown diag: " + e);
+            dbgWrite("readPrevResults: unknown diag: " + e);
             continue;
         }
         setPrevResult(elem, data.results[e].result);
     }
     if(!checkAllFinished()) {
-        //console.log("readPrevResults: missing diags.");
+        //dbgWrite("readPrevResults: missing diags.");
         setPrevResultsAvailable(false);
         return;
     }
 
     setPrevResultsAvailable(true);
 
-    //console.log("readPrevResults: exit");
+    //dbgWrite("readPrevResults: exit");
 }
 
 /************ Init page *************/
 
 function wsEvent(type, evt) {
-    //console.log("wsEvent(" + type + "," + evt + ")");
+    //dbgWrite("wsEvent(" + type + "," + evt + ")");
 
     switch(type) {
     case Diagsys.evType.message:
@@ -341,7 +341,7 @@ function wsEvent(type, evt) {
 }
 
 function dsCallbackInit(type, cookie, params) {
-    //console.log("dsCallbackInit(" + type + "," + cookie + "," + params + ")");
+    //dbgWrite("dsCallbackInit(" + type + "," + cookie + "," + params + ")");
 
     if(type === Diagsys.cbType.log) {
         tableCreateInit(params);
@@ -356,7 +356,7 @@ function dsCallbackInit(type, cookie, params) {
 }
 
 function dsCallbackCapabilities(type, cookie, params) {
-    //console.log("dsCallbackCapabilities(" + type + "," + cookie + "," + params + ")");
+    //dbgWrite("dsCallbackCapabilities(" + type + "," + cookie + "," + params + ")");
 
     if(type === Diagsys.cbType.log) {
         diagGroups = readCapabilities(params, diagGroupsAll);
@@ -372,7 +372,7 @@ function dsCallbackCapabilities(type, cookie, params) {
 }
 
 function dsCallbackPrevResults(type, cookie, params) {
-    //console.log("dsCallbackPrevResults(" + type + "," + cookie + "," + params + ")");
+    //dbgWrite("dsCallbackPrevResults(" + type + "," + cookie + "," + params + ")");
 
     if(type === Diagsys.cbType.log) {
         readPreviousResults(params);
@@ -609,7 +609,7 @@ function buildOperationGroup(source) {
         groupStatus[g].name = g;
         var groupEntries = Object.keys(source[g]);
         if(groupEntries.length === 0) {
-            console.log("readPreviousResults: groupEntries empty");
+            dbgWrite("readPreviousResults: groupEntries empty");
             groupStatus[g].progress = 100;
             groupStatus[g].result = results.warning;
             continue;
@@ -707,7 +707,7 @@ function tableCreateGroupInfos() {
     }
     tbl.appendChild(tbdy);
     store.appendChild(tbl);
-    console.log("table create");
+    dbgWrite("table create");
 }
 
 function getInfo(elemName, status, data) {
@@ -862,7 +862,7 @@ function setPrevResult(elem, status, data) {
 }
 
 function setResult(id, status, data) {
-    //console.log("setResult("+id+","+status+","+data+")");
+    //dbgWrite("setResult("+id+","+status+","+data+")");
     var elem = elemByElemId(id);
     if(elem === null) {
         return;
@@ -925,7 +925,7 @@ function setFinal(showPrevious) {
         } else {
             var timestamp = timeStamp();
             document.getElementById('timestamp').innerHTML = timestamp + " UTC";
-            ds.notify("LOG", { rawmessage: timestamp + " Test execution completed:" + textResult});
+            ds.notify("LOG", { rawmessage: "HWST_LOG |" + timestamp + " Test execution completed:" + textResult});
             ds.notify("TESTRUN", { state: "finish" } );
         }
 
@@ -1019,7 +1019,7 @@ function setProgress(id, progress) {
 }
 
 function dsCallbackRun(type, cookie, params, data) {
-    //console.log("dsCallbackRun(" + type + "," + cookie + "," + params + ")");
+    //dbgWrite("dsCallbackRun(" + type + "," + cookie + "," + params + ")");
 
     switch(type) {
     case Diagsys.cbType.log:
@@ -1138,7 +1138,7 @@ function enableInprogress() {
     ds.setCallback(null);
     buildOperationGroup(diagGroups);
     tableCreateGroupProgress();
-    console.log("enableInprogress");
+    dbgWrite("enableInprogress");
     tableCreateGroupInfos();
 
     ds.setCallback(dsCallbackRun);
@@ -1159,7 +1159,7 @@ function enableShowprevious() {
     ds.setCallback(null);
     // In this case OperationGroup, Progress and Infos
     // are built in readPreviousResults() before we parse previous results
-    console.log("enableShowprevious");
+    dbgWrite("enableShowprevious");
 
     document.getElementById('section_inprogress').style.display = 'block';
     setFinal(true);
@@ -1169,8 +1169,9 @@ function enableShowprevious() {
 }
 
 function uiExit() {
+
     if(typeof(ServiceManager) == "undefined") {
-        console.log("ServiceManager not loaded....");
+        dbgWrite("ServiceManager not loaded....");
         return;
     }
 
@@ -1181,7 +1182,7 @@ function uiExit() {
         if (systemService != null) {
             setTimeout( function() { systemService.requestExitWebPage(); }, 0);
         } else {
-            console.log("systemService == null");
+            dbgWrite("systemService == null");
         }
     }
 }
@@ -1214,11 +1215,34 @@ function dsReRun() {
 }
 
 function logWrite(msg) {
+    var timestamp = timeStamp();
+    var logMsg=("HWST_LOG |" + timestamp + " [UI] " + msg);
+
+    // equivalent of console.log("HWST_LOG |" + timestamp + " [UI] " + msg);
+    // but logging under different systemd unit name
     $.ajax({
         async: false,
         url: "cgi-bin/log.sh",
+        timeout: 2000,
         cache: false,
-        data: msg,
+        data: logMsg,
+        dataType: "text",
+        type: "POST"
+    });
+}
+
+function dbgWrite(msg) {
+    var timestamp = timeStamp();
+    var dbgMsg=("HWST_DBG |" + timestamp + " [UI] " + msg);
+
+    // equivalent of console.log("HWST_DBG |" + timestamp + " [UI] " + msg);
+    // but logging under different systemd unit name
+    $.ajax({
+        async: false,
+        url: "cgi-bin/log.sh",
+        timeout: 2000,
+        cache: false,
+        data: dbgMsg,
         dataType: "text",
         type: "POST"
     });

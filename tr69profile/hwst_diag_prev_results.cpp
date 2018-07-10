@@ -33,7 +33,7 @@
 //#define HWST_DEBUG 1
 #ifdef HWST_DEBUG
 #include <unistd.h>
-#define HWST_DBG(str, ...) do { printf(str, ##__VA_ARGS__); } while(0)
+#define HWST_DBG(str, ...) do { printf("HWST_DBG |" str, ##__VA_ARGS__); } while(0)
 #else
 #define HWST_DBG(str, ...) ((void)0)
 #endif

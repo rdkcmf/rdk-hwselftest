@@ -34,7 +34,7 @@
 
 //#define HWST_DEBUG 1
 #ifdef HWST_DEBUG
-#define HWST_DBG(str) do {std::cout << str << std::endl;} while(false)
+#define HWST_DBG(str) do {std::cout << "HWST_DBG |" << str << std::endl;} while(false)
 #else
 #define HWST_DBG(str) do {} while(false)
 #endif
@@ -349,7 +349,7 @@ int Sched::issue(const std::vector<std::string>& jobs, const std::string& client
 
 end:
     if(status == -1)
-        Log().toFile(Log().format("[TR69] No connection to agent.\n"));
+        Log().writeToLog(Log().format("[TR69] No connection to agent.\n"));
 
     return status;
 }

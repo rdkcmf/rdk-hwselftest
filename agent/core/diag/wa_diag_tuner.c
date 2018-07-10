@@ -445,6 +445,8 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
 
      for (i = 0; i < count; i += 16)
      {
+         printf("HWST_DBG |");
+
          for (j = 0; j < 16; ++j)
          {
              if (i + j < count)
@@ -516,7 +518,7 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
          }
          pfds[i].fd = sessions[i].socket - 1;
          pfds[i].events = POLLIN;
-         //printf("Socket[%d]: %d\n", i, pfds[i].fd);
+         //printf("HWST_DBG |Socket[%d]: %d\n", i, pfds[i].fd);
      }
      if(k == sessionCount)
      {
@@ -800,7 +802,7 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
 
      unsigned int value = (sessionsDone * max_progress / sessionCount + passesDone * max_progress) / passesCount;
 
-     //printf("Sending progress %i (%i, %i, %i, %i)\n", value, sessionsDone, sessionCount, passesDone, passesCount);
+     //printf("HWST_DBG |Sending progress %i (%i, %i, %i, %i)\n", value, sessionsDone, sessionCount, passesDone, passesCount);
 
      WA_DIAG_SendProgress(instanceHandle, value);
  }

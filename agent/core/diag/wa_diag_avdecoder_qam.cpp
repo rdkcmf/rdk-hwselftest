@@ -78,7 +78,7 @@ extern int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void);
  * LOCAL DEFINITIONS
  *****************************************************************************/
 #define USE_WORKAROUND_RETRY_TUNING 1
-#define TRACE(x) if (1) {int rc_657821894756 = x; printf("RC: %i " #x "\n", rc_657821894756); } else (void)0
+#define TRACE(x) if (1) {int rc_657821894756 = x; printf("HWST_DBG |RC: %i " #x "\n", rc_657821894756); } else (void)0
 
 #ifndef USE_WORKAROUND_RETRY_TUNING
 #define NUM_SI_ENTRIES 5

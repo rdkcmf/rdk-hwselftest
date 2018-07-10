@@ -30,7 +30,7 @@ public:
     Log();
     ~Log();
     std::string format(std::string text);
-    void toFile(std::string text);
+    void writeToLog(std::string text);
 };
 
 } // namespace hwst

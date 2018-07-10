@@ -34,31 +34,33 @@
 FREE_DRAM_MBYTES=0
 FREE_DRAM_MBYTES_MIN=50
 
+. /usr/bin/hwst_log.sh
+
 if [ "$#" -eq 1 ]; then
     FREE_DRAM_MBYTES_MIN=$1
-    #echo "Required RAM: $FREE_DRAM_MBYTES_MIN MB"
+    # d_log "Required RAM: $FREE_DRAM_MBYTES_MIN MB"
 fi
 
 AVAILABLE=`free -m|grep available|wc -l`
 PLUS_MINUS=`free -m|grep "+ buffer"|wc -l`
 
 if [ x$AVAILABLE == x1 ]; then
-    # echo "Found newest version of free, get 'available' memory"
+    # d_log "Found newest version of free, get 'available' memory"
     FREE_DRAM_MBYTES=`free -m|grep "Mem:"|tr -s " "|cut -d" " -f7`
 elif [ x$PLUS_MINUS == x1 ]; then
-    # echo "Found older version of free, using free count from '-/+ buffers/cache' row"
+    # d_log "Found older version of free, using free count from '-/+ buffers/cache' row"
     FREE_DRAM_MBYTES=`free -m|grep "+ buffer"|tr -s " "|cut -d" " -f4`
 else
-    # echo "Found terribly old free version"
+    # d_log "Found terribly old free version"
     FREE_DRAM_MBYTES=`free -m|grep "Mem:"|awk '{avail_mem=($2-$3+$6+$7) END {print avail_mem}'`
 fi
 
-# echo "Free DRAM: $FREE_DRAM_MBYTES MB"
-echo "`/bin/date -u "+%Y-%m-%d %H:%M:%S"` [PTR] Free DRAM: $FREE_DRAM_MBYTES MB (min required: $FREE_DRAM_MBYTES_MIN MB)." >> /opt/logs/hwselftest.log
+# d_log "Free DRAM: $FREE_DRAM_MBYTES MB"
+n_log "[PTR] Free DRAM: $FREE_DRAM_MBYTES MB (min required: $FREE_DRAM_MBYTES_MIN MB)."
 
 RESULT=$(( $FREE_DRAM_MBYTES < $FREE_DRAM_MBYTES_MIN ))
 if [ "$RESULT" -eq 1 ]; then
-    echo "`/bin/date -u "+%Y-%m-%d %H:%M:%S"` [PTR] Not enough DRAM." >> /opt/logs/hwselftest.log
+    n_log "`/bin/date -u "+%Y-%m-%d %H:%M:%S"` [PTR] Not enough DRAM."
 fi
 
 exit $RESULT

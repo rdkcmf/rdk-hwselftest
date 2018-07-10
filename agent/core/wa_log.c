@@ -55,10 +55,10 @@
 /*****************************************************************************
  * LOCAL FUNCTION PROTOTYPES
  *****************************************************************************/
-static void saveLogToFile(const char * msg);
-static void saveRawLogToFile(const char * msg);
-static void writeLineToFile(const char * line);
-static void prepareLogHeader(char * buffer, size_t bufferSize);
+static void saveLog(const char * msg);
+static void saveRawLog(const char * msg);
+static void writeLineToLog(const char * line);
+static void prepareLogHeader(char * buffer, const char * mark, size_t bufferSize);
 
 /*****************************************************************************
  * FUNCTION DEFINITIONS
@@ -89,11 +89,11 @@ void WA_LOG_Client(bool raw, const char * format, ...)
     {
         if(raw)
         {
-            saveRawLogToFile(logmsg);
+            saveRawLog(logmsg);
         }
         else
         {
-            saveLogToFile(logmsg);
+            saveLog(logmsg);
         }
     }
     va_end(ap);
@@ -164,50 +164,55 @@ int WA_LOG_GetTimestampTime(const char *buffer, time_t *time)
  * LOCAL FUNCTIONS
  *****************************************************************************/
 
-static void saveLogToFile(const char * msg)
+static void saveLog(const char * msg)
 {
     char * buffer = NULL;
     static const int HEADER_MAX_LENGTH = 128;
     size_t msgLen = strlen(msg);
 
-    buffer = (char*) malloc (msgLen + HEADER_MAX_LENGTH + 1 + 1);
+    char mark[] = "HWST_LOG |";
+    size_t markLen = strlen(mark);
+
+    buffer = (char*) malloc (markLen + msgLen + HEADER_MAX_LENGTH + 1 + 1);
     if (!buffer)
     {
         return;
     }
 
-    prepareLogHeader(buffer, HEADER_MAX_LENGTH);
+    prepareLogHeader(buffer, mark, HEADER_MAX_LENGTH);
     size_t hdrLen = strlen(buffer);
     memcpy(buffer + hdrLen, msg, msgLen);
     buffer[hdrLen + msgLen] = '\n';
     buffer[hdrLen + msgLen + 1] = 0;
 
-    writeLineToFile(buffer);
+    writeLineToLog(buffer);
 
     free(buffer);
 }
 
-static void saveRawLogToFile(const char * msg)
+static void saveRawLog(const char * msg)
 {
     char * buffer = NULL;
     size_t msgLen = strlen(msg);
 
-    buffer = (char*) malloc (msgLen + 1 + 1);
+    buffer = (char*) malloc(msgLen + 1 + 1);
     if (!buffer)
     {
         return;
     }
+
     memcpy(buffer, msg, msgLen);
     buffer[msgLen] = '\n';
     buffer[msgLen + 1] = 0;
 
-    writeLineToFile(buffer);
+    writeLineToLog(buffer);
 
     free(buffer);
 }
 
-static void writeLineToFile(const char * line)
+static void writeLineToLog(const char * line)
 {
+#ifdef HWST_LOG_TO_FILE
     int file = open(LOG_FILE_PATH, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (file == -1)
     {
@@ -216,18 +221,25 @@ static void writeLineToFile(const char * line)
     }
     write(file, line, strlen(line));
     close(file);
+#else
+    printf("%s\n", line);
+#endif
 }
 
-static void prepareLogHeader(char * buffer, size_t bufferSize)
+static void prepareLogHeader(char * buffer, const char * mark, size_t bufferSize)
 {
     time_t curTime;
     struct tm bdTime;
     size_t curSize = 0;
 
+    size_t markLen = strlen(mark);
+
+    memcpy(buffer, mark, markLen);
+
     curTime = time(0);
     gmtime_r(&curTime, &bdTime);
-    curSize = strftime(buffer, bufferSize, "%F %T ", &bdTime);
-    buffer[curSize] = 0;
+    curSize = strftime(buffer + markLen, bufferSize - markLen, "%F %T ", &bdTime);
+    buffer[curSize + markLen] = 0;
 }
 
 /* End of doxygen group */

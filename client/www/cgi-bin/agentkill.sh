@@ -18,8 +18,10 @@
 ##########################################################################
 #
 
-echo `date +"%F %T"`" [UI] Restarting agent." >> /opt/logs/hwselftest.log
-/bin/systemctl restart hwselftest
+MSG="HWST_LOG |"`date +"%F %T"`" [UI] Restarting agent."
+echo "$MSG" | systemd-cat -t tr69hostif
+
+/bin/systemctl stop hwselftest
 
 echo "Content-Type: text/html"
 echo ""

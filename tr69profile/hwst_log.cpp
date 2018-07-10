@@ -22,18 +22,20 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
-
+#include <iostream>
 #include "hwst_log.hpp"
 
 //#define HWST_DEBUG 1
 #ifdef HWST_DEBUG
-#include <iostream>
-#define HWST_DBG(str) do {std::cout << str << std::endl;} while(false)
+#define HWST_DBG(str) do {std::cout << "HWST_DBG |" << str << std::endl;} while(false)
 #else
 #define HWST_DBG(str) do {} while(false)
 #endif
 
+/* Log to stdout (systemd journal) by default */
+#ifdef HWST_LOG_TO_FILE
 #define HWST_LOG_FILE "/opt/logs/hwselftest.log"
+#endif
 
 namespace hwst {
 
@@ -54,7 +56,7 @@ std::string Log::format(std::string text)
     struct tm now = *std::gmtime(&t);
     std::ostringstream os;
 
-    os << (now.tm_year + 1900) << "-" <<
+    os << "HWST_LOG |" <<(now.tm_year + 1900) << "-" <<
         std::setfill('0') << std::setw(2) << (now.tm_mon + 1) << "-" <<
         std::setfill('0') << std::setw(2) << (now.tm_mday) << " " <<
         std::setfill('0') << std::setw(2) << (now.tm_hour) << ":" <<
@@ -64,10 +66,14 @@ std::string Log::format(std::string text)
     return os.str();;
 }
 
-void Log::toFile(std::string text)
+void Log::writeToLog(std::string text)
 {
+#ifdef HWST_LOG_TO_FILE
     std::ofstream file(HWST_LOG_FILE, std::ofstream::out | std::ofstream::app);
     file << text;
+#else
+    std::cout << text << std::endl;
+#endif
 }
 
 } // namespace hwst

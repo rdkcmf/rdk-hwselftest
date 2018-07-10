@@ -22,5 +22,6 @@ Conflicts=hwselftest-proxy.socket
 OnFailure=hwselftest-proxy.socket
 
 [Service]
+SyslogIdentifier=tr69hostif
 ExecStart=/bin/false
 

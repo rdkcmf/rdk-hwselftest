@@ -57,11 +57,11 @@ int main(void)
             listIterator = WA_UTILS_LIST_NextIterator(&list, listIterator))
     {
         p = WA_UTILS_LIST_DataAtIterator(&list, listIterator);
-        printf("elem: %d\n", *p);
+        printf("HWST_DBG |elem: %d\n", *p);
     }
-    printf("Num: %d\n", WA_UTILS_LIST_ElemCount(&list));
+    printf("HWST_DBG |Num: %d\n", WA_UTILS_LIST_ElemCount(&list));
     LIST_AllocPurge(&list);
-    printf("Num: %d\n", WA_UTILS_LIST_ElemCount(&list));
+    printf("HWST_DBG |Num: %d\n", WA_UTILS_LIST_ElemCount(&list));
     end:
     LIST_AllocPurge(&list);
     return 0;

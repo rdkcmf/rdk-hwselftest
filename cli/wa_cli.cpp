@@ -49,7 +49,7 @@ using namespace hwselftest;
  * LOCAL DEFINITIONS
  *****************************************************************************/
 #define HWSELFTESTCLI_NAME "hwselftestcli"
-#define HWSELFTESTCLI_VERSION "0005"
+#define HWSELFTESTCLI_VERSION "0006"
 
 #define cliprintf(str, ...) printf(HWSELFTESTCLI_NAME ": " str, ##__VA_ARGS__)
 #define cliprintferr(str, ...) fprintf(stderr, HWSELFTESTCLI_NAME ": " str, ##__VA_ARGS__)

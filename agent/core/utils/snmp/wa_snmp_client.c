@@ -36,11 +36,6 @@
 #define WA_UTILS_SNMP_APP_NAME "wa_snmp_app"
 #endif
 
-#ifndef WA_UTILS_SNMP_COMMUNITY
-/** Community string to be passed to the SNMP server */
-#define WA_UTILS_SNMP_COMMUNITY "public"
-#endif
-
 #define WA_SNMP_RETRY_COUNT     (5)
 #define WA_SNMP_RETRY_DELAY     (100) /* ms */
 
@@ -96,6 +91,10 @@ static void waSnmpSingleResultDestroy(WaSnmpSingleResult result);
 static void waSnmpSessionDataCleanup(WaSnmpSessionData sd);
 
 static void *snmpMutex = NULL;
+int MAX_CONTENT_LEN = 2048;
+static const char *SNMPD_CONF_FILE = "/tmp/snmpd.conf";
+static const char *SNMP_DELIMITER = " ";
+static char communityString[128] = "public";
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
@@ -104,12 +103,40 @@ static void *snmpMutex = NULL;
  * FUNCTION DEFINITIONS
  *****************************************************************************/
 
+void updateCommunityString(void) {
+    FILE *snmpConfPtr = NULL;
+    char *linePtr = NULL;
+    char *tempCommString = NULL;
+    int retVal = -1;
+    snmpConfPtr = fopen( SNMPD_CONF_FILE, "r");
+    if (NULL != snmpConfPtr) {
+       retVal = getline( &linePtr, (size_t*) &MAX_CONTENT_LEN, snmpConfPtr);
+       fclose(snmpConfPtr);
+    }
+    if ( -1 != retVal ) {
+        if (linePtr){
+            strtok(linePtr, SNMP_DELIMITER);
+            strtok(NULL, SNMP_DELIMITER);
+            strtok(NULL, SNMP_DELIMITER);
+            tempCommString = strtok(NULL, SNMP_DELIMITER);
+        }
+    }
+    if (tempCommString) {
+        strncpy(communityString, tempCommString, strlen(tempCommString));
+    }
+    if(linePtr) {
+        free(linePtr);
+    }
+    return;
+}
+
 int WA_UTILS_SNMP_Init()
 {
     snmpMutex = WA_OSA_MutexCreate();
     if (!snmpMutex)
         WA_ERROR("WA_UTILS_SNMP_Init(): failed to allocate mutex\n");
 
+    updateCommunityString();
     init_snmp(WA_UTILS_SNMP_APP_NAME);
 
     return snmpMutex ? 0 : -1;
@@ -217,7 +244,6 @@ bool WA_UTILS_SNMP_GetNumber(const char *server, const char *reqoid, WA_UTILS_SN
     return ret_val;
 }
 
-
 bool WA_UTILS_SNMP_FindIfIndex(const char *server, const char *reqoid, int *ifIndex)
 {
     int idx;
@@ -263,6 +289,7 @@ bool WA_UTILS_SNMP_FindIfIndex(const char *server, const char *reqoid, int *ifIn
 
     return ret_val;
 }
+
 
 /*****************************************************************************
  * LOCAL FUNCTIONS
@@ -317,7 +344,7 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
     snmp_sess_init(&session);
     session.peername = (char *)server;
     session.version = SNMP_VERSION_2c;
-    session.community = (u_char*)WA_UTILS_SNMP_COMMUNITY;
+    session.community = (u_char*)communityString;
     session.community_len = strlen((char*)session.community);
 
     for (;;)

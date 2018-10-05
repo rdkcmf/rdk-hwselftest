@@ -1,0 +1,255 @@
+/*
+ * If not stated otherwise in this file or this component's Licenses.txt file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2017 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+* {
+    font-weight: 200; /* 200 = Light */
+    color: #FFFFFF;
+    outline: 0;
+}
+
+html, body {
+    background-color: black;
+    font-family: 'XFINITY Sans';
+    font-size: 28px;
+    margin: 0px 20px 0px 20px;
+    padding: 0;
+    height: 100%;
+}
+
+h1 {
+    font-family: 'XFINITY Sans';
+    font-weight: 100; /* 100 = Extra Light */
+    font-size: 42px;
+    color: #2B9CD8; /* blue-sky */
+    margin: 0;
+}
+
+hr {
+    border: 0;
+    height: 2px;
+    margin: 0 0 5px 0;
+    background: #303030; /* grey-81 */
+}
+
+table {
+    font-size: inherit;
+}
+
+#toolbar {
+    position: relative;
+    height: 162px;
+    padding-top: 15px;
+}
+
+#content {
+    overflow: hidden;
+    position: relative;
+}
+
+.button {
+    background-color: blue;
+    /*border: 1px solid blue;*/
+    border: 0;
+    color: #FFFFFF; /* white */
+    padding: 0 5px 2px 5px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    margin: 0;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+table.frames {
+    font-size: inherit;
+    /*border-collapse: separate;
+    border-spacing: 20px 0;*/
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+    height: auto;
+    margin: 0 auto;
+    border: 0;
+    table-layout: fixed;
+}
+
+table.frames tr {
+    height: inherit;
+    border: 0;
+}
+
+table.frames td {
+    border: 0;
+    padding: 0;
+}
+
+table.progress {
+    font-size: inherit;
+    /*border-collapse: separate;
+    border-spacing: 20px 0;*/
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    border: 0;
+}
+
+table.progress td {
+    height: inherit;
+    border: 0;
+    padding: 0;
+    /*font-size: 16pt;*/
+}
+
+table.infos {
+    font-size: inherit;
+    /*border-collapse: separate;
+    border-spacing: 20px 0;*/
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    border: 0;
+    table-layout: fixed;
+}
+
+table.infos td {
+    height: inherit;
+    border: 0;
+    padding: 0;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-indent: 0px;
+    empty-cells: show;
+    /*font-size: 16pt;*/
+}
+
+table.panels {
+    font-size: inherit;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+    margin: 0;
+    border: 0;
+}
+
+table.panels td {
+    height: inherit;
+    border: 0;
+    padding: 0;
+    align: center;
+}
+
+table.overallresult {
+    font-size: inherit;
+    /*border-collapse: separate;
+    border-spacing: 20px 0;*/
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+    height: auto;
+    margin: 0 auto;
+    border: 0;
+    table-layout: fixed;
+}
+
+table.overallresult-fail td {
+    color: #C90318; /* red-cherry */
+}
+
+table.overallresult-pass td {
+    color: #19A926; /* green-grass */
+}
+
+table.overallresult tr {
+    height: inherit;
+    border: 0;
+}
+
+table.overallresult td {
+    border: 0;
+    padding: 0;
+
+    font-family: 'XFINITY Sans';
+    font-weight: 100; /* 100 = Extra Light */
+    font-size: 42px;
+}
+
+.normal {
+    background-color: #FFFFFF; /* white */
+    color: blue; 
+}
+
+.reverse {
+    background-color: blue;
+    color: #FFFFFF; /* white */
+    display: inline-block;
+}
+
+.label {
+    line-height: 18px;
+}
+
+div.progressbar {
+ width: 100%;
+ height: 16px;
+ border: 1px solid blue;
+ background-color: #FFFFFF; /* white */
+}
+
+div.progressbar div {
+ height: 100%;
+ border: none;
+ background-color: blue;
+}
+
+img.groupstatus {
+    width: 18px;
+    height: 18px;
+}
+
+img.status {
+    width: 40px;
+    height: 40px;
+}
+
+table.resultbuttons {
+    font-size: inherit;
+    border: 3px solid transparent;
+    border-spacing: 0px;
+    border-radius: 10px;
+    width: 100%;
+}
+
+table.resultbuttons td {
+    border: 0px solid transparent;
+    padding: 2px;
+    align: center;
+}
+
+table.resultbuttons-nofocus {
+}
+
+table.resultbuttons-infocus {
+    border-color: #FFFFFF; /* white */
+}

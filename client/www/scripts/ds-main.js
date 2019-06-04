@@ -16,9 +16,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-var CLIENT_VERSION = "000f";
+var CLIENT_VERSION = "0010";
 var client_name = "client ver. " + CLIENT_VERSION;
-var screen1SysinfoTimeout = 10; //seconds, 0: disabled
+var screen1SysinfoTimeout = 20; //seconds, 0: disabled
 var screen1Timeout = 300; //seconds, 0: disabled
 var screen2InprogressTimeout = 180; //seconds, 0: disabled
 var screen2Timeout = 600; //seconds, 0: disabled
@@ -43,6 +43,26 @@ var inprogressTimer = null;
 var cancelling = false;
 var previousResultsAvailable = false;
 
+var result_store = [];
+var json_store = {};
+
+var telemetry_swap = {};
+var telemetry_order = {
+    'Hard Drive': 'NA',
+    'Cable Card': 'NA',
+    'RF Remote Interface': 'RF_Not_Paired',
+    'HDMI Output': 'NA',
+    'MoCA': 'NA',
+    'Cable Modem': 'NA',
+    'Flash Memory': 'NA',
+    'Dynamic RAM': 'NA',
+    'Audio/Video Decoder': 'NA',
+    'Video Tuner': 'NA',
+    'IR Remote Interface': 'IR_NA_as_RF_Paired',
+    'SD Card': 'Not_Enabled',
+    'Bluetooth': 'Not_Enabled'
+};
+
 /*
     GroupName1: {
     DiagName1: [ParamsSet1], [ParamsSet2], ...],
@@ -60,7 +80,7 @@ var diagGroupsAll = {
     'RF Remote Interface': {'rf4ce_status': []},
     'MoCA': {'moca_status': []},
     'Audio/Video Decoder': {'avdecoder_qam_status': []},
-    'Tuner': {'tuner_status': []},
+    'Video Tuner': {'tuner_status': []},
     'Cable Modem': {'modem_status': []},
     'Bluetooth': {'bluetooth_status': []}
 };
@@ -80,7 +100,7 @@ var ds = null;
 
 //window.onload = function() {
 function dsOnload() {
-    document.getElementById('version').innerHTML = "Ver. C" + CLIENT_VERSION;
+    document.getElementById('version').innerHTML = client_name;
     if(ds === null) {
         window.top.processKey = window.top.processKeyDummy;
         enableInit();
@@ -342,9 +362,12 @@ function wsEvent(type, evt) {
 
 function dsCallbackInit(type, cookie, params) {
     //dbgWrite("dsCallbackInit(" + type + "," + cookie + "," + params + ")");
-
     if(type === Diagsys.cbType.log) {
         tableCreateInit(params);
+        tableCreateSystemInfo(params);
+        tableCreateMocaInfo(params);
+        tableCreateTunerInfo(params);
+        enableSystemData();
     }
     else if((type === Diagsys.cbType.eod) && (params === 0)) {
         setSysinfoTimer(0);
@@ -396,10 +419,25 @@ function agentMissing() {
     setTimeout(uiExit, 3000);
 }
 
+function refreshData() {
+    ds.setCallback(dsCallbackInit);
+    ds.issue(1, "sysinfo_info");
+    enableRefreshMessage();
+}
+
 function tableCreateInit(data) {
     if(typeof data !== 'object') {
         return;
     }
+
+    data["Ver"] = "C" + CLIENT_VERSION + "A" + data["Ver"];
+    json_store = data;
+
+    var tmp = document.getElementById('devinfo_table');
+    if (tmp && tmp.hasChildNodes() === true) {
+        tmp.parentNode.removeChild(tmp);
+    }
+
     var store = document.getElementById('devinfo');
     var tbl = document.createElement('table');
     tbl.id = 'devinfo_table';
@@ -432,10 +470,151 @@ function tableCreateInit(data) {
             tr.appendChild(td);
             tbdy.appendChild(tr);
             break;
-        case "AgentVersion":
-            document.getElementById('version').innerHTML = "Ver. C" + CLIENT_VERSION + "A" + Object.values(data)[i];
+        case "Ver":
+            document.getElementById('version').innerHTML = "Ver. " + Object.values(data)[i];
             break;
         }
+    }
+    tbl.appendChild(tbdy);
+    store.appendChild(tbl);
+}
+
+function tableCreateSystemInfo(data) {
+    if(typeof data !== 'object') {
+        return;
+    }
+
+    var tmp = document.getElementById('sysinfo_table');
+    if (tmp && tmp.hasChildNodes() === true) {
+        tmp.parentNode.removeChild(tmp);
+    }
+
+    var store = document.getElementById('boxinfo');
+    var tbl = document.createElement('table');
+    tbl.id = 'sysinfo_table';
+    tbl.className = 'infotable';
+    var tbdy = document.createElement('tbody');
+
+    for (var i = 0; i < Object.keys(data).length; i++) {
+        switch(Object.keys(data)[i]) {
+        case "xConf Version":
+        case "eSTB IP":
+        case "Receiver ID":
+        case "Number of Channels":
+        case "Time Zone":
+            var tr = document.createElement('tr');
+            tr.style.border = '5px';
+            var td = document.createElement('td');
+            td.style.textAlign = 'right';
+            td.style.fontSize = 'smaller';
+            td.style.padding = '0 10px 3px 0';
+            td.style.width = '34%';
+            td.appendChild(document.createTextNode(JSON.stringify(Object.keys(data)[i]).replace(/"/g, '')));
+            tr.appendChild(td);
+
+            td = document.createElement('td');
+            td.style.textAlign = 'left';
+            td.style.padding = '0 0 3px 8px';
+            td.style.fontSize = 'smaller';
+            td.appendChild(document.createTextNode(JSON.stringify(Object.values(data)[i]).replace(/"/g, '')));
+            tr.appendChild(td);
+            tbdy.appendChild(tr);
+            break;
+    }
+    }
+    tbl.appendChild(tbdy);
+    store.appendChild(tbl);
+}
+
+function tableCreateMocaInfo(data) {
+    if(typeof data !== 'object') {
+        return;
+    }
+
+    var tmp = document.getElementById('mocainfo_table');
+    if (tmp && tmp.hasChildNodes() === true) {
+        tmp.parentNode.removeChild(tmp);
+    }
+
+    var store = document.getElementById('mocainfo');
+    var tbl = document.createElement('table');
+    tbl.id = 'mocainfo_table';
+    tbl.className = 'infotable';
+    var tbdy = document.createElement('tbody');
+
+    for (var i = 0; i < Object.keys(data).length; i++) {
+        switch(Object.keys(data)[i]) {
+        case "MoCA RF Channel":
+        case "MoCA NC":
+        case "MoCA Bitrate":
+        case "MoCA SNR":
+            var tr = document.createElement('tr');
+            tr.style.border = '5px';
+            var td = document.createElement('td');
+            td.style.textAlign = 'right';
+            td.style.fontSize = 'smaller';
+            td.style.padding = '0 10px 3px 0';
+            td.style.width = '34%';
+            td.appendChild(document.createTextNode(JSON.stringify(Object.keys(data)[i]).replace(/"/g, '')));
+            tr.appendChild(td);
+
+            td = document.createElement('td');
+            td.style.textAlign = 'left';
+            td.style.padding = '0 0 3px 8px';
+            td.style.fontSize = 'smaller';
+            td.appendChild(document.createTextNode(JSON.stringify(Object.values(data)[i]).replace(/"/g, '')));
+            tr.appendChild(td);
+            tbdy.appendChild(tr);
+            break;
+    }
+    }
+    tbl.appendChild(tbdy);
+    store.appendChild(tbl);
+}
+
+function tableCreateTunerInfo(data) {
+    if(typeof data !== 'object') {
+        return;
+    }
+
+    var tmp = document.getElementById('tunerinfo_table');
+    if (tmp && tmp.hasChildNodes() === true) {
+        tmp.parentNode.removeChild(tmp);
+    }
+
+    var store = document.getElementById('tunerinfo');
+    var tbl = document.createElement('table');
+    tbl.id = 'tunerinfo_table';
+    tbl.className = 'infotable';
+    var tbdy = document.createElement('tbody');
+
+    for (var i = 0; i < Object.keys(data).length; i++) {
+        switch(Object.keys(data)[i]) {
+        case "DOCSIS DwStrmPower":
+        case "DOCSIS UpStrmPower":
+        case "DOCSIS SNR":
+        case "Video Tuner Locked":
+        case "Video Tuner Power":
+        case "Video Tuner SNR":
+            var tr = document.createElement('tr');
+            tr.style.border = '5px';
+            var td = document.createElement('td');
+            td.style.textAlign = 'right';
+            td.style.fontSize = 'smaller';
+            td.style.padding = '0 10px 3px 0';
+            td.style.width = '34%';
+            td.appendChild(document.createTextNode(JSON.stringify(Object.keys(data)[i]).replace(/"/g, '')));
+            tr.appendChild(td);
+
+            td = document.createElement('td');
+            td.style.textAlign = 'left';
+            td.style.padding = '0 0 3px 8px';
+            td.style.fontSize = 'smaller';
+            td.appendChild(document.createTextNode(JSON.stringify(Object.values(data)[i]).replace(/"/g, '')));
+            tr.appendChild(td);
+            tbdy.appendChild(tr);
+            break;
+    }
     }
     tbl.appendChild(tbdy);
     store.appendChild(tbl);
@@ -450,15 +629,33 @@ function disableInit() {
     document.getElementById('section_init').style.display = 'none';
 }
 
+function enableSystemData() {
+    document.getElementById('system_data').style.display = 'block';
+}
+
+function disableSystemData() {
+    document.getElementById('system_data').style.display = 'none';
+}
+
+function enableRefreshMessage() {
+    document.getElementById('section_message').style.display = 'block';
+}
+
+function disableRefreshMessage() {
+    document.getElementById('section_message').style.display = 'none';
+}
+
 /************ Startbutton page *************/
 
 function dsRunPriv() {
     cancelled = false;
+    telemetry_swap = telemetry_order;
     setInactivityTimer(0);
     ds.notify("TESTRUN", { state: "start", client: client_name } );
     setInprogressTimer(screen2InprogressTimeout);
 
     disableStartbuttons();
+    disableSystemData();
     enableInprogress();
 }
 
@@ -473,6 +670,7 @@ function dsShowPriv() {
     setInprogressTimer(screen2InprogressTimeout);
 
     disableStartbuttons();
+    disableSystemData();
     enableShowprevious();
 }
 
@@ -481,12 +679,20 @@ function dsShow() {
     dsShowPriv();
 }
 
+function showSystemData() {
+    disableInprogress();
+    prevResultsPresent();
+    enableSystemData();
+    enableStartbuttons();
+    disableSummary();
+}
+
 /************ startbuttons run or exit section *************/
 var startSectionChoiceInitialized = false;
 var startButtonMarkers = {};
 var startButtonGrids = {};
 
-function doBuildChoiceSection(b1,b1input,b2,b2input,markers,grids) {
+function doBuildChoiceSection(b1,b1input,b2,b2input,b3,b3input,markers,grids) {
 
     var store = document.getElementById(b1);
     markers.resultFailed = [];
@@ -501,7 +707,13 @@ function doBuildChoiceSection(b1,b1input,b2,b2input,markers,grids) {
     markers.resultFailed[1].td.appendChild(input);
     store.appendChild(markers.resultFailed[1].table);
 
-    grids.resultFailed = new ButtonGrid(2, markers.resultFailed);
+    store = document.getElementById(b3);
+    markers.resultFailed.push(new ButtonMarker('resultbuttons'));
+    input = document.getElementById(b3input);
+    markers.resultFailed[2].td.appendChild(input);
+    store.appendChild(markers.resultFailed[2].table);
+
+    grids.resultFailed = new ButtonGrid(3, markers.resultFailed);
 }
 
 function startBuildChoiceSection() {
@@ -511,9 +723,9 @@ function startBuildChoiceSection() {
     }
 
     if(previousResultsAvailable) {
-        doBuildChoiceSection("start_choice_soe_b1","soeBtnShow","start_choice_soe_b2","soeBtnExit",startButtonMarkers,startButtonGrids);
+        doBuildChoiceSection("start_choice_soe_b1","soeBtnShow","start_choice_soe_b2","soeBtnRefresh","start_choice_soe_b3","soeBtnExit",startButtonMarkers,startButtonGrids);
     } else {
-        doBuildChoiceSection("start_choice_roe_b1","roeBtnRun","start_choice_roe_b2","roeBtnExit",startButtonMarkers,startButtonGrids);
+        doBuildChoiceSection("start_choice_roe_b1","roeBtnRun","start_choice_roe_b2","roeBtnRefresh","start_choice_roe_b3","roeBtnExit",startButtonMarkers,startButtonGrids);
     }
 
     startSectionChoiceInitialized = true;
@@ -521,27 +733,27 @@ function startBuildChoiceSection() {
 
 function keyhandlerStartbutton(keyCode) {
     switch(keyCode) {
-        case KEY_OK:
-	    var startBtn = startButtonGrids.resultFailed.content();
-	    if(startBtn !== null) {
+    case KEY_OK:
+        var startBtn = startButtonGrids.resultFailed.content();
+        if(startBtn !== null) {
                 if(typeof startBtn.onclick == 'function') {
                     startBtn.onclick();
                 }
             }
             break;
 
-        case KEY_LEFT:
-	    setInactivityTimer(screen1Timeout);
-	    startButtonGrids.resultFailed.move('left');
-	    break;
+    case KEY_UP:
+        setInactivityTimer(screen1Timeout);
+        startButtonGrids.resultFailed.move('prev');
+        break;
 
-	case KEY_RIGHT:
-	    setInactivityTimer(screen1Timeout);
-	    startButtonGrids.resultFailed.move('right');
-	    break;
+    case KEY_DN:
+        setInactivityTimer(screen1Timeout);
+        startButtonGrids.resultFailed.move('next');
+        break;
 
-	default:
-	    break;
+    default:
+        break;
     }
     keyCode=8;
 }
@@ -554,6 +766,9 @@ function enableStartbuttons() {
         document.getElementById('section_startbuttons_run_or_exit').style.display = 'block';
     }
 
+    document.getElementById('section_choice').style.display = 'none';
+
+    disableRefreshMessage();
     startBuildChoiceSection();
     startButtonGrids.resultFailed.move(0);
     window.top.processKey = keyhandlerStartbutton;
@@ -810,7 +1025,41 @@ function setGroupResult(group, showPrevious) {
             logTextResult += "_" + warningInfo.replace(/ /g, "_");
         }
         ds.notify("LOG", { message: "Test result: " + group.name + ":" + logTextResult });
+        telemetryLogStore(group.name, logTextResult);
     }
+}
+
+function telemetryLogStore(diagname, result) {
+    telemetry_order[diagname] = result;
+}
+
+
+function telemetryLog() {
+    for (var t in telemetry_order) {
+        if (telemetry_order[t] === 'Not_Enabled') {
+            continue;
+        }
+        else {
+            if (t === 'Hard Drive') {
+                result_store.push(telemetry_order[t]);
+            } else {
+                result_store.push(" " + telemetry_order[t]);
+            }
+        }
+    }
+
+    var completeResult = "PASSED";
+    for(var g in groupStatus) {
+        if(groupStatus[g].result === results.failed) {
+            completeResult = "FAILED";
+            break;
+        }
+    }
+    result_store.push(" " + completeResult);
+    result_store.toString();
+    ds.notify("LOG", { message: "HwTestResult_telemetry: '" + result_store + "'" });
+    result_store = [];
+    telemetry_order = telemetry_swap;
 }
 
 function setElemResult(elem, status, data) {
@@ -927,15 +1176,12 @@ function setFinal(showPrevious) {
             document.getElementById('timestamp').innerHTML = timestamp + " UTC";
             ds.notify("LOG", { rawmessage: "HWST_LOG |" + timestamp + " Test execution completed:" + textResult});
             ds.notify("TESTRUN", { state: "finish" } );
+            telemetryLog();
         }
 
         switch(result) {
         case results.passed:
-            if(showPrevious) {
-                enableSuccessResultChoice();
-            } else {
-                enableSuccessResultNochoice();
-            }
+            enableSuccessResultChoice();
             break;
         case results.warning:
             enableSuccessResultChoice();
@@ -1188,6 +1434,9 @@ function uiExit() {
 }
 
 function dsExit() {
+    var json_store_string = JSON.stringify(json_store);
+    ds.notify("LOG", { message: "HwSelfTest SysInfo: " + json_store_string });
+
     ds.setCallback(null);
     cancelling = false;
     if(checkNotFinished())
@@ -1282,7 +1531,7 @@ function buildChoiceSection() {
     if(sectionChoiceInitialized) {
         return;
     }
-    doBuildChoiceSection("result_choice_b1","btnChoiceB1","result_choice_b2","btnChoiceB2",buttonMarkers,buttonGrids);
+    doBuildChoiceSection("result_choice_b1","btnChoiceB1","result_choice_b2","btnChoiceB2","result_choice_b3","btnChoiceB3",buttonMarkers,buttonGrids);
     sectionChoiceInitialized = true;
 }
 
@@ -1367,6 +1616,10 @@ function enableFailedResultChoice() {
 
 function disableResult() {
     window.top.processKey = window.top.processKeyDummy;
+    disableSummary();
+}
+
+function disableSummary() {
     document.getElementById('section_summary').style.display = 'none';
     document.getElementById('section_choice').style.display = 'none';
     document.getElementById('section_nochoice').style.display = 'none';

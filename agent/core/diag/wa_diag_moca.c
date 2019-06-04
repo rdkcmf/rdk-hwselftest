@@ -69,9 +69,17 @@
 #define OID_MOCA11_IF_ENABLE_STATUS "MOCA11-MIB::mocaIfEnable"
 #define OID_MOCA11_IF_NODES_COUNT "MOCA11-MIB::mocaIfNumNodes"
 #define OID_MOCA11_IF_RX_PACKETS_COUNT "MOCA11-MIB::mocaIfRxPackets"
+#define OID_MOCA11_IF_RF_CHANNEL_FREQUENCY "MOCA11-MIB::mocaIfRFChannel"
+#define OID_MOCA11_IF_NETWORK_CONTROLLER "MOCA11-MIB::mocaIfNC"
+#define OID_MOCA11_IF_TRANSMIT_RATE "MOCA11-MIB::mocaMeshTxRate"
+#define OID_MOCA11_NODE_SNR "MOCA11-MIB::mocaNodeSNR"
 #define OID_MOCA20_IF_ENABLE_STATUS "MOCA20-MIB::mocaIfEnable"
 #define OID_MOCA20_IF_NODES_COUNT "MOCA20-MIB::mocaIfNumNodes"
 #define OID_MOCA20_IF_RX_PACKETS_COUNT "MOCA20-MIB::mocaIfRxPackets"
+#define OID_MOCA20_IF_RF_CHANNEL_FREQUENCY "MOCA20-MIB::mocaIfRFChannel"
+#define OID_MOCA20_IF_NETWORK_CONTROLLER "MOCA20-MIB::mocaIfNC"
+#define OID_MOCA20_IF_TRANSMIT_RATE "MOCA20-MIB::mocaMeshTxRate"
+#define OID_MOCA20_NODE_SNR "MOCA20-MIB::mocaNodeSNR"
 
 #define MOCA_TRUTH_VALUE_FALSE               (0)
 #define MOCA_TRUTH_VALUE_TRUE                (1)
@@ -104,9 +112,17 @@ typedef enum {
     MOCA11_OPT_IF_ENABLE_STATUS,
     MOCA11_OPT_IF_NODES_COUNT,
     MOCA11_OPT_IF_RX_PACKETS_COUNT,
+    MOCA11_OPT_IF_RF_CHANNEL_FREQUENCY,
+    MOCA11_OPT_IF_NETWORK_CONTROLLER,
+    MOCA11_OPT_IF_TRANSMIT_RATE,
+    MOCA11_OPT_NODE_SNR,
     MOCA20_OPT_IF_ENABLE_STATUS,
     MOCA20_OPT_IF_NODES_COUNT,
     MOCA20_OPT_IF_RX_PACKETS_COUNT,
+    MOCA20_OPT_IF_RF_CHANNEL_FREQUENCY,
+    MOCA20_OPT_IF_NETWORK_CONTROLLER,
+    MOCA20_OPT_IF_TRANSMIT_RATE,
+    MOCA20_OPT_NODE_SNR,
     MOCA_OPT_MAX,
 } MocaOption_t;
 
@@ -124,6 +140,10 @@ static int getMocaIfRxPacketsCount(void* instanceHandle, int group, int index,
     WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType, int progress);
 static int verifyOptionValue(MocaOption_t opt,  WA_UTILS_SNMP_Resp_t *value);
 static int setReturnData(int status, json_t **param);
+int getMocaIfRFChannelFrequency(int *group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
+int getMocaIfNetworkController(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
+int getMocaIfTransmitRate(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
+int getMocaNodeSNR(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
@@ -132,9 +152,17 @@ char *MocaOptions[MOCA_OPT_MAX] = {
     OID_MOCA11_IF_ENABLE_STATUS,
     OID_MOCA11_IF_NODES_COUNT,
     OID_MOCA11_IF_RX_PACKETS_COUNT,
+    OID_MOCA11_IF_RF_CHANNEL_FREQUENCY,
+    OID_MOCA11_IF_NETWORK_CONTROLLER,
+    OID_MOCA11_IF_TRANSMIT_RATE,
+    OID_MOCA11_NODE_SNR,
     OID_MOCA20_IF_ENABLE_STATUS,
     OID_MOCA20_IF_NODES_COUNT,
-    OID_MOCA20_IF_RX_PACKETS_COUNT
+    OID_MOCA20_IF_RX_PACKETS_COUNT,
+    OID_MOCA20_IF_RF_CHANNEL_FREQUENCY,
+    OID_MOCA20_IF_NETWORK_CONTROLLER,
+    OID_MOCA20_IF_TRANSMIT_RATE,
+    OID_MOCA20_NODE_SNR
 };
 
 /*****************************************************************************
@@ -326,6 +354,36 @@ static int getMocaIfRxPacketsCount(void* instanceHandle, int group, int index, W
     return status;
 }
 
+int getMocaIfRFChannelFrequency(int *group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
+{
+    int ret = -1;
+
+    ret = getMocaOptionStatus(MOCA11_OPT_IF_RF_CHANNEL_FREQUENCY + (*group), index, value, reqType);
+
+    if (ret < 0)
+    {
+        *group = MOCA_GROUP_20;
+        ret = getMocaOptionStatus(MOCA11_OPT_IF_RF_CHANNEL_FREQUENCY + (*group), index, value, reqType);
+    }
+
+    return ret;
+}
+
+int getMocaIfNetworkController(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
+{
+    return getMocaOptionStatus(MOCA11_OPT_IF_NETWORK_CONTROLLER + group, index, value, reqType);
+}
+
+int getMocaIfTransmitRate(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
+{
+    return getMocaOptionStatus(MOCA11_OPT_IF_TRANSMIT_RATE + group, index, value, reqType);
+}
+
+int getMocaNodeSNR(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
+{
+    return getMocaOptionStatus(MOCA11_OPT_NODE_SNR + group, index, value, reqType);
+}
+
 static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
 {
     int ret = -1;
@@ -369,6 +427,25 @@ static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
             ret = ((value->data.c64.high > 0 || value->data.c64.low > 0) ? 1 : 0);
             break;
 
+        case MOCA11_OPT_IF_RF_CHANNEL_FREQUENCY:
+        case MOCA20_OPT_IF_RF_CHANNEL_FREQUENCY:
+            ret = (value->data.l ? 1 : 0);
+            break;
+        case MOCA11_OPT_IF_NETWORK_CONTROLLER:
+        case MOCA20_OPT_IF_NETWORK_CONTROLLER:
+            ret = (value->data.l ? 1 : 0);
+            break;
+
+        case MOCA11_OPT_IF_TRANSMIT_RATE:
+        case MOCA20_OPT_IF_TRANSMIT_RATE:
+            ret = (value->data.l ? 1 : 0);
+            break;
+
+        case MOCA11_OPT_NODE_SNR:
+        case MOCA20_OPT_NODE_SNR:
+            ret = (value->data.l ? 1 : 0);
+            break;
+
         default:
             break;
     }
@@ -394,6 +471,7 @@ static int setReturnData(int status, json_t **param)
 
         case WA_DIAG_ERRCODE_FAILURE:
            *param = json_string("MoCA bad.");
+           break;
 
         case WA_DIAG_ERRCODE_MOCA_DISABLED:
            *param = json_string("MoCA disabled.");

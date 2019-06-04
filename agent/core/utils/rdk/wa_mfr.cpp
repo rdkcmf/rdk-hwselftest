@@ -157,7 +157,7 @@ int WA_UTILS_MFR_ReadSerializedData(WA_UTILS_MFR_StbParams_t data, size_t* size,
             }
         }
         else
-            WA_ERROR("WA_UTILS_MFR_ReadSerializedData(): IARM_Bus_Call() returned %i\n", ret);
+            WA_WARN("WA_UTILS_MFR_ReadSerializedData(): IARM_Bus_Call() returned %i\n", ret);
 
         IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
     }

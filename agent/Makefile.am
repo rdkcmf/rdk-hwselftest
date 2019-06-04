@@ -106,7 +106,7 @@ hwselftest_CPPFLAGS = \
         '-DSYSCONFDIR="$(sysconfdir)"' \
         -DWA_DEBUG=$(WA_DEBUG)
 
-hwselftest_LDFLAGS = -ljansson -pthread -lrt -lnetsnmp -lds -ldshalcli -lIARMBus -lwebsockets -lhnsource -lmediaplayersink -lrmfbase -lrmfosal -lglib-2.0 -lrdkloggers
+hwselftest_LDFLAGS = -ljansson -pthread -lrt -lnetsnmp -lds -ldshalcli -lIARMBus -lwebsockets -lhnsource -lmediaplayersink -lrmfbase -lrmfosal -lglib-2.0 -lrdkloggers -lbreakpadwrapper
 
 
 hwselftest_CFLAGS = \

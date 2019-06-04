@@ -99,6 +99,33 @@ table.frames td {
     padding: 0;
 }
 
+table.infotable {
+    font-size: inherit;
+    /*border-collapse: separate;
+    border-spacing: 20px 0;*/
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 60%;
+    height: auto;
+    margin: 3px 0 3px 0;
+    border: 0;
+    table-layout: fixed;
+    float: left;
+    border-bottom-width: thin;
+    border-bottom-color: gray;
+    border-bottom-style: outset;
+}
+
+table.infotable tr {
+    height: inherit;
+    border: 0;
+}
+
+table.infotable td {
+    border: 0;
+    padding: 0;
+}
+
 table.progress {
     font-size: inherit;
     /*border-collapse: separate;
@@ -149,7 +176,7 @@ table.panels {
     border-collapse: collapse;
     border-spacing: 0;
     width: 100%;
-    margin: 0;
+    margin: 5px 0 5px 0;
     border: 0;
 }
 

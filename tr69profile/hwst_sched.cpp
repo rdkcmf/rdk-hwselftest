@@ -48,6 +48,24 @@ using hwst::Comm;
 
 namespace hwst {
 
+std::map<std::string, int> diagPool =
+{
+
+    {"hdd_status", 0},
+    {"mcard_status", 1},
+    {"rf4ce_status", 2},
+    {"hdmiout_status", 3},
+    {"moca_status", 4},
+    {"modem_status", 5},
+    {"flash_status", 6},
+    {"dram_status", 7},
+    {"avdecoder_qam_status", 8},
+    {"tuner_status", 9},
+    {"ir_status", 10},
+    {"sdcard_status", 11},
+    {"bluetooth_status", 12}
+};
+
 Sched::Sched(std::string host, std::string port, int timeout):
     host(host),
     port(port),
@@ -56,6 +74,27 @@ Sched::Sched(std::string host, std::string port, int timeout):
     state(idle)
 {
     HWST_DBG("Sched");
+    telemetryLogInit();
+}
+
+void Sched::telemetryLogInit()
+{
+    std::string telemetry ("NA");
+    for(int i=0; i < NUM_ELEMENTS; i++)
+    {
+        telemetry.copy(telemetryResults[i], telemetry.length(), 0);
+    }
+    std::string RF_default ("RF_Not_Paired");
+    std::string IR_default ("IR_NA_as_RF_Paired");
+    std::string ne ("Not_Enabled");
+    RF_default.copy(telemetryResults[2], RF_default.length(), 0); //this is for RF element
+    telemetryResults[2][RF_default.length()] = '\0';
+    IR_default.copy(telemetryResults[10], IR_default.length(), 0); //this is for IR element
+    telemetryResults[10][IR_default.length()] = '\0';
+    ne.copy(telemetryResults[11], ne.length(), 0); //this is for sdcard element
+    telemetryResults[11][ne.length()] = '\0';
+    ne.copy(telemetryResults[12], ne.length(), 0); //this is for bluetooth element
+    telemetryResults[12][ne.length()] = '\0';
 }
 
 Sched::~Sched()
@@ -138,6 +177,7 @@ void Sched::worker(void)
                         if (!summary.empty())
                             summary += "\n";
                         summary += tmp;
+                        telemetryLogStore(e.diag->name);
                     }
                 }
             }
@@ -170,6 +210,7 @@ void Sched::worker(void)
                             summary += "\n";
                             summary += tmp;
                             comm->sendRaw("LOG", "{\"rawmessage\": \"" + tmp + "\"}", "null");
+                            telemetryLog(passed);
                             comm->sendRaw("TESTRUN", "{\"state\": \"finish\"}", "null");
                         }
 
@@ -188,6 +229,49 @@ void Sched::worker(void)
     }
 
     HWST_DBG("Sched-loop-finished");
+}
+
+void Sched::telemetryLogStore(std::string diagName)
+{
+    for(auto const& e: scenario->elements)
+    {
+        if(e.diag->name.compare(diagName) == 0)
+        {
+            std::string result_value = e.diag->getPresentationResult();
+
+            std::string errorText = e.diag->getPresentationComment();
+            if(!errorText.empty())
+            {
+                std::replace(errorText.begin(), errorText.end(), ' ', '_');
+                result_value.append("_");
+                result_value.append(errorText);
+            }
+            auto it = diagPool.find(diagName);
+            int index = it->second;
+            result_value.copy(telemetryResults[index], result_value.length(), 0);
+			telemetryResults[index][result_value.length()] = '\0';
+            break;
+        }
+    }
+}
+
+void Sched::telemetryLog(bool testResult)
+{
+    std::string telemetry_log;
+    telemetry_log.append("'");
+    for(int i=0; i< NUM_ELEMENTS; i++)
+	{
+        if((std::string(telemetryResults[i])).compare("Not_Enabled") != 0)
+		{
+            telemetry_log.append(telemetryResults[i]);
+            telemetry_log.append(", ");
+        }
+    }
+    telemetry_log.append(std::string(testResult ? "PASSED" : "FAILED"));
+    telemetry_log.append("'");
+    std::string telemetry_result = Log().format("HwTestResult_telemetry: " + telemetry_log);
+    comm->sendRaw("LOG", "{\"rawmessage\": \"" + telemetry_result + "\"}", "null");
+    telemetryLogInit();
 }
 
 void Sched::cbConnected()

@@ -39,6 +39,7 @@
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
 #include "wa_json.h"
+#include "wa_snmp_client.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -70,6 +71,11 @@ extern "C"
  * @retval -1 error - unknown device configuration / internal test error.
  */
 extern int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params);
+
+extern int getMocaIfRFChannelFrequency(int *group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
+extern int getMocaIfNetworkController(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
+extern int getMocaIfTransmitRate(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
+extern int getMocaNodeSNR(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 
 /*****************************************************************************
  * LOCAL FUNCTIONS

@@ -33,6 +33,7 @@
 #define _GNU_SOURCE
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -67,7 +68,9 @@ static void prepareLogHeader(char * buffer, const char * mark, size_t bufferSize
 bool WA_LOG_Init()
 {
     rdk_Error re;
-    if ((re = rdk_logger_init("/etc/debug.ini")) != RDK_SUCCESS)
+    const char* pDebugConfig = getenv("DEBUGINIFILE");
+
+    if ((re = rdk_logger_init(pDebugConfig ? pDebugConfig : "/etc/debug.ini")) != RDK_SUCCESS)
     {
         WA_ERROR("rdk_logger_init returned %i\n", (int)re);
         return false;

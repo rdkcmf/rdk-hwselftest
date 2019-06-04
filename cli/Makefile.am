@@ -32,4 +32,4 @@ WA_DEBUG ?= $(DEFAULT_WA_DEBUG)
 
 hwselftestcli_CXXFLAGS = $(AM_CXXFLAGS) -std=c++11 -DWA_DEBUG=$(WA_DEBUG)
 hwselftestcli_LDFLAGS = $(AM_LDFLAGS) -pthread -lrt -ldl -ljansson -lnopoll
-hwselftestcli_LDADD = ../tr69profile/libtr69ProfileHwSelfTest.la -lrdkloggers
+hwselftestcli_LDADD = ../tr69profile/libtr69ProfileHwSelfTest.la -lrdkloggers -lbreakpadwrapper

@@ -69,47 +69,63 @@ function dsBodyOnUnload() {
         </td>
         </tr>
     </table>
-	<hr />
-	<div id="devinfo">
-	</div>
+    <hr />
+    <div id="devinfo">
+    </div>
+    <hr />
 </div>
 <div id="content" align="center">
     <section id="section_init" style="display: none;">
     </section>
 
+    <section id="system_data" style="display: none">
+        <div id="boxinfo">
+        </div>
+        <div id="mocainfo">
+        </div>
+        <div id="tunerinfo">
+        </div>
+    </section>
+
+    <section id="section_message" style="display: none;">
+        <h1 align="center" style="margin:370px 0 0 720px;"> Refreshing . . . </h1>
+    </section>
+
     <section id="section_startbuttons_show_or_exit" style="display: none">
-    <div align="center" style="margin:200px 0 0 0;">
+    <div align="center" style="margin:320px 0 0 720px;">
         <table style="width:40%">
-        <tr>
-            <td style="width:45%" id="start_choice_soe_b1">
+        <tr><td style="width:45%" id="start_choice_soe_b1">
         <input type="button" class="button" id="soeBtnShow" onclick="dsShow();" value="Show Diagnostic Result" style="width:100%;" disabled/>
-        </td>
-        <td>
-            </td>
-            <td style="width:45%" id="start_choice_soe_b2">
-            <input type="button" class="button" id="soeBtnExit" onclick="dsExit();" value="Exit" style="width:100%;""width:100%;" disabled/>
-            </td>
-            </tr>
+        </td></tr>
+        <tr></tr>
+        <tr><td style="width:45%" id="start_choice_soe_b2">
+        <input type="button" class="button" id="soeBtnRefresh" onclick="refreshData();" value="Refresh" style="width:100%;" disabled/>
+        </td></tr>
+        <tr></tr>
+        <tr><td style="width:45%" id="start_choice_soe_b3">
+        <input type="button" class="button" id="soeBtnExit" onclick="dsExit();" value="Exit" style="width:100%;" disabled/>
+        </td></tr>
         </table>
     </div>
     </section>
 
-        <section id="section_startbuttons_run_or_exit" style="display: none">
-        <div align="center" style="margin:200px 0 0 0;">
-            <table style="width:40%">
-            <tr>
-            <td style="width:45%" id="start_choice_roe_b1">
-            <input type="button" class="button" id="roeBtnRun" onclick="dsRun();" value="Run Diagnostic Tests" style="width:100%;" disabled/>
-            </td>
-            <td>
-            </td>
-            <td style="width:45%" id="start_choice_roe_b2">
-            <input type="button" class="button" id="roeBtnExit" onclick="dsExit();" value="Exit" style="width:100%;" disabled/>
-            </td>
-            </tr>
-            </table>
-        </div>
-        </section>
+    <section id="section_startbuttons_run_or_exit" style="display: none">
+    <div align="center" style="margin:320px 0 0 720px;">
+        <table style="width:40%">
+        <tr><td style="width:45%" id="start_choice_roe_b1">
+        <input type="button" class="button" id="roeBtnRun" onclick="dsRun();" value="Run Diagnostic Tests" style="width:100%;" disabled/>
+        </td></tr>
+        <tr></tr>
+        <tr><td style="width:45%" id="start_choice_roe_b2">
+        <input type="button" class="button" id="roeBtnRefresh" onclick="refreshData();" value="Refresh" style="width:100%;" disabled/>
+        </td></tr>
+        <tr></tr>
+        <tr><td style="width:45%" id="start_choice_roe_b3">
+        <input type="button" class="button" id="roeBtnExit" onclick="dsExit();" value="Exit" style="width:100%;" disabled/>
+        </td></tr>
+        </table>
+    </div>
+    </section>
 
     <section id="section_inprogress" style="display: none">
     <table class="panels">
@@ -145,7 +161,7 @@ function dsBodyOnUnload() {
     </section>
 
     <section id="section_nochoice" style="display: none">
-    <div align="center" style="margin:0; float: center; width:20%">
+    <div align="center" style="margin:0 0 20px 0; float: center; width:20%">
         <input type="button" class="button" id="btnNochoiceB1" onclick="dsExit();" value="Exit" style="width:100%;"  disabled/>
     </div>
     </section>
@@ -160,6 +176,10 @@ function dsBodyOnUnload() {
             <td></td>
             <td style="width:45%" id="result_choice_b2">
             <input type="button" class="button" id="btnChoiceB2" onclick="dsExit();" value="Exit" style="width:100%;"  disabled/>
+            </td>
+            <td></td>
+            <td style="width:45%" id="result_choice_b3">
+            <input type="button" class="button" id="btnChoiceB3" onclick="showSystemData();" value="Home Page" style="width:100%;"  disabled/>
             </td>
         </tr>
     </table>

@@ -32,32 +32,26 @@
 /*****************************************************************************
  * STANDARD INCLUDE FILES
  *****************************************************************************/
+#include <stdio.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
+#include "rdk_debug.h"
+#include "stdlib.h"
+#include "string.h"
 
 /*****************************************************************************
  * EXPORTED DEFINITIONS
  *****************************************************************************/
 
-/* Debug definitions. */
-#if WA_DEBUG
-#include <stdio.h>
-#define WA_ENTER(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
-#define WA_RETURN(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
-#define WA_ERROR(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
-#define WA_WARN(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
-#define WA_INFO(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
-#define WA_DBG(fmt, ...) printf("HWST_DBG |" fmt, ## __VA_ARGS__)
-#else
-#define WA_ENTER(...)
-#define WA_RETURN(...)
-#define WA_ERROR(...)
-#define WA_WARN(...)
-#define WA_INFO(...)
-#define WA_DBG(...)
-#endif
+/* Debug definitions. This will be enabled/disabled via debug.ini using 'LOG.RDK.HWST = ' */
+#define WA_ENTER(fmt...)  RDK_LOG(RDK_LOG_TRACE1,  "LOG.RDK.HWST", "HWST_LOG |" fmt)
+#define WA_RETURN(fmt...) RDK_LOG(RDK_LOG_TRACE1,  "LOG.RDK.HWST", "HWST_LOG |" fmt)
+#define WA_ERROR(fmt...)  RDK_LOG(RDK_LOG_ERROR,   "LOG.RDK.HWST", "HWST_LOG |" fmt)
+#define WA_WARN(fmt...)   RDK_LOG(RDK_LOG_WARN,    "LOG.RDK.HWST", "HWST_LOG |" fmt)
+#define WA_INFO(fmt...)   RDK_LOG(RDK_LOG_INFO,    "LOG.RDK.HWST", "HWST_LOG |" fmt)
+#define WA_DBG(fmt...)    RDK_LOG(RDK_LOG_DEBUG,   "LOG.RDK.HWST", "HWST_LOG |" fmt)
 
 /*****************************************************************************
  * EXPORTED TYPES

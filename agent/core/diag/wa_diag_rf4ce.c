@@ -77,6 +77,7 @@
 /*****************************************************************************
  * LOCAL TYPES
  *****************************************************************************/
+static int checkOnlyPairing = 0;
 
 /*****************************************************************************
  * LOCAL FUNCTION PROTOTYPES
@@ -134,6 +135,11 @@ static int verifyRf4ceStatus(uint16_t paired, uint16_t max_paired, uint16_t chan
     {
         result = 0;
         WA_ERROR("verifyRf4ceStatus(): invalid number of paired RCUs (%i)\n", paired);
+    }
+
+    if (checkOnlyPairing)
+    {
+        return result;
     }
 
     if (result == -1)
@@ -462,6 +468,31 @@ int WA_DIAG_RF4CE_status(void* instanceHandle, void *initHandle, json_t **params
     WA_RETURN("WA_DIAG_RF4CE_status, return code: %d.\n", WA_DIAG_ERRCODE_SUCCESS);
 
     return setReturnData(WA_DIAG_ERRCODE_SUCCESS, params);
+}
+
+int isRF4CEPaired()
+{
+    int ret = -1;
+
+    checkOnlyPairing = 1;
+
+    if (WA_UTILS_IARM_Connect())
+    {
+        WA_ERROR("isRF4CEPaired(): WA_UTILS_IARM_Connect() Failed \n");
+        return -1;
+    }
+
+    ret = checkRf4ceStatus();
+
+    if(WA_UTILS_IARM_Disconnect())
+    {
+        WA_ERROR("isRF4CEPaired(): WA_UTILS_IARM_Disconnect() Failed \n");
+        return -1;
+    }
+
+    checkOnlyPairing = 0;
+
+    return ret;
 }
 
 

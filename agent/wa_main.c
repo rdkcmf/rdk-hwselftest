@@ -39,6 +39,8 @@
 #include <sys/time.h>
 #include <errno.h>
 
+#include "breakpad_wrapper.h"
+
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
@@ -95,6 +97,9 @@ int main(int argc, char *argv[])
     pid_t ppid, pid, sid;
 
     WA_ENTER("main(argc=%d) [PARENT]\n", argc);
+
+    /* Invoke the Breakpad exception handler registration interface */
+    breakpad_ExceptionHandler();
 
     if (getenv("HW_TEST_SVC")==NULL)
     {

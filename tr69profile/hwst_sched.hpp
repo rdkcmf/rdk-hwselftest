@@ -26,6 +26,10 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <map>
+
+#define NUM_ELEMENTS 13
+#define BUFFERLEN 256
 
 namespace hwst {
 
@@ -47,6 +51,7 @@ public:
     int issue(const std::vector<std::string>& jobs, const std::string& client = "");
     int get(std::string &result);
 
+
 private:
     state_t state;
     std::mutex apiMutex;
@@ -60,10 +65,14 @@ private:
     bool working;
     bool update;
     bool connected;
+    char telemetryResults[NUM_ELEMENTS][BUFFERLEN];
     void cbConnected(void);
     void cbDisconnected(void);
     void cbUpdate(void);
     void worker(void);
+    void telemetryLogInit(void);
+    void telemetryLogStore(std::string);
+    void telemetryLog(bool);
     std::unique_ptr<std::thread> thd;
     std::shared_ptr<Comm> comm;
     std::unique_ptr<Scenario> scenario;

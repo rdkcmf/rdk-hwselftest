@@ -173,6 +173,8 @@ if [ ! -f /tmp/hwselftest.results ]; then
    fi
 fi
 
+[ -f /opt/debug.ini ] && ! grep BUILD_TYPE=prod /etc/device.properties > /dev/null && export DEBUGINIFILE=/opt/debug.ini
+
 /usr/bin/hwselftest
 exitCode=$?
 if [ $exitCode -ne 0 ]; then

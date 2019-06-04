@@ -84,6 +84,24 @@
  *****************************************************************************/
 
 /* For the reason unknown the snmp staus is not reliable, define this to use platform specific method.*/
+
+#define HWSLFTST 1
+
+#ifdef HWSLFTST
+#define OID_TUNER_STATE "OC-STB-HOST-MIB::ocStbHostInBandTunerState"
+#define OID_TUNER_FREQUENCY "OC-STB-HOST-MIB::ocStbHostInBandTunerFrequency"
+#define OID_TUNER_MODULATION_MODE "OC-STB-HOST-MIB::ocStbHostInBandTunerModulationMode"
+#define OID_TUNER_POWER "OC-STB-HOST-MIB::ocStbHostInBandTunerPower"
+#define OID_TUNER_SNR "OC-STB-HOST-MIB::ocStbHostInBandTunerSNRValue"
+
+#define OID_DOCSIS_DOWNSTREAMPOWER "DOCS-IF-MIB::docsIfDownChannelPower"
+#define OID_DOCSIS_UPSTREAMPOWER "DOCS-IF-MIB::docsIfCmStatusTxPower"
+#define OID_DOCSIS_SNR "DOCS-IF-MIB::docsIfSigQSignalNoise"
+#define SNMP_SERVER_ESTB "localhost"
+#define SNMP_SERVER_ECM "192.168.100.1"
+#define TUNER_LOCKED 5
+#endif
+
 #define USE_FRONTEND_PROCFS 1
 #define USE_UNRELIABLE_PROCFS_WORKAROUND 1
 
@@ -93,7 +111,11 @@
 #define OID_TUNER_MODULATION_MODE "OC-STB-HOST-MIB::ocStbHostInBandTunerModulationMode"
 #define OID_TUNER_POWER "OC-STB-HOST-MIB::ocStbHostInBandTunerPower"
 #define OID_TUNER_SNR "OC-STB-HOST-MIB::ocStbHostInBandTunerSNRValue"
-#define SNMP_SERVER "localhost"
+#define OID_DOCSIS_DOWNSTREAMPOWER "DOCS-IF-MIB::docsIfDownChannelPower"
+#define OID_DOCSIS_UPSTREAMPOWER "DOCS-IF-MIB::docsIfCmStatusTxPower"
+#define OID_DOCSIS_SNR "DOCS-IF-MIB::docsIfSigQSignalNoise"
+
+#define SNMP_SERVER_ESTB "localhost"
 #else
 #define PROCFS_STATUS_FILE "/proc/brcm/frontend"
 #define LINE_LEN 256
@@ -922,6 +944,239 @@ static bool closeTuneSessions(TuneSession_t *sessions, size_t sessionCount)
  /*****************************************************************************
   * EXPORTED FUNCTIONS
   *****************************************************************************/
+bool WA_DIAG_TUNER_GetDocsisParams(WA_DIAG_TUNER_DocsisParams_t * params)
+{
+    char oid[BUFFER_LEN];
+    WA_ENTER("Enter func=%s line=%d\n", __FUNCTION__, __LINE__);
+    float flVar = 0.0;
+
+    if(WA_OSA_TaskCheckQuit())
+    {
+        WA_DBG("GetDocsisParams: test cancelled\n");
+        return false;
+    }
+
+    WA_UTILS_SNMP_Resp_t tunerResp;
+
+    /* Get DOCSIS Down Stream Signal */
+    int k = snprintf(oid, sizeof(oid), "%s.%i", OID_DOCSIS_DOWNSTREAMPOWER, 3 /* As per generic/diagnostics/generic/QAM_device/www/htmldiag/system_docsis.html */);
+    if ((k >= sizeof(oid)) || ( k < 0))
+    {
+        WA_ERROR("Error Unable to generate OID for DOCSIS DwnStrmPwr.\n");
+        return false;
+    }
+
+    tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    tunerResp.data.l = 0;
+    if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ECM, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
+    {
+        WA_ERROR("Error Tuner failed to get DOCSIS Down Stream Signal\n");
+    }
+
+    flVar = (float)tunerResp.data.l;
+    snprintf(params->DOCSIS_DwStreamChPwr, BUFFER_LEN,"%.1f dBmV", flVar/10); //TenthdBmV
+    WA_DBG("func=%s line=%d, DwStrChPwr=%s\n", __FUNCTION__, __LINE__, params->DOCSIS_DwStreamChPwr);
+
+    /* Get DOCSIS Up Stream Signal */
+    k = snprintf(oid, sizeof(oid), "%s.%i", OID_DOCSIS_UPSTREAMPOWER, 2 /* As per generic/diagnostics/generic/QAM_device/www/htmldiag/system_docsis.html */);
+    if ((k >= sizeof(oid)) || ( k < 0))
+    {
+        WA_ERROR("Error Unable to generate OID for DOCSIS UpStrmPwr.\n");
+        return false;
+    }
+
+    tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    tunerResp.data.l = 0;
+    if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ECM, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
+    {
+        WA_ERROR("Error Tuner failed to get DOCSIS Up Stream Signal\n");
+    }
+
+    flVar = (float)tunerResp.data.l;
+    snprintf(params->DOCSIS_UpStreamChPwr, BUFFER_LEN,"%.1f dBmV", flVar/10); //TenthdBmV
+    WA_DBG("func=%s line=%d, UpStrChPwr=%s\n", __FUNCTION__, __LINE__, params->DOCSIS_UpStreamChPwr);
+    /* Get DOCSIS SNR */
+    k = snprintf(oid, sizeof(oid), "%s.%i", OID_DOCSIS_SNR, 3 /* as per generic/diagnostics/generic/QAM_device/www/htmldiag/system_docsis.html */);
+    if ((k >= sizeof(oid)) || ( k < 0))
+    {
+        WA_ERROR("Error Unable to generate OID for DOCSIS SNR.\n");
+        return false;
+    }
+
+    tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    tunerResp.data.l = 0;
+    if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ECM, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
+    {
+        WA_ERROR("Error Tuner failed to get DOCSIS SNR\n");
+    }
+
+    flVar = (float)tunerResp.data.l;
+    snprintf(params->DOCSIS_SNR, BUFFER_LEN,"%.1f dB", flVar/10); //TenthdB
+    WA_RETURN("Exit func=%s line=%d, SNR=%s\n", __FUNCTION__, __LINE__, params->DOCSIS_SNR);
+
+    return true;
+}
+
+bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
+{
+    char oid[BUFFER_LEN];
+    WA_ENTER("Enter func=%s line=%d\n", __FUNCTION__, __LINE__);
+
+    unsigned int numTuners;
+    if (!WA_UTILS_RMF_GetNumberOfTuners(&numTuners))
+    {
+        WA_ERROR("func=%s line=%d numTuners = %d\n", __FUNCTION__, __LINE__, numTuners);
+        return false;
+    }
+
+    WA_INFO("func=%s line=%d numTuners = %d\n", __FUNCTION__, __LINE__, numTuners);
+    int LockedCount = 0;
+    bool Locked[numTuners];
+    float QAM_ChPwr[numTuners], min_ChPwr = 0.0, avg_ChPwr = 0.0, max_ChPwr = 0.0;
+    float QAM_SNR[numTuners], min_SNR = 0.0, avg_SNR = 0.0, max_SNR = 0.0;
+
+    char tempPWR[BUFFER_LEN] = {'\0'};
+    char tempSNR[BUFFER_LEN] = {'\0'};
+
+    for (size_t tunerIndex = 0; tunerIndex < numTuners; tunerIndex++)
+    {
+        if(WA_OSA_TaskCheckQuit())
+        {
+            WA_DBG("GetQamParams: test cancelled\n");
+            return false;
+        }
+
+        int k = snprintf(oid, sizeof(oid), "%s.%i", OID_TUNER_STATE, tunerIndex + 1);
+        if ((k >= sizeof(oid)) || ( k < 0))
+        {
+            WA_ERROR("Unable to generate OID for QAM tuner.\n");
+            return false;
+        }
+
+        WA_UTILS_SNMP_Resp_t tunerResp;
+        tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+        tunerResp.data.l = 0;
+        if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ESTB, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
+        {
+            WA_ERROR("Tuner %i failed to get QAM status\n", (int)tunerIndex);
+            return false;
+        }
+
+        WA_INFO("Tuner %i QAM state %i\n", (int)tunerIndex, (int)tunerResp.data.l);
+        if(tunerResp.data.l == TUNER_LOCKED)
+        {
+            Locked[tunerIndex] = true;
+            LockedCount++;
+
+            WA_DBG("func=%s line=%d, QAM_locked[%d]=%i\n", __FUNCTION__, __LINE__, tunerIndex, Locked[tunerIndex]);
+
+            /* Get QAM Down Stream Signal */
+            k = snprintf(oid, sizeof(oid), "%s.%i", OID_TUNER_POWER, tunerIndex + 1);
+            if ((k >= sizeof(oid)) || ( k < 0))
+            {
+                WA_ERROR("Unable to generate OID for QAM tuner.\n");
+                return false;
+            }
+
+            tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+            tunerResp.data.l = 0;
+            if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ESTB, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
+            {
+                WA_ERROR("Tuner %i failed to get QAM Down Stream Signal\n", (int)tunerIndex);
+                return false;
+            }
+
+            WA_INFO("Tuner %i QAM_ChPwr %i\n", (int)tunerIndex, (int)tunerResp.data.l);
+            QAM_ChPwr[tunerIndex] = (float)tunerResp.data.l;
+            WA_DBG("func=%s line=%d, QAM_ChPwr=%f\n", __FUNCTION__, __LINE__, QAM_ChPwr[tunerIndex]);
+
+            /* Get QAM SNR */
+            k = snprintf(oid, sizeof(oid), "%s.%i", OID_TUNER_SNR, tunerIndex + 1);
+            if ((k >= sizeof(oid)) || ( k < 0))
+            {
+                WA_ERROR("Unable to generate OID for QAM tuner.\n");
+                return false;
+            }
+
+            tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+            tunerResp.data.l = 0;
+            if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ESTB, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
+            {
+                WA_ERROR("Tuner %i failed to get QAM SNR\n", (int)tunerIndex);
+                return false;
+            }
+
+            WA_INFO("Tuner %i QAM_SNR %i\n", (int)tunerIndex, (int)tunerResp.data.l);
+            QAM_SNR[tunerIndex] = (float)tunerResp.data.l;
+            WA_DBG("func=%s line=%d, QAM_SNR=%f\n", __FUNCTION__, __LINE__, QAM_SNR[tunerIndex]);
+        }
+        else
+        {
+            Locked[tunerIndex] = false;
+        }
+    }
+
+    snprintf(params->numLocked, BUFFER_LEN,"%i of %i ", LockedCount, numTuners);
+
+    if(LockedCount <= 3)
+    {
+        for(size_t tunerIndex = 0; tunerIndex < numTuners; tunerIndex++)
+        {
+            if(Locked[tunerIndex] == true)
+            {
+                snprintf(params->QAM_ChPwr, BUFFER_LEN,"%s%i: %.1f dBmV ", tempPWR, tunerIndex+1, QAM_ChPwr[tunerIndex]/10); //TenthdBmV
+                strcpy(tempPWR, params->QAM_ChPwr);
+
+                snprintf(params->QAM_SNR, BUFFER_LEN,"%s%i: %.1f dB ", tempSNR, tunerIndex+1, QAM_SNR[tunerIndex]/10); //TenthdB
+                strcpy(tempSNR, params->QAM_SNR);
+            }
+        }
+        WA_DBG("func=%s line=%d, params->QAM_ChPwr = %s params->QAM_SNR = %s \n", __FUNCTION__, __LINE__, params->QAM_ChPwr, params->QAM_SNR);
+    }
+    else //LockedCount > 3
+    {
+        min_ChPwr  = QAM_ChPwr[0]; // Load with first set of values to compare and swap for min and max values
+        max_ChPwr  = QAM_ChPwr[0];
+        min_SNR    = QAM_SNR[0];
+        max_SNR    = QAM_SNR[0];
+        avg_ChPwr  = QAM_ChPwr[0];
+        avg_SNR    = QAM_SNR[0];
+
+        for(size_t tunerIndex = 1; tunerIndex < numTuners; tunerIndex++)
+        {
+            if(Locked[tunerIndex] == false)
+                continue;
+
+            if(QAM_ChPwr[tunerIndex] < min_ChPwr)
+            {
+                min_ChPwr = QAM_ChPwr[tunerIndex];
+            }
+            if(QAM_ChPwr[tunerIndex] > max_ChPwr)
+            {
+                max_ChPwr = QAM_ChPwr[tunerIndex];
+            }
+            if(QAM_SNR[tunerIndex] < min_SNR)
+            {
+                min_SNR = QAM_SNR[tunerIndex];
+            }
+            if(QAM_SNR[tunerIndex] > max_SNR)
+            {
+                max_SNR = QAM_SNR[tunerIndex];
+            }
+            avg_ChPwr = avg_ChPwr + QAM_ChPwr[tunerIndex];
+            avg_SNR = avg_SNR + QAM_SNR[tunerIndex];
+        }
+        avg_ChPwr = avg_ChPwr/numTuners;
+        avg_SNR = avg_SNR/numTuners;
+
+        snprintf(params->QAM_ChPwr, BUFFER_LEN,"MIN: %.1f, AVG: %.1f, MAX: %.1f dBmV", min_ChPwr/10, avg_ChPwr/10, max_ChPwr/10); //TenthdBmV
+        snprintf(params->QAM_SNR, BUFFER_LEN,"MIN: %.1f, AVG: %.1f, MAX: %.1f dB", min_SNR/10, avg_SNR/10, max_SNR/10); //TenthdB
+        WA_DBG("func=%s line=%d, params->QAM_ChPwr = %s params->QAM_SNR = %s \n", __FUNCTION__, __LINE__, params->QAM_ChPwr, params->QAM_SNR);
+    }
+
+    WA_RETURN(" Exit func=%s line=%d LockedCount=%d\n", __FUNCTION__, __LINE__, LockedCount);
+    return true;
+}
 
  bool WA_DIAG_TUNER_GetTunerStatuses(WA_DIAG_TUNER_TunerStatus_t * statuses, size_t statusCount, int * pNumLocked)
  {
@@ -949,8 +1204,8 @@ static bool closeTuneSessions(TuneSession_t *sessions, size_t sessionCount)
 
          WA_UTILS_SNMP_Resp_t tunerState;
          tunerState.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
-         tynerState.data.l = 0;
-         if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER, oid, &tunerState, WA_UTILS_SNMP_REQ_TYPE_GET))
+         tunerState.data.l = 0;
+         if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ESTB, oid, &tunerState, WA_UTILS_SNMP_REQ_TYPE_GET))
          {
              WA_ERROR("Tuner %i failed to get status\n", (int)tunerIndex);
              return false;

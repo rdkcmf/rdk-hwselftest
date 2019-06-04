@@ -1133,7 +1133,7 @@ static void *InstanceTask(void *p)
     timestamp = time(0);
 
     if (WA_AGG_SetTestResult(pContext->pConfig->name, status, timestamp))
-        WA_ERROR("InstanceTask(): WA_AGG_SetTestResult(): failed\n");
+        WA_WARN("InstanceTask(): WA_AGG_SetTestResult(): failed\n");
 
     WA_LOG_GetTimestampStr(timestamp, strtimestamp, sizeof(strtimestamp));
 

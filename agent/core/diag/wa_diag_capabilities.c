@@ -39,6 +39,7 @@
 #include "wa_diag_capabilities.h"
 #include "wa_json.h"
 #include "wa_config.h"
+#include "wa_diag_rf4ce.h"
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
@@ -53,10 +54,17 @@ int WA_DIAG_CAPABILITIES_Info(void *instanceHandle, void *initHandle, json_t **p
              instanceHandle, initHandle, params);
 
     int status = 1;
+    int rf4ce = 1;
 
     json_decref(*params); //not used
 
     const WA_DIAG_proceduresConfig_t *diags = WA_CONFIG_GetDiags();
+
+    if (isRF4CEPaired() == -1)
+    {
+        rf4ce = 0;
+    }
+
     if (diags)
     {
         json_t *jroot = json_object();
@@ -68,7 +76,13 @@ int WA_DIAG_CAPABILITIES_Info(void *instanceHandle, void *initHandle, json_t **p
                 for (const WA_DIAG_proceduresConfig_t *diag = &diags[0]; diag && diag->name; diag++)
                 {
                     if (strstr(diag->name, "_status")) // list only tests
+                    {
+                        if ((rf4ce && !strcmp(diag->name, "ir_status")) || (!rf4ce && !strcmp(diag->name, "rf4ce_status")))
+                        {
+                            continue;
+                        }
                         json_array_append_new(jdiagsarray, json_string(diag->name));
+                    }
                 }
 
                 json_object_set_new(jroot, "diags", jdiagsarray);

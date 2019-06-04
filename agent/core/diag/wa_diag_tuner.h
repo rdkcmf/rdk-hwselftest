@@ -47,6 +47,7 @@ extern "C"
 /*****************************************************************************
  * EXPORTED DEFINITIONS
  *****************************************************************************/
+#define BUFFER_LEN 256
 
 /*****************************************************************************
  * EXPORTED TYPES
@@ -56,6 +57,20 @@ typedef struct WA_DIAG_TUNER_TunerStatus_tag
         bool used;
         bool locked;
 } WA_DIAG_TUNER_TunerStatus_t;
+
+typedef struct WA_DIAG_TUNER_DocsisParams_tag
+{
+        char *DOCSIS_DwStreamChPwr;
+        char *DOCSIS_UpStreamChPwr;
+        char *DOCSIS_SNR;
+} WA_DIAG_TUNER_DocsisParams_t;
+
+typedef struct WA_DIAG_TUNER_QamParams_tag
+{
+        char *numLocked;
+        char *QAM_ChPwr;
+        char *QAM_SNR;
+} WA_DIAG_TUNER_QamParams_t;
 
 /*****************************************************************************
  * EXPORTED VARIABLES
@@ -67,6 +82,8 @@ typedef struct WA_DIAG_TUNER_TunerStatus_tag
 extern int WA_DIAG_TUNER_status(void* instanceHandle, void *initHandle, json_t **params);
 
 bool WA_DIAG_TUNER_GetTunerStatuses(WA_DIAG_TUNER_TunerStatus_t * statuses, size_t statusCount, int * pNumLocked);
+bool WA_DIAG_TUNER_GetDocsisParams(WA_DIAG_TUNER_DocsisParams_t * params);
+bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params);
 
 /*****************************************************************************
  * LOCAL FUNCTIONS

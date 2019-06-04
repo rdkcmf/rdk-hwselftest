@@ -70,6 +70,7 @@ extern "C"
  *                    or test not applicable.
  */
 extern int WA_DIAG_RF4CE_status(void* instanceHandle, void *initHandle, json_t **params);
+extern int isRF4CEPaired();
 
 /*****************************************************************************
  * LOCAL FUNCTIONS

@@ -38,6 +38,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 
+#include "breakpad_wrapper.h"
+
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
@@ -105,6 +107,9 @@ int main(int argc, char * const argv[])
     bool status = true;
     void *wal_handle;
     void *rdkloggers_handle;
+
+/* Invoke the Breakpad exception handler registration interface */
+    breakpad_ExceptionHandler();
 
     if (argc == 1)
         cliprintf("use --help for help\n");

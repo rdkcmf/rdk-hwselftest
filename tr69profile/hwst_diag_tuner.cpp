@@ -43,7 +43,7 @@ DiagTuner::DiagTuner(const std::string &params_):
 
 std::string DiagTuner::getPresentationName() const
 {
-    return "QAM Tuner";
+    return "Video Tuner";
 };
 
 } // namespace hwst

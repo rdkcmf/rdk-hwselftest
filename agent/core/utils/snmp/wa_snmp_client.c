@@ -397,7 +397,7 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
         if ((rc != STAT_SUCCESS) || (sd.response->errstat != SNMP_ERR_NOERROR) || !sd.response->variables)
         {
             WA_ERROR("waSnmpGetSingle(): snmp_synch_response() returned %i, errstat: %li, vars: %s\n",
-                rc, sd.response->errstat, (sd.response->variables ? "ok" : "nok"));
+                rc, sd.response ? sd.response->errstat : -1, sd.response ? (sd.response->variables ? "ok" : "nok") : "");
 
             waSnmpSessionDataCleanup(&sd);
 

@@ -493,10 +493,12 @@ function tableCreateSystemInfo(data) {
     var tbl = document.createElement('table');
     tbl.id = 'sysinfo_table';
     tbl.className = 'infotable';
+    tbl.style.width = '100%';
     var tbdy = document.createElement('tbody');
 
     for (var i = 0; i < Object.keys(data).length; i++) {
         switch(Object.keys(data)[i]) {
+        case "Home Network":
         case "xConf Version":
         case "eSTB IP":
         case "Receiver ID":
@@ -508,7 +510,7 @@ function tableCreateSystemInfo(data) {
             td.style.textAlign = 'right';
             td.style.fontSize = 'smaller';
             td.style.padding = '0 10px 3px 0';
-            td.style.width = '34%';
+            td.style.width = '20%';
             td.appendChild(document.createTextNode(JSON.stringify(Object.keys(data)[i]).replace(/"/g, '')));
             tr.appendChild(td);
 
@@ -554,7 +556,7 @@ function tableCreateMocaInfo(data) {
             td.style.textAlign = 'right';
             td.style.fontSize = 'smaller';
             td.style.padding = '0 10px 3px 0';
-            td.style.width = '34%';
+            td.style.width = '33%';
             td.appendChild(document.createTextNode(JSON.stringify(Object.keys(data)[i]).replace(/"/g, '')));
             tr.appendChild(td);
 
@@ -602,7 +604,7 @@ function tableCreateTunerInfo(data) {
             td.style.textAlign = 'right';
             td.style.fontSize = 'smaller';
             td.style.padding = '0 10px 3px 0';
-            td.style.width = '34%';
+            td.style.width = '33%';
             td.appendChild(document.createTextNode(JSON.stringify(Object.keys(data)[i]).replace(/"/g, '')));
             tr.appendChild(td);
 
@@ -972,6 +974,9 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.CM_NO_SIGNAL:
         info = "Lock Failed - Check Cable";
         break;
+    case DIAG_ERRCODE.RF4CE_NO_RESPONSE:
+        info = "RF input not detected in last 10 minutes";
+        break;
     case DIAG_ERRCODE.INTERNAL_TEST_ERROR:
     case DIAG_ERRCODE.CANCELLED:
     default:
@@ -1085,6 +1090,7 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.TUNER_BUSY:
     case DIAG_ERRCODE.AV_NO_SIGNAL:
     case DIAG_ERRCODE.IR_NOT_DETECTED:
+    case DIAG_ERRCODE.RF4CE_NO_RESPONSE:
     case DIAG_ERRCODE.CM_NO_SIGNAL:
         elem.result = results.warning;
         break;

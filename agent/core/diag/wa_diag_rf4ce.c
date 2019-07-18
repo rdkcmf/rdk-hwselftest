@@ -31,6 +31,7 @@
  * STANDARD INCLUDE FILES
  *****************************************************************************/
 #include <string.h>
+#include <time.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -43,6 +44,7 @@
 #include "wa_iarm.h"
 #include "libIBus.h"
 #include "libIARMCore.h"
+#include "irMgr.h"
 
 /* module interface */
 #include "wa_diag_rf4ce.h"
@@ -74,6 +76,9 @@
 #define RF4CE_CHANNEL_MIN            (11)
 #define RF4CE_CHANNEL_MAX            (26)
 
+#define PREVIOUS_RF4CE_KEY_EVENT_MIN 10 /*minutes*/
+#define RF4CE_NO_RESPONSE            2
+
 /*****************************************************************************
  * LOCAL TYPES
  *****************************************************************************/
@@ -91,6 +96,7 @@ static int checkRf4ceStatusViaCtrlMgr();
 #endif
 #if defined(USE_RF4CEMGR) || defined(USE_CTRLMGR)
 static int verifyRf4ceStatus(uint16_t paired, uint16_t max_paired, uint16_t channel);
+static int checkRCULastKeyInfo();
 #endif
 static int checkRf4ceStatus(void);
 static int setReturnData(int status, json_t **param);
@@ -156,6 +162,68 @@ static int verifyRf4ceStatus(uint16_t paired, uint16_t max_paired, uint16_t chan
     }
 
     WA_RETURN("verifyRf4ceStatus(): return code: %d\n", result);
+
+    return result;
+}
+
+static int checkRCULastKeyInfo()
+{
+    int result = -1;
+    int time_diff = -1;
+    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
+
+    WA_ENTER("checkRCULastKeyInfo()\n");
+
+    /* Get the last key press info when the pairing status returns success*/
+    ctrlm_main_iarm_call_last_key_info_t *last_key_info_param = NULL;
+
+    iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(*last_key_info_param), (void**)&last_key_info_param);
+    if ((iarm_result == IARM_RESULT_SUCCESS) && last_key_info_param)
+    {
+        memset(last_key_info_param, 0, sizeof(*last_key_info_param));
+        last_key_info_param->api_revision = CTRLM_MAIN_IARM_BUS_API_REVISION;
+
+        WA_DBG("checkRCULastKeyInfo(): IARM_Bus_Call('%s', '%s', ...)\n", CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_LAST_KEY_INFO_GET);
+        iarm_result = IARM_Bus_Call(CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_LAST_KEY_INFO_GET,
+                                                    (void *)last_key_info_param, sizeof(*last_key_info_param));
+
+        if (iarm_result == IARM_RESULT_SUCCESS)
+        {
+            if (last_key_info_param->result == CTRLM_IARM_CALL_RESULT_SUCCESS)
+            {
+                if ((last_key_info_param->controller_id != -1) && (last_key_info_param->source_type == IARM_BUS_IRMGR_KEYSRC_RF))
+                {
+                    time_t currentTime = time(NULL); // seconds
+                    time_diff = ((currentTime/60) - (last_key_info_param->timestamp/(1000*60))); //converting last_key_info_param->timestamp from milliseconds to minutes
+                    if (time_diff <= PREVIOUS_RF4CE_KEY_EVENT_MIN)
+                    {
+                        WA_INFO("checkRCULastKeyInfo(): Last RF4CE key event timestamp<%lldms>, used %i minutes back\n", last_key_info_param->timestamp, time_diff);
+                        result = 1;
+                    }
+                    else
+                    {
+                        WA_WARN("checkRCULastKeyInfo(): RF4CE key event time difference is more than %i minutes\n", PREVIOUS_RF4CE_KEY_EVENT_MIN);
+                        result = RF4CE_NO_RESPONSE;
+                    }
+                }
+                else
+                {
+                    WA_ERROR("checkRCULastKeyInfo(): last_key_info returned by CtrlMgr is not from RF4CE: %i\n", last_key_info_param->controller_id);
+                    result = RF4CE_NO_RESPONSE;
+                }
+            }
+            else
+                WA_ERROR("checkRCULastKeyInfo(): Invalid status returned by CtrlMgr: %i\n", last_key_info_param->result);
+        }
+        else
+            WA_ERROR("checkRCULastKeyInfo(): IARM_Bus_Call() returned %i\n", iarm_result);
+
+        IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, last_key_info_param);
+    }
+    else
+        WA_ERROR("checkRCULastKeyInfo(): IARM_Malloc() failed\n");
+
+    WA_RETURN("checkRCULastKeyInfo(): return code: %d\n", result);
 
     return result;
 }
@@ -344,6 +412,11 @@ static int checkRf4ceStatusViaCtrlMgr()
         }
         else
             WA_ERROR("checkRf4ceStatusViaCtrlMgr(): RF4CE network not supported by CtrlMgr\n");
+
+        if (!checkOnlyPairing && result)
+        {
+            result = checkRCULastKeyInfo();
+        }
     }
     else
         WA_INFO("checkRf4ceStatusViaCtrlMgr(): CtrlMgr not available\n");
@@ -403,6 +476,10 @@ static int setReturnData(int status, json_t **param)
 
     case WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR:
         *param = json_string("Internal test error.");
+        break;
+
+    case WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE:
+        *param = json_string("Rf input not detected.");
         break;
 
     default:
@@ -467,7 +544,7 @@ int WA_DIAG_RF4CE_status(void* instanceHandle, void *initHandle, json_t **params
 
     WA_RETURN("WA_DIAG_RF4CE_status, return code: %d.\n", WA_DIAG_ERRCODE_SUCCESS);
 
-    return setReturnData(WA_DIAG_ERRCODE_SUCCESS, params);
+    return setReturnData((ret == RF4CE_NO_RESPONSE ? WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE : WA_DIAG_ERRCODE_SUCCESS), params);
 }
 
 int isRF4CEPaired()

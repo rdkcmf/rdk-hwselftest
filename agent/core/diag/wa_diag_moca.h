@@ -46,6 +46,9 @@ extern "C"
 {
 #endif
 
+#define BUFFER_LENGTH 512
+#define MESSAGE_LENGTH 8192 /* On reference from xdiscovery.log which shows data length can be more than 5000*/
+#define DEVNAME_LENGTH 10
 /*****************************************************************************
  * EXPORTED DEFINITIONS
  *****************************************************************************/
@@ -57,6 +60,7 @@ extern "C"
 /*****************************************************************************
  * EXPORTED VARIABLES
  *****************************************************************************/
+char *mocaNodeInfo;
 
 /*****************************************************************************
  * EXPORTED FUNCTIONS
@@ -76,6 +80,8 @@ extern int getMocaIfRFChannelFrequency(int *group, int index, WA_UTILS_SNMP_Resp
 extern int getMocaIfNetworkController(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 extern int getMocaIfTransmitRate(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 extern int getMocaNodeSNR(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
+
+bool getUpnpResults();
 
 /*****************************************************************************
  * LOCAL FUNCTIONS

@@ -41,5 +41,6 @@ var DIAG_ERRCODE = {
         /* currently mapped to DIAG_ERRCODE.FAILURE in wa_diag_errcodes.h
         MCARD_CERT_INVALID:     -110, */
 
-        TUNER_BUSY:             -111
+        TUNER_BUSY:             -111,
+        RF4CE_NO_RESPONSE:      -112
 };

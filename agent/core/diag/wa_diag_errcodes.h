@@ -67,6 +67,7 @@ extern "C"
 #define WA_DIAG_ERRCODE_CM_NO_SIGNAL        (-109)
 #define WA_DIAG_ERRCODE_MCARD_CERT_INVALID  (WA_DIAG_ERRCODE_FAILURE)
 #define WA_DIAG_ERRCODE_TUNER_BUSY          (-111)
+#define WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE   (-112)
 
 /*****************************************************************************
  * EXPORTED TYPES

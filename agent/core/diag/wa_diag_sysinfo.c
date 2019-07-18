@@ -154,6 +154,14 @@ static json_t *sysinfo_Get()
             WA_ERROR("sysinfo_Get(): WA_UTILS_MFR_ReadSerializedData(%i) failed\n", i);
     }
 
+    mocaNodeInfo = (char*)malloc(BUFFER_LENGTH * sizeof(char));
+    if(!getUpnpResults())
+    {
+        snprintf(mocaNodeInfo, BUFFER_LENGTH, "Not Available");
+        WA_ERROR("Home Network returned: %s\n", mocaNodeInfo);
+    }
+    WA_DBG("Home Network returned: %s\n", mocaNodeInfo);
+
     addr = WA_UTILS_FILEOPS_OptionFind(DEV_FILE_PATH, STB_IP);
     getDateAndTime(&date_time[0], sizeof(date_time));
     getReceiverId(&rev_id[0], sizeof(rev_id));
@@ -231,7 +239,8 @@ static json_t *sysinfo_Get()
         WA_DBG("moca_data(%i) returned: %s\n", i, moca_data[i].value);
     }
 
-    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
+
+    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
        "Vendor", (!params[WA_UTILS_MFR_PARAM_MANUFACTURER].size? "N/A" : params[WA_UTILS_MFR_PARAM_MANUFACTURER].value),
        "Model",  (!params[WA_UTILS_MFR_PARAM_MODEL].size? "N/A" : params[WA_UTILS_MFR_PARAM_MODEL].value),
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
@@ -242,6 +251,7 @@ static json_t *sysinfo_Get()
        "Receiver ID", rev_id,
        "eSTB IP", (!addr ? "N/A" : addr),
        "Number of Channels", channels,
+       "Home Network", mocaNodeInfo,
        "MoCA RF Channel", (!moca_data[WA_MOCA_INFO_RF_CHANNEL].value ? "N/A" : moca_data[WA_MOCA_INFO_RF_CHANNEL].value),
        "MoCA NC", (!moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value ? "N/A" : moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value),
        "MoCA Bitrate", (!moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value ? "N/A" : moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value),
@@ -291,6 +301,10 @@ static json_t *sysinfo_Get()
         free(qamParams.QAM_ChPwr);
     if (qamParams.QAM_SNR != NULL)
         free(qamParams.QAM_SNR);
+
+    // free moca node info
+    if (mocaNodeInfo != NULL)
+        free(mocaNodeInfo);
 
     WA_UTILS_IARM_Disconnect();
 

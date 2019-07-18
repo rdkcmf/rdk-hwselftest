@@ -55,6 +55,14 @@
 #include "wa_fileops.h"
 #include "wa_snmp_client.h"
 
+/* rdk specific */
+#include "wa_iarm.h"
+#include "wa_json.h"
+#include "libIBus.h"
+#include "libIARMCore.h"
+#include "sysMgr.h"
+#include "xdiscovery.h"
+
 /* module interface */
 #include "wa_diag_moca.h"
 
@@ -621,6 +629,142 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
     return setReturnData(WA_DIAG_ERRCODE_SUCCESS, params);
 }
 
+bool getUpnpResults()
+{
+    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
+    int is_connected = 0;
+
+    IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t *param = NULL;
+    char upnpResults[MESSAGE_LENGTH+1];
+    json_error_t jerror;
+    json_t *json = NULL;
+    char tmp[BUFFER_LENGTH] = {'\0'};
+
+    iarm_result = IARM_Bus_IsConnected(_IARM_XUPNP_NAME, &is_connected);
+    if (iarm_result != IARM_RESULT_SUCCESS)
+    {
+        WA_ERROR("getUpnpResults(): IARM_Bus_IsConnected('%s') failed\n", _IARM_XUPNP_NAME);
+        return false;
+    }
+
+    if (!is_connected)
+    {
+        WA_ERROR("getUpnpResults(): XUPNP not available\n");
+        return false;
+    }
+
+    iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t) + MESSAGE_LENGTH + 1, (void**)&param);
+    if (iarm_result != IARM_RESULT_SUCCESS)
+    {
+        WA_ERROR("getUpnpResults(): IARM_Malloc() failed\n");
+        return false;
+    }
+
+    /* Beyond this whenever we return due to failure/success, IAM_FREE must be called */
+    if (param)
+    {
+        memset(param, 0, sizeof(*param));
+        param->bufLength = MESSAGE_LENGTH;
+
+        iarm_result = IARM_Bus_Call(_IARM_XUPNP_NAME, IARM_BUS_XUPNP_API_GetXUPNPDeviceInfo, (void *)param, sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t) + MESSAGE_LENGTH + 1);
+
+        if (iarm_result != IARM_RESULT_SUCCESS)
+        {
+            WA_ERROR("getUpnpResults(): IARM_Bus_Call() returned %i\n", iarm_result);
+            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+            return false;
+        }
+
+        WA_DBG("getUpnpResults(): IARM_RESULT_SUCCESS\n");
+        memcpy(upnpResults, ((char *)param + sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t)), param->bufLength);
+        upnpResults[param->bufLength] = '\0';
+
+        json = json_loadb(upnpResults, MESSAGE_LENGTH, JSON_DISABLE_EOF_CHECK, &jerror);
+        if (!json)
+        {
+            WA_ERROR("getUpnpResults(): json_loads() error\n");
+            json_decref(json);
+            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+            return false;
+        }
+
+        json_t *jarr = json_object_get(json, "xmediagateways");
+        if (!jarr)
+        {
+            WA_ERROR("getUpnpResults(): Couldn't get the array of xmediagateways\n");
+            json_decref(jarr);
+            json_decref(json);
+            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+            return false;
+        }
+
+        for (size_t i = 0; i < json_array_size(jarr); i++)
+        {
+            json_t *jval = json_array_get(jarr, i);
+            if (!jval)
+            {
+                WA_ERROR("getUpnpResults(): Not a json object in array for %i element\n", i);
+                json_decref(jval);
+                json_decref(jarr);
+                json_decref(json);
+                IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+                return false;
+            }
+
+            char param_Mac[BUFFER_LENGTH];
+            char param_devName[BUFFER_LENGTH];
+            json_t *jparam_devName = json_object_get(jval, "deviceName");
+
+            /* If deviceName is not empty*/
+            if (strcmp(json_string_value(jparam_devName), ""))
+            {
+                strxfrm(param_devName, json_string_value(jparam_devName), DEVNAME_LENGTH); /* Get first 10 characters */
+                param_devName[DEVNAME_LENGTH] = '\0';
+                snprintf(mocaNodeInfo, BUFFER_LENGTH, "%s%s", tmp, param_devName);
+            }
+            else
+            {
+                json_t *jparam_devType = json_object_get(jval, "DevType");
+                json_t *jparam_gateway = json_object_get(jval, "isgateway");
+
+                /* If DevType is a gateway*/
+                if (!strcmp(json_string_value(jparam_gateway), "yes"))
+                {
+                    json_t *jparam_Mac = json_object_get(jval, "hostMacAddress");
+                    strcpy(param_Mac, json_string_value(jparam_Mac));
+                    json_decref(jparam_Mac);
+                }
+                else
+                {
+                    json_t *jparam_Mac = json_object_get(jval, "bcastMacAddress");
+                    strcpy(param_Mac, json_string_value(jparam_Mac));
+                    json_decref(jparam_Mac);
+                }
+
+                /* Take only last 4 characters of Macaddress */
+                char* token = strtok(param_Mac, ":");
+                for (int i = 0; i < 4; i++)
+                {
+                    token = strtok(NULL, ":");
+                }
+                char *octet = token;
+                token = strtok(NULL, ":");
+
+                snprintf(mocaNodeInfo, BUFFER_LENGTH, "%s%s(%s%s)", tmp, json_string_value(jparam_devType), octet, token);
+                json_decref(jparam_devType);
+                json_decref(jparam_gateway);
+            }
+
+            strcpy(tmp, mocaNodeInfo);
+            strcat(tmp, ", ");
+            json_decref(jparam_devName);
+        }
+    }
+
+    IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+
+    return true;
+}
 
 /* End of doxygen group */
 /*! @} */

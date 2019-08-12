@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-var CLIENT_VERSION = "0010";
+var CLIENT_VERSION = "0011";
 var client_name = "client ver. " + CLIENT_VERSION;
 var screen1SysinfoTimeout = 20; //seconds, 0: disabled
 var screen1Timeout = 300; //seconds, 0: disabled
@@ -60,7 +60,8 @@ var telemetry_order = {
     'Video Tuner': 'NA',
     'IR Remote Interface': 'IR_NA_as_RF_Paired',
     'SD Card': 'Not_Enabled',
-    'Bluetooth': 'Not_Enabled'
+    'Bluetooth': 'Not_Enabled',
+    'WiFi':'Not_Enabled'
 };
 
 /*
@@ -82,7 +83,8 @@ var diagGroupsAll = {
     'Audio/Video Decoder': {'avdecoder_qam_status': []},
     'Video Tuner': {'tuner_status': []},
     'Cable Modem': {'modem_status': []},
-    'Bluetooth': {'bluetooth_status': []}
+    'Bluetooth': {'bluetooth_status': []},
+    'WiFi': {'wifi_status': []}
 };
 
 /* to be adjusted when reading capabilities */
@@ -367,6 +369,7 @@ function dsCallbackInit(type, cookie, params) {
         tableCreateSystemInfo(params);
         tableCreateMocaInfo(params);
         tableCreateTunerInfo(params);
+        tableCreateWiFiInfo(params);
         enableSystemData();
     }
     else if((type === Diagsys.cbType.eod) && (params === 0)) {
@@ -598,6 +601,52 @@ function tableCreateTunerInfo(data) {
         case "Video Tuner Locked":
         case "Video Tuner Power":
         case "Video Tuner SNR":
+            var tr = document.createElement('tr');
+            tr.style.border = '5px';
+            var td = document.createElement('td');
+            td.style.textAlign = 'right';
+            td.style.fontSize = 'smaller';
+            td.style.padding = '0 10px 3px 0';
+            td.style.width = '33%';
+            td.appendChild(document.createTextNode(JSON.stringify(Object.keys(data)[i]).replace(/"/g, '')));
+            tr.appendChild(td);
+
+            td = document.createElement('td');
+            td.style.textAlign = 'left';
+            td.style.padding = '0 0 3px 8px';
+            td.style.fontSize = 'smaller';
+            td.appendChild(document.createTextNode(JSON.stringify(Object.values(data)[i]).replace(/"/g, '')));
+            tr.appendChild(td);
+            tbdy.appendChild(tr);
+            break;
+    }
+    }
+    tbl.appendChild(tbdy);
+    store.appendChild(tbl);
+}
+
+function tableCreateWiFiInfo(data) {
+    if(typeof data !== 'object') {
+        return;
+    }
+
+    var tmp = document.getElementById('wifi_info_table');
+    if (tmp && tmp.hasChildNodes() === true) {
+        tmp.parentNode.removeChild(tmp);
+    }
+
+    var store = document.getElementById('wifi_info');
+    var tbl = document.createElement('table');
+    tbl.id = 'wifi_info_table';
+    tbl.className = 'infotable';
+    var tbdy = document.createElement('tbody');
+
+    for (var i = 0; i < Object.keys(data).length; i++) {
+        switch(Object.keys(data)[i]) {
+        case "WiFi SSID":
+        case "WiFi SSID MAC":
+        case "WiFi Op Frequency":
+        case "WiFi Signal Strength":
             var tr = document.createElement('tr');
             tr.style.border = '5px';
             var td = document.createElement('td');
@@ -976,6 +1025,9 @@ function getInfo(elemName, status, data) {
         break;
     case DIAG_ERRCODE.RF4CE_NO_RESPONSE:
         info = "RF input not detected in last 10 minutes";
+        break;
+    case DIAG_ERRCODE.WIFI_NO_CONNECTION:
+        info = "No Connection";
         break;
     case DIAG_ERRCODE.INTERNAL_TEST_ERROR:
     case DIAG_ERRCODE.CANCELLED:

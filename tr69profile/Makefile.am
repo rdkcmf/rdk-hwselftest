@@ -44,6 +44,7 @@ libtr69ProfileHwSelfTest_la_SOURCES = \
     hwst_diag_sysinfo.cpp \
     hwst_diag_tuner.cpp \
     hwst_diag_bluetooth.cpp \
+    hwst_diag_wifi.cpp \
     hwst_diag_prev_results.cpp \
     hwst_diag_capabilities.cpp \
     hwst_diagfactory.cpp \

@@ -18,17 +18,18 @@
 */
 
 /**
- * @file
+ * @file wa_diag_wifi.h
  *
- * @brief Diagnostic functions for AV decodeing - interface
+ * @brief Diagnostic functions for WIFI - interface
  */
 
-/** @addtogroup WA_DIAG_AVDECODER_QAM
+/** @addtogroup WA_DIAG_WIFI
  *  @{
  */
 
-#ifndef WA_DIAG_AVDECODER_QAM_H
-#define WA_DIAG_AVDECODER_QAM_H
+#ifndef WA_DIAG_WIFI_H
+#define WA_DIAG_WIFI_H
+
 
 /*****************************************************************************
  * STANDARD INCLUDE FILES
@@ -37,7 +38,9 @@
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
-#include "wa_diag.h"
+#include "wa_json.h"
+#include "hostIf_tr69ReqHandler.h"
+#include "wifiSrvMgrIarmIf.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -55,14 +58,19 @@ extern "C"
 /*****************************************************************************
  * EXPORTED VARIABLES
  *****************************************************************************/
-
+char wifiIARM[TR69HOSTIFMGR_MAX_PARAM_LEN];
 /*****************************************************************************
  * EXPORTED FUNCTIONS
  *****************************************************************************/
 
-void * WA_DIAG_AVDECODER_QAM_init(struct WA_DIAG_proceduresConfig_t *);
-
-int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t **pJsonInOut);
+/**
+ * WIFI SSID STATUS
+ */
+extern int WA_DIAG_WIFI_status(void* instanceHandle, void *initHandle, json_t **params);
+int getWifiSSID_IARM(char **result);
+int getWifiMacAddress_IARM(char **result);
+int getWifiOperFrequency_IARM(char **result);
+int getWifiSignalStrength_IARM(int *result);
 
 /*****************************************************************************
  * LOCAL FUNCTIONS
@@ -72,4 +80,9 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
 }
 #endif
 
-#endif
+#endif /* WA_DIAG_WIFI_H */
+
+/* End of doxygen group */
+/*! @} */
+
+/* EOF */

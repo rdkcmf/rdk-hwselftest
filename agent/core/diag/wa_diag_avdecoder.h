@@ -20,15 +20,15 @@
 /**
  * @file
  *
- * @brief Unified error status codes.
+ * @brief Diagnostic functions for AV decodeing - interface
  */
 
-/** @addtogroup WA_DIAG
+/** @addtogroup WA_DIAG_AVDECODER_QAM
  *  @{
  */
 
-#ifndef WA_DIAG_ERRCODES_H
-#define WA_DIAG_ERRCODES_H
+#ifndef WA_DIAG_AVDECODER_QAM_H
+#define WA_DIAG_AVDECODER_QAM_H
 
 /*****************************************************************************
  * STANDARD INCLUDE FILES
@@ -37,6 +37,8 @@
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
+#include "wa_diag.h"
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -45,30 +47,6 @@ extern "C"
 /*****************************************************************************
  * EXPORTED DEFINITIONS
  *****************************************************************************/
-#define WA_DIAG_ERRCODE_FAILURE 1
-
-#define WA_DIAG_ERRCODE_SUCCESS 0
-
-/* generic codes */
-#define WA_DIAG_ERRCODE_NOT_APPLICABLE      (-1)
-#define WA_DIAG_ERRCODE_CANCELLED           (-2)
-#define WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR (-3)
-
-/* specific codes */
-#define WA_DIAG_ERRCODE_HDD_STATUS_MISSING  (-100)
-#define WA_DIAG_ERRCODE_HDMI_NO_DISPLAY     (-101)
-#define WA_DIAG_ERRCODE_HDMI_NO_HDCP        (-102)
-#define WA_DIAG_ERRCODE_MOCA_NO_CLIENTS     (-103)
-#define WA_DIAG_ERRCODE_MOCA_DISABLED       (-104)
-#define WA_DIAG_ERRCODE_SI_CACHE_MISSING    (-105)
-#define WA_DIAG_ERRCODE_TUNER_NO_LOCK       (-106)
-#define WA_DIAG_ERRCODE_AV_NO_SIGNAL        (-107)
-#define WA_DIAG_ERRCODE_IR_NOT_DETECTED     (-108)
-#define WA_DIAG_ERRCODE_CM_NO_SIGNAL        (-109)
-#define WA_DIAG_ERRCODE_MCARD_CERT_INVALID  (WA_DIAG_ERRCODE_FAILURE)
-#define WA_DIAG_ERRCODE_TUNER_BUSY          (-111)
-#define WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE   (-112)
-#define WA_DIAG_ERRCODE_WIFI_NO_CONNECTION  (-113)
 
 /*****************************************************************************
  * EXPORTED TYPES
@@ -81,6 +59,10 @@ extern "C"
 /*****************************************************************************
  * EXPORTED FUNCTIONS
  *****************************************************************************/
+
+void * WA_DIAG_AVDECODER_init(struct WA_DIAG_proceduresConfig_t *);
+
+int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t **pJsonInOut);
 
 /*****************************************************************************
  * LOCAL FUNCTIONS

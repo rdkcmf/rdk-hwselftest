@@ -35,6 +35,7 @@
 #include <cstring>
 #include <string>
 #include <sys/time.h>
+#include <typeinfo>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -76,6 +77,30 @@ public:
     std::string locator;
     TunerReservationHelper *helper;
     reservation_listener_impl *listener;
+};
+
+class TestException: public std::exception
+{
+    public:
+        TestException(int result, const char * text)
+            : result(result)
+            , text(text)
+        {
+        }
+        ~TestException() throw()
+        {
+        }
+        int getResult() const throw()
+        {
+            return result;
+        }
+        const char * what() const throw ()
+        {
+            return text.c_str();
+        }
+    private:
+        int result;
+        std::string text;
 };
 
 /*****************************************************************************
@@ -141,10 +166,17 @@ int WA_UTILS_TRH_ReserveTuner(const char *url, uint64_t when, uint64_t duration,
                     WA_ERROR("WA_UTILS_TRH_ReserveTuner(): reservation timeout for '%s'\n", url);
                     status = 2;
                 }
+                throw TestException(TRH_STATUS_RESERVATION_FAIL, "Unable to Reserve Tuner");
+                delete handler;
             }
         }
         else
+        {
             WA_ERROR("WA_UTILS_TRH_ReserveTuner(): failed to request tuner reservation\n");
+            throw TestException(TRH_STATUS_RESERVATION_FAIL, "Unable to Reserve Tuner");
+            delete handler;
+        }
+
     }
     catch (std::exception &e)
     {
@@ -152,7 +184,6 @@ int WA_UTILS_TRH_ReserveTuner(const char *url, uint64_t when, uint64_t duration,
         status = 1;
     }
 
-err:
     WA_RETURN("WA_UTILS_TRH_ReserveTuner(): status=%i\n", status);
 
     return status;
@@ -201,12 +232,11 @@ int WA_UTILS_TRH_ReleaseTuner(void *handle, int timeout_ms)
 
         delete handler;
 
-        WA_DBG("WA_UTILS_TRH_ReleaseTuner(): deallocated handle %p\n", handle);
     }
     else
+
         WA_ERROR("WA_UTILS_TRH_ReleaseTuner(): invalid reservation handle %p\n", handle);
 
-err:
     WA_RETURN("WA_UTILS_TRH_ReleaseTuner(): status=%i\n", status);
 
     return status;
@@ -237,7 +267,6 @@ int WA_UTILS_TRH_WaitForTunerRelease(void *handle, int timeout_ms)
     else
         WA_ERROR("WA_UTILS_TRH_WaitForTunerRelease(): invalid reservation handle %p\n", handle);
 
-err:
     WA_RETURN("WA_UTILS_TRH_WaitForTunerRelease(): status=%i\n", status);
 
     return status;

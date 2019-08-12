@@ -60,8 +60,6 @@
 #include "wa_json.h"
 #include "libIBus.h"
 #include "libIARMCore.h"
-#include "sysMgr.h"
-#include "xdiscovery.h"
 
 /* module interface */
 #include "wa_diag_moca.h"
@@ -73,7 +71,8 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
-
+#ifndef MEDIA_CLIENT
+/* XG */
 #define OID_MOCA11_IF_ENABLE_STATUS "MOCA11-MIB::mocaIfEnable"
 #define OID_MOCA11_IF_NODES_COUNT "MOCA11-MIB::mocaIfNumNodes"
 #define OID_MOCA11_IF_RX_PACKETS_COUNT "MOCA11-MIB::mocaIfRxPackets"
@@ -97,13 +96,6 @@
 
 #define MOCA_IF_NODES_COUNT_MIN              (2) /* 0 - no clients,
                                                     2 - 1 client */
-
-#define DEV_CONFIG_FILE_PATH         "/etc/device.properties"
-#define FILE_MODE                    "r"
-
-#define MOCA_OPTION_STR              "MOCA_INTERFACE"
-#define MOCA_AVAILABLE_STR           "mca0"
-
 #define SNMP_SERVER "localhost"
 
 #define STEP_TIME 5 /* in [s] */
@@ -113,9 +105,31 @@
 
 #define MOCA_GROUP_11 0
 #define MOCA_GROUP_20 (MOCA20_OPT_IF_ENABLE_STATUS)
+#else
+/* Xi */
+#define TR69_MOCA_IF_ENABLE_STATUS "Device.MoCA.Interface.1.Enable"
+#define TR69_MOCA_IF_RF_CHANNEL_FREQUENCY "Device.MoCA.Interface.1.CurrentOperFreq"
+#define TR69_MOCA_IF_NETWORK_CONTROLLER "Device.MoCA.Interface.1.NetworkCoordinator"
+#define TR69_MOCA_IF_MESH_TABLE_ENTRY "Device.MoCA.Interface.1.X_RDKCENTRAL-COM_MeshTableNumberOfEntries"
+#define TR69_MOCA_IF_MESH_TABLE "Device.MoCA.Interface.1.X_RDKCENTRAL-COM_MeshTable."
+#define TR69_MOCA_IF_TRANSMIT_RATE ".MeshPHYTxRate"
+#define TR69_MOCA_IF_ASSOCIATED_DEVICE_ENTRY "Device.MoCA.Interface.1.AssociatedDeviceNumberOfEntries"
+#define TR69_MOCA_IF_ASSOCIATED_DEVICE "Device.MoCA.Interface.1.AssociatedDevice."
+#define TR69_MOCA_IF_RX_PACKETS_COUNT ".RxPackets"
+#define TR69_MOCA_IF_NODE_SNR ".RxSNR"
+#endif /* MEDIA_CLIENT */
+
+/* XG and Xi */
+#define DEV_CONFIG_FILE_PATH         "/etc/device.properties"
+#define FILE_MODE                    "r"
+
+#define MOCA_OPTION_STR              "MOCA_INTERFACE"
+#define MOCA_AVAILABLE_STR           "mca0"
+
 /*****************************************************************************
  * LOCAL TYPES
  *****************************************************************************/
+#ifndef MEDIA_CLIENT
 typedef enum {
     MOCA11_OPT_IF_ENABLE_STATUS,
     MOCA11_OPT_IF_NODES_COUNT,
@@ -133,11 +147,15 @@ typedef enum {
     MOCA20_OPT_NODE_SNR,
     MOCA_OPT_MAX,
 } MocaOption_t;
+#endif /* MEDIA_CLIENT */
 
 /*****************************************************************************
  * LOCAL FUNCTION PROTOTYPES
  *****************************************************************************/
 static int moca_supported(const char *interface);
+static int setReturnData(int status, json_t **param);
+
+#ifndef MEDIA_CLIENT
 static int getMocaOptionStatus(MocaOption_t opt, int index, WA_UTILS_SNMP_Resp_t *value,
     WA_UTILS_SNMP_ReqType_t reqType);
 static int getMocaIfEnableStatus(int group, int index, WA_UTILS_SNMP_Resp_t *value,
@@ -147,15 +165,22 @@ static int getMocaIfNodesCount(void* instanceHandle, int group, int index,
 static int getMocaIfRxPacketsCount(void* instanceHandle, int group, int index,
     WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType, int progress);
 static int verifyOptionValue(MocaOption_t opt,  WA_UTILS_SNMP_Resp_t *value);
-static int setReturnData(int status, json_t **param);
 int getMocaIfRFChannelFrequency(int *group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 int getMocaIfNetworkController(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 int getMocaIfTransmitRate(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 int getMocaNodeSNR(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
+#else
+static int getMocaIfMeshTable_IARM();
+static int getMocaIfAssociatedDevice_IARM();
+static int getMocaIfEnableStatus_IARM();
+static int getMocaIfRxPacketsCount_IARM();
+static int getMocaParam_IARM(char *param, char **value);
+#endif /* MEDIA_CLIENT */
 
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
+#ifndef MEDIA_CLIENT
 char *MocaOptions[MOCA_OPT_MAX] = {
     OID_MOCA11_IF_ENABLE_STATUS,
     OID_MOCA11_IF_NODES_COUNT,
@@ -172,7 +197,11 @@ char *MocaOptions[MOCA_OPT_MAX] = {
     OID_MOCA20_IF_TRANSMIT_RATE,
     OID_MOCA20_NODE_SNR
 };
+#endif /* MEDIA_CLIENT */
 
+int  mocaParamInt = 0;
+bool mocaParamBool = 0;
+char *mocaParam;
 /*****************************************************************************
  * FUNCTION DEFINITIONS
  *****************************************************************************/
@@ -188,6 +217,52 @@ static int moca_supported(const char *interface)
     return WA_UTILS_FILEOPS_OptionSupported(DEV_CONFIG_FILE_PATH, FILE_MODE, MOCA_OPTION_STR, interface);
 }
 
+static int setReturnData(int status, json_t **param)
+{
+    if(param == NULL)
+    {
+        WA_ERROR("setReturnData, null pointer error.\n");
+        return status;
+    }
+
+    switch (status)
+    {
+        case WA_DIAG_ERRCODE_SUCCESS:
+           *param = json_string("MoCA good.");
+           break;
+
+        case WA_DIAG_ERRCODE_FAILURE:
+           *param = json_string("MoCA bad.");
+           break;
+
+        case WA_DIAG_ERRCODE_MOCA_DISABLED:
+           *param = json_string("MoCA disabled.");
+           break;
+
+        case WA_DIAG_ERRCODE_MOCA_NO_CLIENTS:
+           *param = json_string("MoCA no clients found.");
+           break;
+
+        case WA_DIAG_ERRCODE_NOT_APPLICABLE:
+            *param = json_string("Not applicable.");
+            break;
+
+        case WA_DIAG_ERRCODE_CANCELLED:
+            *param = json_string("Test cancelled.");
+            break;
+
+        case WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR:
+            *param = json_string("Internal test error.");
+            break;
+
+        default:
+            break;
+    }
+
+    return status;
+}
+
+#ifndef MEDIA_CLIENT
 static int getMocaOptionStatus(MocaOption_t opt, int index, WA_UTILS_SNMP_Resp_t *value,
     WA_UTILS_SNMP_ReqType_t reqType)
 {
@@ -362,36 +437,6 @@ static int getMocaIfRxPacketsCount(void* instanceHandle, int group, int index, W
     return status;
 }
 
-int getMocaIfRFChannelFrequency(int *group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
-{
-    int ret = -1;
-
-    ret = getMocaOptionStatus(MOCA11_OPT_IF_RF_CHANNEL_FREQUENCY + (*group), index, value, reqType);
-
-    if (ret < 0)
-    {
-        *group = MOCA_GROUP_20;
-        ret = getMocaOptionStatus(MOCA11_OPT_IF_RF_CHANNEL_FREQUENCY + (*group), index, value, reqType);
-    }
-
-    return ret;
-}
-
-int getMocaIfNetworkController(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
-{
-    return getMocaOptionStatus(MOCA11_OPT_IF_NETWORK_CONTROLLER + group, index, value, reqType);
-}
-
-int getMocaIfTransmitRate(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
-{
-    return getMocaOptionStatus(MOCA11_OPT_IF_TRANSMIT_RATE + group, index, value, reqType);
-}
-
-int getMocaNodeSNR(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
-{
-    return getMocaOptionStatus(MOCA11_OPT_NODE_SNR + group, index, value, reqType);
-}
-
 static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
 {
     int ret = -1;
@@ -463,50 +508,137 @@ static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
     return ret;
 }
 
-static int setReturnData(int status, json_t **param)
+#else
+static int getMocaIfMeshTable_IARM()
 {
-    if(param == NULL)
+    int num_entries = 0;
+    char *value;
+
+    if (getMocaParam_IARM(TR69_MOCA_IF_MESH_TABLE_ENTRY, &value) < 0)
     {
-        WA_ERROR("setReturnData, null pointer error.\n");
-        return status;
+        WA_ERROR("getMocaIfMeshTable_IARM(): getMocaParam_IARM('%s') failed\n", TR69_MOCA_IF_MESH_TABLE_ENTRY);
+        return -1;
     }
 
-    switch (status)
-    {
-        case WA_DIAG_ERRCODE_SUCCESS:
-           *param = json_string("MoCA good.");
-           break;
+    num_entries = *(int*)value; // Decoding in the same format as how Tr69HostIf encoded the data
 
-        case WA_DIAG_ERRCODE_FAILURE:
-           *param = json_string("MoCA bad.");
-           break;
-
-        case WA_DIAG_ERRCODE_MOCA_DISABLED:
-           *param = json_string("MoCA disabled.");
-           break;
-
-        case WA_DIAG_ERRCODE_MOCA_NO_CLIENTS:
-           *param = json_string("MoCA no clients found.");
-           break;
-
-        case WA_DIAG_ERRCODE_NOT_APPLICABLE:
-            *param = json_string("Not applicable.");
-            break;
-
-        case WA_DIAG_ERRCODE_CANCELLED:
-            *param = json_string("Test cancelled.");
-            break;
-
-        case WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR:
-            *param = json_string("Internal test error.");
-            break;
-
-        default:
-            break;
-    }
-
-    return status;
+    return num_entries;
 }
+
+static int getMocaIfAssociatedDevice_IARM()
+{
+    int num_devices = 0;
+    char *value;
+
+    if (getMocaParam_IARM(TR69_MOCA_IF_ASSOCIATED_DEVICE_ENTRY, &value) < 0)
+    {
+        WA_ERROR("getMocaIfAssociatedDevice_IARM(): getMocaParam_IARM('%s') failed\n", TR69_MOCA_IF_ASSOCIATED_DEVICE_ENTRY);
+        return -1;
+    }
+
+    num_devices = *(int*)value; // Decoding in the same format as how Tr69HostIf encoded the data
+
+    return num_devices;
+}
+
+static int getMocaIfEnableStatus_IARM()
+{
+    int ret = -1;
+    char *value;
+    bool enable;
+
+    ret = getMocaParam_IARM(TR69_MOCA_IF_ENABLE_STATUS, &value);
+
+    enable = *(bool*)value; // Decoding in the same format as how Tr69HostIf encoded the data
+
+    if (ret == 0)
+    {
+        ret = enable ? 1 : 0;
+    }
+
+    return ret;
+}
+
+static int getMocaIfRxPacketsCount_IARM()
+{
+    int ret = -1;
+    int num_devices = 0;
+    char *value;
+    char data[256];
+
+    if ((num_devices = getMocaIfAssociatedDevice_IARM()) == 0)
+    {
+        return num_devices;
+    }
+
+    for (int index = 1; index <= num_devices; index++)
+    {
+        snprintf(data, sizeof(data), "%s%i%s", TR69_MOCA_IF_ASSOCIATED_DEVICE, index, TR69_MOCA_IF_RX_PACKETS_COUNT);
+        if (getMocaParam_IARM(data, &value) < 0)
+        {
+            WA_ERROR("getMocaIfRxPacketsCount_IARM(): getMocaParam_IARM('%s') failed\n", data);
+            continue;
+        }
+
+        ret = 1;
+    }
+
+    return ret;
+}
+
+static int getMocaParam_IARM(char *param, char **value)
+{
+    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
+    int is_connected = 0;
+
+    WA_ENTER("getMocaIfRFChannelFrequency_IARM()\n");
+
+    iarm_result = IARM_Bus_IsConnected(IARM_BUS_TR69HOSTIFMGR_NAME, &is_connected);
+    if (iarm_result != IARM_RESULT_SUCCESS)
+    {
+        WA_ERROR("getMocaIfRFChannelFrequency_IARM(): IARM_Bus_IsConnected('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
+        return -1;
+    }
+
+    HOSTIF_MsgData_t *stMsgDataParam = NULL;
+
+    iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(*stMsgDataParam), (void**)&stMsgDataParam);
+    if ((iarm_result == IARM_RESULT_SUCCESS) && stMsgDataParam)
+    {
+        memset(stMsgDataParam, 0, sizeof(*stMsgDataParam));
+        snprintf(stMsgDataParam->paramName, TR69HOSTIFMGR_MAX_PARAM_LEN, "%s", param);
+
+        iarm_result = IARM_Bus_Call(IARM_BUS_TR69HOSTIFMGR_NAME, IARM_BUS_TR69HOSTIFMGR_API_GetParams, (void *)stMsgDataParam, sizeof(*stMsgDataParam));
+
+        if (iarm_result != IARM_RESULT_SUCCESS)
+        {
+            WA_ERROR("getMocaIfRFChannelFrequency_IARM(): IARM_Bus_Call('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
+            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, stMsgDataParam);
+            return -1;
+        }
+
+        if(!strcmp(param, TR69_MOCA_IF_ENABLE_STATUS))
+        {
+            mocaParam = (char *)&stMsgDataParam->paramValue[0];
+            mocaParamBool = *(bool *)mocaParam;
+            *value = (char *)&mocaParamBool;
+        }
+        else
+        {
+            mocaParam = (char *)&stMsgDataParam->paramValue[0];
+            mocaParamInt = *(int *)mocaParam;
+            *value = (char *)&mocaParamInt;
+        }
+
+        IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, stMsgDataParam);
+
+        return 0;
+    }
+
+    WA_ERROR("getMocaIfRFChannelFrequency_IARM(): IARM_Malloc('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
+    return -1;
+}
+#endif /* MEDIA_CLIENT */
 
 /*****************************************************************************
  * EXPORTED FUNCTIONS
@@ -515,11 +647,13 @@ static int setReturnData(int status, json_t **param)
 int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
 {
     int ret;
-    int ifIndex = -1;
-    WA_UTILS_SNMP_Resp_t value;
     json_t * jsonConfig = NULL;
     const char *interface = MOCA_AVAILABLE_STR;
+#ifndef MEDIA_CLIENT
+    WA_UTILS_SNMP_Resp_t value;
     int group = MOCA_GROUP_11;
+    int ifIndex = -1;
+#endif /* MEDIA_CLIENT */
 
     json_decref(*params); // not used
     *params = NULL;
@@ -544,7 +678,8 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
         WA_ERROR("Device configuration unknown.\n");
         return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
     }
-    else if(ret == 0)
+#ifndef MEDIA_CLIENT
+    else if(ret == 0) // Not considering this check for Xi. Though /etc/device.properties has MOCA_INTERFACE=eth1, jsonConfig is NULL in Xi.
     {
         WA_ERROR("Device does not have MoCA interface.\n");
         return setReturnData(WA_DIAG_ERRCODE_NOT_APPLICABLE, params);
@@ -558,12 +693,23 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
         group = MOCA_GROUP_20;
         ret = getMocaIfEnableStatus(group, ifIndex, &value, WA_UTILS_SNMP_REQ_TYPE_WALK);
     }
+#else
+    if (WA_UTILS_IARM_Connect())
+    {
+        WA_ERROR("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Connect() Failed \n");
+        return -1;
+    }
+    ret = getMocaIfEnableStatus_IARM();
+#endif /* MEDIA_CLIENT */
+
     if(ret < 1)
     {
 
         if(WA_OSA_TaskCheckQuit())
         {
             WA_DBG("getMocaIfEnableStatus: test cancelled\n");
+            ret = WA_UTILS_IARM_Disconnect();
+            WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
             return setReturnData(WA_DIAG_ERRCODE_CANCELLED, params);
         }
 
@@ -572,17 +718,24 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
         switch(ret)
         {
             case 0:
+                ret = WA_UTILS_IARM_Disconnect();
+                WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
                 return setReturnData(WA_DIAG_ERRCODE_MOCA_DISABLED, params);
             case -1:
+                ret = WA_UTILS_IARM_Disconnect();
+                WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
                 return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
             case -2:
             default:
+                ret = WA_UTILS_IARM_Disconnect();
+                WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
                 return setReturnData(WA_DIAG_ERRCODE_FAILURE, params);
         }
     }
 
     WA_DBG("MoCA status read successfully.\n");
 
+#ifndef MEDIA_CLIENT
     (void)getMocaIfIndex(group, &ifIndex);
     WA_DBG("MoCA interface index: %d.\n", ifIndex);
 
@@ -593,10 +746,14 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
         if(WA_OSA_TaskCheckQuit())
         {
             WA_DBG("getMocaIfNodesCount: test cancelled\n");
+            ret = WA_UTILS_IARM_Disconnect();
+            WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
             return setReturnData(WA_DIAG_ERRCODE_CANCELLED, params);
         }
 
         WA_ERROR("moca_status, getMocaIfNodesCount, error code: %d\n", ret);
+        ret = WA_UTILS_IARM_Disconnect();
+        WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
         return setReturnData((ret == 0 ? WA_DIAG_ERRCODE_MOCA_NO_CLIENTS : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR), params);
     }
 
@@ -610,6 +767,15 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
 
     ret = getMocaIfRxPacketsCount(instanceHandle, group, ifIndex, &value,
         WA_UTILS_SNMP_REQ_TYPE_GET, NODESCOUNT_STEPS);
+#else
+    ret = getMocaIfRxPacketsCount_IARM();
+    if(WA_UTILS_IARM_Disconnect())
+    {
+        WA_ERROR("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() Failed \n");
+        return -1;
+    }
+#endif /* MEDIA_CLIENT */
+
     if(ret < 1)
     {
         if(WA_OSA_TaskCheckQuit())
@@ -629,142 +795,138 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
     return setReturnData(WA_DIAG_ERRCODE_SUCCESS, params);
 }
 
-bool getUpnpResults()
+#ifndef MEDIA_CLIENT
+int getMocaIfRFChannelFrequency(int *group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
 {
-    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
-    int is_connected = 0;
+    int ret = -1;
 
-    IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t *param = NULL;
-    char upnpResults[MESSAGE_LENGTH+1];
-    json_error_t jerror;
-    json_t *json = NULL;
-    char tmp[BUFFER_LENGTH] = {'\0'};
+    ret = getMocaOptionStatus(MOCA11_OPT_IF_RF_CHANNEL_FREQUENCY + (*group), index, value, reqType);
 
-    iarm_result = IARM_Bus_IsConnected(_IARM_XUPNP_NAME, &is_connected);
-    if (iarm_result != IARM_RESULT_SUCCESS)
+    if (ret < 0)
     {
-        WA_ERROR("getUpnpResults(): IARM_Bus_IsConnected('%s') failed\n", _IARM_XUPNP_NAME);
-        return false;
+        *group = MOCA_GROUP_20;
+        ret = getMocaOptionStatus(MOCA11_OPT_IF_RF_CHANNEL_FREQUENCY + (*group), index, value, reqType);
     }
 
-    if (!is_connected)
-    {
-        WA_ERROR("getUpnpResults(): XUPNP not available\n");
-        return false;
-    }
-
-    iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t) + MESSAGE_LENGTH + 1, (void**)&param);
-    if (iarm_result != IARM_RESULT_SUCCESS)
-    {
-        WA_ERROR("getUpnpResults(): IARM_Malloc() failed\n");
-        return false;
-    }
-
-    /* Beyond this whenever we return due to failure/success, IAM_FREE must be called */
-    if (param)
-    {
-        memset(param, 0, sizeof(*param));
-        param->bufLength = MESSAGE_LENGTH;
-
-        iarm_result = IARM_Bus_Call(_IARM_XUPNP_NAME, IARM_BUS_XUPNP_API_GetXUPNPDeviceInfo, (void *)param, sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t) + MESSAGE_LENGTH + 1);
-
-        if (iarm_result != IARM_RESULT_SUCCESS)
-        {
-            WA_ERROR("getUpnpResults(): IARM_Bus_Call() returned %i\n", iarm_result);
-            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
-            return false;
-        }
-
-        WA_DBG("getUpnpResults(): IARM_RESULT_SUCCESS\n");
-        memcpy(upnpResults, ((char *)param + sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t)), param->bufLength);
-        upnpResults[param->bufLength] = '\0';
-
-        json = json_loadb(upnpResults, MESSAGE_LENGTH, JSON_DISABLE_EOF_CHECK, &jerror);
-        if (!json)
-        {
-            WA_ERROR("getUpnpResults(): json_loads() error\n");
-            json_decref(json);
-            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
-            return false;
-        }
-
-        json_t *jarr = json_object_get(json, "xmediagateways");
-        if (!jarr)
-        {
-            WA_ERROR("getUpnpResults(): Couldn't get the array of xmediagateways\n");
-            json_decref(jarr);
-            json_decref(json);
-            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
-            return false;
-        }
-
-        for (size_t i = 0; i < json_array_size(jarr); i++)
-        {
-            json_t *jval = json_array_get(jarr, i);
-            if (!jval)
-            {
-                WA_ERROR("getUpnpResults(): Not a json object in array for %i element\n", i);
-                json_decref(jval);
-                json_decref(jarr);
-                json_decref(json);
-                IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
-                return false;
-            }
-
-            char param_Mac[BUFFER_LENGTH];
-            char param_devName[BUFFER_LENGTH];
-            json_t *jparam_devName = json_object_get(jval, "deviceName");
-
-            /* If deviceName is not empty*/
-            if (strcmp(json_string_value(jparam_devName), ""))
-            {
-                strxfrm(param_devName, json_string_value(jparam_devName), DEVNAME_LENGTH); /* Get first 10 characters */
-                param_devName[DEVNAME_LENGTH] = '\0';
-                snprintf(mocaNodeInfo, BUFFER_LENGTH, "%s%s", tmp, param_devName);
-            }
-            else
-            {
-                json_t *jparam_devType = json_object_get(jval, "DevType");
-                json_t *jparam_gateway = json_object_get(jval, "isgateway");
-
-                /* If DevType is a gateway*/
-                if (!strcmp(json_string_value(jparam_gateway), "yes"))
-                {
-                    json_t *jparam_Mac = json_object_get(jval, "hostMacAddress");
-                    strcpy(param_Mac, json_string_value(jparam_Mac));
-                    json_decref(jparam_Mac);
-                }
-                else
-                {
-                    json_t *jparam_Mac = json_object_get(jval, "bcastMacAddress");
-                    strcpy(param_Mac, json_string_value(jparam_Mac));
-                    json_decref(jparam_Mac);
-                }
-
-                /* Take only last 4 characters of Macaddress */
-                char* token = strtok(param_Mac, ":");
-                for (int i = 0; i < 4; i++)
-                {
-                    token = strtok(NULL, ":");
-                }
-                char *octet = token;
-                token = strtok(NULL, ":");
-
-                snprintf(mocaNodeInfo, BUFFER_LENGTH, "%s%s(%s%s)", tmp, json_string_value(jparam_devType), octet, token);
-                json_decref(jparam_devType);
-                json_decref(jparam_gateway);
-            }
-
-            strcpy(tmp, mocaNodeInfo);
-            strcat(tmp, ", ");
-            json_decref(jparam_devName);
-        }
-    }
-
-    IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
-
-    return true;
+    return ret;
 }
+
+int getMocaIfNetworkController(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
+{
+    return getMocaOptionStatus(MOCA11_OPT_IF_NETWORK_CONTROLLER + group, index, value, reqType);
+}
+
+int getMocaIfTransmitRate(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
+{
+    return getMocaOptionStatus(MOCA11_OPT_IF_TRANSMIT_RATE + group, index, value, reqType);
+}
+
+int getMocaNodeSNR(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType)
+{
+    return getMocaOptionStatus(MOCA11_OPT_NODE_SNR + group, index, value, reqType);
+}
+
+#else
+int getMocaIfRFChannelFrequency_IARM(int *value)
+{
+    int ret = -1;
+    char *data;
+
+    ret = getMocaParam_IARM(TR69_MOCA_IF_RF_CHANNEL_FREQUENCY, &data);
+
+    *value = *(int*)data; // Decoding in the same format as how Tr69HostIf encoded the data
+
+    return ret;
+}
+
+int getMocaIfNetworkController_IARM(int *value)
+{
+    int ret = -1;
+    char *data;
+
+    ret = getMocaParam_IARM(TR69_MOCA_IF_NETWORK_CONTROLLER, &data);
+
+    *value = *(int*)data; // Decoding in the same format as how Tr69HostIf encoded the data
+
+    return ret;
+}
+
+int getMocaIfTransmitRate_IARM(char *value)
+{
+    int ret = -1;
+    int phy_rate = 0;
+    int num_entries = 0;
+    int min = -1;
+    int max = -1;
+    char data[256];
+    char *output;
+
+    if ((num_entries = getMocaIfMeshTable_IARM()) == 0)
+    {
+        WA_ERROR("getMocaIfTransmitRate_IARM(): getMocaIfMeshTable_IARM(): Mesh table entries not found to fetch transmit rate.\n");
+    }
+
+    WA_DBG("getMocaIfTransmitRate_IARM(): getMocaIfMeshTable_IARM() returned %i entries\n", num_entries);
+
+    for (int index = 1; index <= num_entries; index++)
+    {
+        snprintf(data, sizeof(data), "%s%i%s", TR69_MOCA_IF_MESH_TABLE, index, TR69_MOCA_IF_TRANSMIT_RATE);
+        if ((ret = getMocaParam_IARM(data, &output)) < 0)
+        {
+            WA_ERROR("getMocaIfTransmitRate_IARM(): getMocaParam_IARM('%s') failed\n", data);
+            continue;
+        }
+
+        phy_rate = *(int*)output; // Decoding in the same format as how Tr69HostIf encoded the data
+
+        min = (phy_rate < min || min == -1) ? phy_rate : min;
+        max = (phy_rate > max || max == -1) ? phy_rate : max;
+    }
+
+    snprintf(data, sizeof(data), "Min: %i Mbps, Max: %i Mbps", min, max);
+    strcpy(value, data);
+
+    return ret;
+}
+
+int getMocaNodeSNR_IARM(char *value)
+{
+    int ret = -1;
+    int node_snr = 0;
+    int num_devices = 0;
+    int min = -1;
+    int max = -1;
+    char data[256];
+    char *output;
+
+    if ((num_devices = getMocaIfAssociatedDevice_IARM()) == 0)
+    {
+        WA_ERROR("getMocaNodeSNR_IARM: getMocaIfAssociatedDevice_IARM(): Associated devices not found to fetch transmit rate.\n");
+    }
+
+    WA_DBG("getMocaNodeSNR_IARM(): getMocaIfAssociatedDevice_IARM() returned %i devices\n", num_devices);
+
+    for (int index = 1; index <= num_devices; index++)
+    {
+        snprintf(data, sizeof(data), "%s%i%s", TR69_MOCA_IF_ASSOCIATED_DEVICE, index, TR69_MOCA_IF_NODE_SNR);
+        if ((ret = getMocaParam_IARM(data, &output)) < 0)
+        {
+            WA_ERROR("getMocaNodeSNR_IARM(): getMocaParam_IARM('%s') failed\n", data);
+            continue;
+        }
+
+        node_snr = *(int*)output; // Decoding in the same format as how Tr69HostIf encoded the data
+
+        min = (node_snr < min || min == -1) ? node_snr : min;
+        max = (node_snr > max || max == -1) ? node_snr : max;
+    }
+
+    snprintf(data, sizeof(data), "Min: %i dB, Max: %i dB", min, max);
+    strcpy(value, data);
+
+    return ret;
+}
+#endif /* MEDIA_CLEINT */
 
 /* End of doxygen group */
 /*! @} */

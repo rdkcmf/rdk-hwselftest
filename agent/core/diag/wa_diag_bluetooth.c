@@ -56,7 +56,11 @@
 #define DEV_CONFIG_FILE_PATH  "/etc/device.properties"
 #define BLUETOOTH_OPTION_STR      "BLUETOOTH_ENABLED="
 #define STR_MAX 256
+#ifndef MEDIA_CLIENT
 #define DIR_PATTERN "/sys/bus/platform/devices/*.serial/tty/ttyS*/hci*"
+#else
+#define DIR_PATTERN "/sys/class/bluetooth/hci*"
+#endif
 #define MAX_INTERFACES 3
 #define MAX_DIR 100
 #define IF_PREFIX "hci"

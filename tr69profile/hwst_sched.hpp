@@ -28,7 +28,7 @@
 #include <vector>
 #include <map>
 
-#define NUM_ELEMENTS 13
+#define NUM_ELEMENTS 14
 #define BUFFERLEN 256
 
 namespace hwst {

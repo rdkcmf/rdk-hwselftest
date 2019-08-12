@@ -28,27 +28,27 @@ AC_CONFIG_HEADERS([config.h])
 LT_INIT
 
 AC_ARG_WITH([wwwdir],
-		[AS_HELP_STRING([--with-wwwdir=DIR], [target directory for WWW files])],
-		[wwwdir=$withval],
-		[wwwdir="/var/www/hwselftest"])
+        [AS_HELP_STRING([--with-wwwdir=DIR], [target directory for WWW files])],
+        [wwwdir=$withval],
+        [wwwdir="/var/www/hwselftest"])
 AC_SUBST([wwwdir], [$wwwdir])
 
 AC_ARG_ENABLE([debug],
-		[AS_HELP_STRING([--enable-debug], [turns on debug messages])],
-		[if test "x$enableval" != xyes; then wa_debug=0; else wa_debug=1; fi],
-		[wa_debug=0])
+        [AS_HELP_STRING([--enable-debug], [turns on debug messages])],
+        [if test "x$enableval" != xyes; then wa_debug=0; else wa_debug=1; fi],
+        [wa_debug=0])
 AC_SUBST([DEFAULT_WA_DEBUG], [$wa_debug])
 
 AC_ARG_WITH([mfrvendor],
-		[AS_HELP_STRING([--with-mfrvendor=VENDOR], [MFR library vendor name])],
-		[mfrvendor=$withval],
-		[])
+        [AS_HELP_STRING([--with-mfrvendor=VENDOR], [MFR library vendor name])],
+        [mfrvendor=$withval],
+        [])
 AC_SUBST([MFRVENDOR], [$mfrvendor])
 
 AC_ARG_WITH([mfrlib],
-		[AS_HELP_STRING([--with-mfrlib=LIB], [MFR library file])],
-		[mfrlib=$withval],
-		[])
+        [AS_HELP_STRING([--with-mfrlib=LIB], [MFR library file])],
+        [mfrlib=$withval],
+        [])
 AC_SUBST([MFRLIB], [$mfrlib])
 
 AM_CONDITIONAL([USE_MFRLIB], [test x$MFRLIB != x && test x$MFRVENDOR != x])
@@ -224,6 +224,12 @@ AC_ARG_WITH([diag-bluetooth],
         AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_BLUETOOTH" DIAG_BLUETOOTH_ENABLE=true]),
         [echo "BLUETOOTH test support is disabled"])
 AM_CONDITIONAL([HAVE_DIAG_BLUETOOTH], [test x$DIAG_BLUETOOTH_ENABLE = xtrue])
+
+AC_ARG_WITH([diag-wifi],
+        AS_HELP_STRING([--with-diag-wifi],[enable WIFI test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_WIFI" DIAG_WIFI_ENABLE=true]),
+        [echo "WIFI test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_WIFI], [test x$DIAG_WIFI_ENABLE = xtrue])
 
 AM_CONDITIONAL([HAVE_DIAG_FILE], [test x$DIAG_FLASH_ENABLE = xtrue -o x$DIAG_DRAM_ENABLE = xtrue])
 

@@ -40,15 +40,13 @@
  *****************************************************************************/
 #include "wa_json.h"
 #include "wa_snmp_client.h"
+#include "hostIf_tr69ReqHandler.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-#define BUFFER_LENGTH 512
-#define MESSAGE_LENGTH 8192 /* On reference from xdiscovery.log which shows data length can be more than 5000*/
-#define DEVNAME_LENGTH 10
 /*****************************************************************************
  * EXPORTED DEFINITIONS
  *****************************************************************************/
@@ -60,7 +58,6 @@ extern "C"
 /*****************************************************************************
  * EXPORTED VARIABLES
  *****************************************************************************/
-char *mocaNodeInfo;
 
 /*****************************************************************************
  * EXPORTED FUNCTIONS
@@ -76,12 +73,17 @@ char *mocaNodeInfo;
  */
 extern int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params);
 
+#ifndef MEDIA_CLIENT
 extern int getMocaIfRFChannelFrequency(int *group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 extern int getMocaIfNetworkController(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 extern int getMocaIfTransmitRate(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
 extern int getMocaNodeSNR(int group, int index, WA_UTILS_SNMP_Resp_t *value, WA_UTILS_SNMP_ReqType_t reqType);
-
-bool getUpnpResults();
+#else
+int getMocaIfRFChannelFrequency_IARM(int *value);
+int getMocaIfNetworkController_IARM(int *value);
+int getMocaIfTransmitRate_IARM(char *value);
+int getMocaNodeSNR_IARM(char *value);
+#endif /* MEDIA_CLIENT */
 
 /*****************************************************************************
  * LOCAL FUNCTIONS

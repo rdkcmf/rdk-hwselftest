@@ -63,7 +63,8 @@ std::map<std::string, int> diagPool =
     {"tuner_status", 9},
     {"ir_status", 10},
     {"sdcard_status", 11},
-    {"bluetooth_status", 12}
+    {"bluetooth_status", 12},
+    {"wifi_status", 13}
 };
 
 Sched::Sched(std::string host, std::string port, int timeout):
@@ -95,6 +96,8 @@ void Sched::telemetryLogInit()
     telemetryResults[11][ne.length()] = '\0';
     ne.copy(telemetryResults[12], ne.length(), 0); //this is for bluetooth element
     telemetryResults[12][ne.length()] = '\0';
+    ne.copy(telemetryResults[13], ne.length(), 0); //this is for wifi element
+    telemetryResults[13][ne.length()] = '\0';
 }
 
 Sched::~Sched()
@@ -249,7 +252,7 @@ void Sched::telemetryLogStore(std::string diagName)
             auto it = diagPool.find(diagName);
             int index = it->second;
             result_value.copy(telemetryResults[index], result_value.length(), 0);
-			telemetryResults[index][result_value.length()] = '\0';
+            telemetryResults[index][result_value.length()] = '\0';
             break;
         }
     }
@@ -260,9 +263,9 @@ void Sched::telemetryLog(bool testResult)
     std::string telemetry_log;
     telemetry_log.append("'");
     for(int i=0; i< NUM_ELEMENTS; i++)
-	{
+    {
         if((std::string(telemetryResults[i])).compare("Not_Enabled") != 0)
-		{
+        {
             telemetry_log.append(telemetryResults[i]);
             telemetry_log.append(", ");
         }

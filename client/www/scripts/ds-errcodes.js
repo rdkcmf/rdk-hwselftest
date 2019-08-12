@@ -42,5 +42,6 @@ var DIAG_ERRCODE = {
         MCARD_CERT_INVALID:     -110, */
 
         TUNER_BUSY:             -111,
-        RF4CE_NO_RESPONSE:      -112
+        RF4CE_NO_RESPONSE:      -112,
+        WIFI_NO_CONNECTION:     -113
 };

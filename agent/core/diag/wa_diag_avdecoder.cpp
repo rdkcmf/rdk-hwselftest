@@ -59,9 +59,10 @@
 #include "wa_mgr.h"
 #include "wa_vport.h"
 #include "wa_rmf.h"
+#include "wa_log.h"
 
 /* module interface */
-#include "wa_diag_avdecoder_qam.h"
+#include "wa_diag_avdecoder.h"
 
 #if WA_DEBUG
 #include "wa_diag_tuner.h"
@@ -71,8 +72,8 @@
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
  *****************************************************************************/
-extern int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void);
-extern int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void);
+extern int WA_DIAG_AVDECODER_VideoDecoderStatus(void);
+extern int WA_DIAG_AVDECODER_AudioDecoderStatus(void);
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
@@ -265,7 +266,7 @@ class SourceManager : public RMFManager<T>
 
         bool open(const char* uri, char* mimetype)
         {
-            if (!opened)
+            if ((!opened) && (this->getObject() != NULL))
             {
                 RMFResult rr = this->getObject()->open(uri, mimetype);
                 WA_DBG("SourceManager.open(): %p->open(%s, %s) = %i\n", (void*)this->getObject(), (char*)uri, (char*)mimetype, (int)rr);
@@ -283,7 +284,7 @@ class SourceManager : public RMFManager<T>
 
         bool close()
         {
-            if (opened)
+            if ((opened) && (this->getObject() != NULL))
             {
                 RMFResult rr = this->getObject()->close();
                 WA_DBG("SourceManager.close(): %p->close() = %i\n", (void*)this->getObject(), (int)rr);
@@ -301,7 +302,7 @@ class SourceManager : public RMFManager<T>
 
         bool play()
         {
-            if (!played)
+            if ((!played) && (this->getObject() != NULL))
             {
                 RMFResult rr = this->getObject()->play();
                 WA_DBG("SourceManager.play(): %p->play() = %i\n", (void*)this->getObject(), (int)rr);
@@ -319,7 +320,7 @@ class SourceManager : public RMFManager<T>
 
         bool stop()
         {
-            if (opened)
+            if ((opened) && (this->getObject() != NULL))
             {
                 RMFResult rr = this->getObject()->stop();
                 WA_DBG("SourceManager.stop(): %p->stop() = %i\n", (void*)this->getObject(), (int)rr);
@@ -418,6 +419,19 @@ void SinkCbSignal(void * condHandle)
     {
     WA_ERROR("SinkCbSignal(): WA_OSA_CondSignal returned %i\n", rc);
     }
+    else
+    {
+        if(avUnderflow == true)
+            WA_DBG("SinkCbSignal() avUnderflow = %d\n", avUnderflow);
+        if(videoPES == true)
+            WA_DBG("SinkCbSignal() videoPES = %d\n", videoPES);
+        if(videoFrame == true)
+            WA_DBG("SinkCbSignal() videoFrame = %d\n", videoFrame);
+        if(audioPES == true)
+            WA_DBG("SinkCbSignal() audioPES = %d\n", audioPES);
+        if(audioFrame == true)
+            WA_DBG("SinkCbSignal() audioFrame = %d\n", audioFrame);
+    }
 
     rc = WA_OSA_CondUnlock(condHandle);
     if (rc)
@@ -437,6 +451,7 @@ void SinkCbVideoFrame(void *pCond)
 {
     WA_DBG("SinkCbVideoFrame()\n");
     videoFrame = true;
+    SinkCbSignal(pCond);
 }
 
 void SinkCbAudioPES(void *pCond)
@@ -450,12 +465,14 @@ void SinkCbAudioFrame(void *pCond)
 {
     WA_DBG("SinkCbAudioFrame()\n");
     audioFrame = true;
+    SinkCbSignal(pCond);
 }
 
 void SinkCbAVUnderflow(void *pCond)
 {
     WA_DBG("SinkCbAVUnderflow()\n");
     avUnderflow = true;
+    SinkCbSignal(pCond);
 }
 
 static void SigQuitHandler(void)
@@ -464,7 +481,7 @@ static void SigQuitHandler(void)
     SinkCbSignal(playErrorCond);
 }
 
-void * WA_DIAG_AVDECODER_QAM_init(struct WA_DIAG_proceduresConfig_t * diag)
+void * WA_DIAG_AVDECODER_init(struct WA_DIAG_proceduresConfig_t * diag)
 {
     /* Consideration: Currently this function is used only for the purpose
      *                of this diag only. For multiple usege it must be modified.
@@ -474,7 +491,7 @@ void * WA_DIAG_AVDECODER_QAM_init(struct WA_DIAG_proceduresConfig_t * diag)
         rmf_Error re = rmf_osal_init("/etc/rmfconfig.ini", "/etc/debug.ini");
         if (re != RMF_SUCCESS)
         {
-            WA_ERROR("WA_DIAG_AVDECODER_QAM_init(): Failed to initialize RMF OSAL\n");
+            WA_ERROR("WA_DIAG_AVDECODER_init(): Failed to initialize RMF OSAL\n");
         }
         else
         {
@@ -485,31 +502,35 @@ void * WA_DIAG_AVDECODER_QAM_init(struct WA_DIAG_proceduresConfig_t * diag)
     return diag;
 }
 
-int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t ** pJsonInOut)
+int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** pJsonInOut)
 {
-    /* Consideration: Currently the rmf streamer address/port is hardcoded. */
-    static const char * videoUrlFormat = "http://%s:%d/vldms/tuner?deviceId=P0116419060&DTCP1HOST=127.0.0.1&DTCP1PORT=5000&ocap_locator=ocap://tune://frequency=%i_modulation=%i__pgmno=%i_%u%u";
+    int result = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+    int videoDecoderStatus, audioDecoderStatus;
 #ifdef USE_WORKAROUND_RETRY_TUNING
     int retries = 0;
 #endif
     static char * videoContentType = const_cast<char*>("");
 
-    int result = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     VideoPosition videoPosition;
     TuneParameters tuneParameters[NUM_SI_ENTRIES];
     char * videoUrl = NULL;
     json_t * config = NULL;
-    int videoDecoderStatus, audioDecoderStatus;
     int paramSet;
     unsigned int numberOfTuners = 0;
     int parametersNum;
     struct timeval timeNow;
+    int av_force_test = 0;
 #if WA_DEBUG
     WA_DIAG_TUNER_TunerStatus_t tunerStatus[DEBUG_TUNERS];
     int numLocked;
 #endif
+    int rc;
 
     config = ((WA_DIAG_proceduresConfig_t*)initHandle)->config;
+
+#ifndef MEDIA_CLIENT
+    /* Consideration: Currently the rmf streamer address/port is hardcoded. */
+    static const char * videoUrlFormat = "http://%s:%d/vldms/tuner?deviceId=P0116419060&DTCP1HOST=127.0.0.1&DTCP1PORT=5000&ocap_locator=ocap://tune://frequency=%i_modulation=%i__pgmno=%i_%u%u";
 
     parametersNum = parseAvPlayParameters(*pJsonInOut, config, &videoPosition, tuneParameters);
     if (parametersNum <= 0)
@@ -518,6 +539,42 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
         result = WA_DIAG_ERRCODE_SI_CACHE_MISSING;
         goto end;
     }
+#else
+    static char* videoUrlFormat = "http://edge.x1-app.xcr.comcast.net/HWSelfTest/H264_720p_708_608_51ch_SAP_v2.ts";
+    char* url = NULL;
+    char httpStr[8];
+    char *tsStr;
+    int urlLen = 0;
+    bool validUrl = true;
+    parametersNum = 1; // setting this to 1 as there is no SI CACHE for Xi devices to get this value
+
+    /* Use the URL from config if present */
+    if (!config || (json_unpack(config, "{ss}", "url", &url) != 0))
+    {
+        WA_ERROR("WA_DIAG_AVDECODER_status(): Unable to retrieve url from av_decoder_qam configuration.\n");
+    }
+
+    if (url)
+    {
+        memset(httpStr, '\0', sizeof(httpStr));
+        strncpy(httpStr, url, sizeof(httpStr) - 1);
+        urlLen = strlen(url) - 3;
+        tsStr = &url[urlLen];
+
+        if ((strcmp(httpStr, "http://") != 0) || (strcmp(tsStr, ".ts") != 0))
+        {
+            WA_ERROR("WA_DIAG_AVDECODER_status(): Incorrect url format. Expecting: 'http://<url_path_filename>.ts', Resulted: '%s<url_path_filename>%s'\n", httpStr, tsStr);
+            validUrl = false;
+        }
+
+        videoUrlFormat = url;
+    }
+
+    if (!config || (json_unpack(config, "{sb}", "av_force_test", &av_force_test) != 0))
+    {
+        WA_ERROR("WA_DIAG_AVDECODER_status(): Unable to retrieve av_force_test from av_decoder_qam configuration.\n");
+    }
+#endif /* MEDIA_CLIENT */
 
     json_decref(*pJsonInOut);
     *pJsonInOut = NULL;
@@ -529,13 +586,26 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
         goto end;
     }
 
-    videoDecoderStatus = WA_DIAG_AVDECODER_QAM_VideoDecoderStatus();
-    audioDecoderStatus = WA_DIAG_AVDECODER_QAM_AudioDecoderStatus();
+    videoDecoderStatus = WA_DIAG_AVDECODER_VideoDecoderStatus();
+    audioDecoderStatus = WA_DIAG_AVDECODER_AudioDecoderStatus();
     if(!videoDecoderStatus && !audioDecoderStatus)
     {
-        WA_INFO("WA_DIAG_AVDECODER_QAM_status(): Decoders already in use.\n");
-        return WA_DIAG_ERRCODE_SUCCESS;
+        CLIENT_LOG("WA_DIAG_AVDECODER_status(): Decoders already in use, av_force_test:%s.\n", (av_force_test ? "true" : "false"));
+
+        if (!av_force_test)
+        {
+            return WA_DIAG_ERRCODE_SUCCESS;
+        }
     }
+
+#ifdef MEDIA_CLIENT
+    CLIENT_LOG("AV Decoder Test: Testing through url=%s, av_force_test=%s\n", videoUrlFormat, (av_force_test ? "true" : "false"));
+
+    if (!validUrl)
+    {
+        return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+    }
+#endif /* MEDIA_CLIENT */
 
     playErrorCond = WA_OSA_CondCreate();
     if (!playErrorCond)
@@ -560,26 +630,34 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
         {
         WA_DIAG_SendProgress(instanceHandle, (((paramSet*RETRIES_NUM)+retries)*DECODER_CHECK_TOTAL_STEPS*100)/
                                              (DECODER_CHECK_TOTAL_STEPS * parametersNum * RETRIES_NUM));
-        WA_DBG("WA_DIAG_AVDECODER_QAM_status(): try: %d\n", retries);
+        WA_DBG("WA_DIAG_AVDECODER_status(): try: %d\n", retries);
 #endif
 
         json_decref(*pJsonInOut);
         *pJsonInOut = NULL;
 
         gettimeofday(&timeNow, NULL);
+#ifndef MEDIA_CLIENT
         if (asprintf(&videoUrl, videoUrlFormat,
             WA_UTILS_RMF_MEDIASTREAMER_IP,
             WA_UTILS_RMF_GetMediastreamerPort(),
             (int)tuneParameters[paramSet].frequency,
             (int)tuneParameters[paramSet].modulation,
             (int)tuneParameters[paramSet].programNumber,
-            (unsigned int)timeNow.tv_sec, (unsigned int)timeNow.tv_usec) == -1)
+            "%s, %s",(unsigned int)timeNow.tv_sec, (unsigned int)timeNow.tv_usec) == -1)
         {
             *pJsonInOut = json_string("Unable to prepare video URL");
             result = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
             continue;
         }
-
+#else
+        if (asprintf(&videoUrl, videoUrlFormat) == -1)
+        {
+            *pJsonInOut = json_string("Unable to prepare video URL");
+            result = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+            continue;
+        }
+#endif /* MEDIA_CLIENT */
         gml = g_main_loop_new(NULL, FALSE);
         gmlThread = WA_OSA_TaskCreate(NULL, 0, gmlTaskFunc, gml, WA_OSA_SCHED_POLICY_NORMAL, WA_OSA_TASK_PRIORITY_MAX);
         if (!gmlThread)
@@ -601,12 +679,12 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
             sourceHandler.reset(new Handler("source", &playError, playErrorCond));
             sinkHandler.reset(new Handler("sink", &playError, playErrorCond));
 
-            WA_DBG("WA_DIAG_AVDECODER_QAM_status(): About to create source and sink");
+            WA_DBG("WA_DIAG_AVDECODER_status(): About to create source and sink\n");
 
             source.reset(new SourceManager<HNSource>());
             sink.reset(new RMFManager<MediaPlayerSink>());
 
-            WA_DBG("WA_DIAG_AVDECODER_QAM_status(): Source and sink created");
+            WA_DBG("WA_DIAG_AVDECODER_status(): Source and sink created\n");
 
             if (!source->init())
             {
@@ -616,40 +694,46 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
             {
                 throw TestException(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, "Unable to initialize MediaPlayerSink");
             }
-            sink->getObject()->setMediaWarningCallback(SinkCbAVUnderflow, playErrorCond);
-            sink->getObject()->setHaveVideoCallback(SinkCbVideoPES, playErrorCond);
-            sink->getObject()->setVideoPlayingCallback(SinkCbVideoFrame, playErrorCond);
-            sink->getObject()->setHaveAudioCallback(SinkCbAudioPES, playErrorCond);
-            sink->getObject()->setAudioPlayingCallback(SinkCbAudioFrame, playErrorCond);
-            if (source->getObject()->addEventHandler(sourceHandler.get()) != RMF_RESULT_SUCCESS)
+            if(sink->getObject() != NULL)
             {
-                throw TestException(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, "Unable to attach event handler to HNSource");
-            }
-            if (sink->getObject()->addEventHandler(sinkHandler.get()) != RMF_RESULT_SUCCESS)
-            {
-                throw TestException(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, "Unable to attach event handler to MediaPlayerSink");
-            }
+                sink->getObject()->setMediaWarningCallback(SinkCbAVUnderflow, playErrorCond);
+                sink->getObject()->setHaveVideoCallback(SinkCbVideoPES, playErrorCond);
+                sink->getObject()->setVideoPlayingCallback(SinkCbVideoFrame, playErrorCond);
+                sink->getObject()->setHaveAudioCallback(SinkCbAudioPES, playErrorCond);
+                sink->getObject()->setAudioPlayingCallback(SinkCbAudioFrame, playErrorCond);
+                if(source->getObject() != NULL)
+                {
+                    if (source->getObject()->addEventHandler(sourceHandler.get()) != RMF_RESULT_SUCCESS)
+                    {
+                        throw TestException(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, "Unable to attach event handler to HNSource");
+                    }
+                }
+                if (sink->getObject()->addEventHandler(sinkHandler.get()) != RMF_RESULT_SUCCESS)
+                {
+                    throw TestException(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, "Unable to attach event handler to MediaPlayerSink");
+                }
 #if 0
-            if ((videoPosition.w > 0) && (videoPosition.h > 0))
-            {
-                WA_DBG("WA_DIAG_AVDECODER_QAM_status(): Setting video position: %i %i %i %i\n", videoPosition.x, videoPosition.y, videoPosition.w, videoPosition.h);
-                sink->getObject()->setVideoRectangle(videoPosition.x, videoPosition.y, videoPosition.w, videoPosition.h);
-                // In this test we don't really care if video rectangle can be set properly
-            }
-            else
-            {
-                WA_DBG("WA_DIAG_AVDECODER_QAM_status(): Not setting video position\n");
-            }
+                if ((videoPosition.w > 0) && (videoPosition.h > 0))
+                {
+                    WA_DBG("WA_DIAG_AVDECODER_status(): Setting video position: %i %i %i %i\n", videoPosition.x, videoPosition.y, videoPosition.w, videoPosition.h);
+                    sink->getObject()->setVideoRectangle(videoPosition.x, videoPosition.y, videoPosition.w, videoPosition.h);
+                    // In this test we don't really care if video rectangle can be set properly
+                }
+                else
+                {
+                    WA_DBG("WA_DIAG_AVDECODER_status(): Not setting video position\n");
+                }
 #else
-            /* As for recent agreement, no A/V should go out */
-            sink->getObject()->setMuted(true);
+                /* As for recent agreement, no A/V should go out */
+                sink->getObject()->setMuted(true);
 #endif
-            if (sink->getObject()->setSource(source->getObject()) != RMF_RESULT_SUCCESS)
-            {
-                throw TestException(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, "Unable to connect HNSource to MediaPlayerSink");
+                if (sink->getObject()->setSource(source->getObject()) != RMF_RESULT_SUCCESS)
+                {
+                    throw TestException(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, "Unable to connect HNSource to MediaPlayerSink");
+                }
             }
 
-            WA_DBG("WA_DIAG_AVDECODER_QAM_status(): videoUrl: %s, videoContentType: %s\n", (char*)videoUrl, (char*)videoContentType);
+            WA_DBG("WA_DIAG_AVDECODER_status(): videoUrl: %s, videoContentType: %s\n", (char*)videoUrl, (char*)videoContentType);
 
             if (!source->open(videoUrl, videoContentType))
             {
@@ -673,14 +757,18 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
                 WA_OSA_CondTimedWait(playErrorCond, 15000);
             }
 
-            WA_OSA_CondUnlock(playErrorCond);
+            rc = WA_OSA_CondUnlock(playErrorCond);
+            if (rc)
+            {
+                WA_ERROR("WA_DIAG_AVDECODER_status(): WA_OSA_CondUnlock returned %i\n", rc);
+            }
 
             if(WA_OSA_TaskCheckQuit())
             {
-                WA_DBG("WA_DIAG_AVDECODER_QAM_status(): decoder start: test cancelled\n");
+                WA_DBG("WA_DIAG_AVDECODER_status(): decoder start: test cancelled\n");
                 throw TestException(WA_DIAG_ERRCODE_CANCELLED, "Test cancelled.");
             }
-
+#ifndef MEDIA_CLIENT
             if (playError) // playError - actually it stands for error BEFORE the decoder
             {
                 if(useSi)
@@ -688,14 +776,14 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
                     WA_UTILS_SICACHE_TuningSetLuckyId(-1);
                 }
 
-                WA_DBG("WA_DIAG_AVDECODER_QAM_status(): Playback error - test failure\n");
+                WA_DBG("WA_DIAG_AVDECODER_status(): Playback error - test failure\n");
                 throw TestException(WA_DIAG_ERRCODE_AV_NO_SIGNAL, "No stream data.");
             }
             if(useSi)
             {
                 WA_UTILS_SICACHE_TuningSetLuckyId(paramSet);
             }
-
+#endif /* MEDIA_CLIENT */
             videoDecoderStatus = -1;
             audioDecoderStatus = -1;
             /* The status is not ready immediately */
@@ -709,11 +797,11 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
 #endif
                 if(videoDecoderStatus)
                 {
-                    videoDecoderStatus = WA_DIAG_AVDECODER_QAM_VideoDecoderStatus();
+                    videoDecoderStatus = WA_DIAG_AVDECODER_VideoDecoderStatus();
                 }
                 if(audioDecoderStatus)
                 {
-                        audioDecoderStatus = WA_DIAG_AVDECODER_QAM_AudioDecoderStatus();
+                    audioDecoderStatus = WA_DIAG_AVDECODER_AudioDecoderStatus();
                 }
                 if(!videoDecoderStatus && !audioDecoderStatus)
                 {
@@ -722,7 +810,7 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
                 sleep(DECODER_CHECK_STEP_TIME);
                 if(WA_OSA_TaskCheckQuit())
                 {
-                    WA_DBG("WA_DIAG_AVDECODER_QAM_status(): decoder check: test cancelled\n");
+                    WA_DBG("WA_DIAG_AVDECODER_status(): decoder check: test cancelled\n");
                     throw TestException(WA_DIAG_ERRCODE_CANCELLED, "Test cancelled.");
                 }
             }
@@ -743,20 +831,20 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
         {
             *pJsonInOut = json_string(e.what());
             result = e.getResult();
-            WA_DBG("WA_DIAG_AVDECODER_QAM_status(): catch\n");
+            WA_DBG("WA_DIAG_AVDECODER_status(): catch\n");
         }
         catch (...)
         {
             *pJsonInOut = json_string("Unknown exception occurred");
             result = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
-            WA_DBG("WA_DIAG_AVDECODER_QAM_status(): unknown catch\n");
+            WA_DBG("WA_DIAG_AVDECODER_status(): unknown catch\n");
         }
         if (videoUrl)
         {
             free(videoUrl);
         }
         stopQam(); // currently no more need to play
-        WA_DBG("WA_DIAG_AVDECODER_QAM_status(): step:%d result:%d,%s\n", paramSet, result,
+        WA_DBG("WA_DIAG_AVDECODER_status(): step:%d result:%d,%s\n", paramSet, result,
                *pJsonInOut == NULL ? "null" : json_string_value(*pJsonInOut));
 
 #if WA_DEBUG
@@ -768,6 +856,7 @@ int WA_DIAG_AVDECODER_QAM_status(void* instanceHandle, void *initHandle, json_t 
 #ifdef USE_WORKAROUND_RETRY_TUNING
     }
 #endif
+
     WA_OSA_TaskSetSignalHandler(NULL);
 
 end:
@@ -809,7 +898,7 @@ static void stopQam()
     }
 
     sink.reset();
-    source.get();
+    source.reset();
 
     sourceHandler.reset();
     sinkHandler.reset();
@@ -942,7 +1031,7 @@ static int getInteger(json_t * json, const char * key, bool * pOk)
  * EXPORTED FUNCTIONS
  *****************************************************************************/
 
-int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void)
+int WA_DIAG_AVDECODER_VideoDecoderStatus(void)
 {
     char *o = NULL;
 
@@ -954,14 +1043,14 @@ int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void)
         if(o)
             free(o);
 
-        WA_DBG("WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(): test cancelled\n");
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): test cancelled\n");
         return -1;
     }
 
     if(o && !strcmp(o,"s"))
     {
         free(o);
-        WA_DBG("WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(): 0\n");
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): 0\n");
         return 0;
     }
     free(o);
@@ -972,14 +1061,14 @@ int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void)
         if(o)
             free(o);
 
-        WA_DBG("WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(): test cancelled\n");
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): test cancelled\n");
         return -1;
     }
 
     if(o)
     {
         free(o);
-        WA_DBG("WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(): 1\n");
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): 1\n");
         return 1;
     }
 
@@ -991,15 +1080,15 @@ int WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(void)
     {
         int status = o[0] == 'y'? 0 : 1;
         free(o);
-        WA_DBG("WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(): *%i\n", status);
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): *%i\n", status);
         return status;
     }
 
-    WA_DBG("WA_DIAG_AVDECODER_QAM_VideoDecoderStatus(): -1\n");
+    WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): -1\n");
     return -1;
 }
 
-int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void)
+int WA_DIAG_AVDECODER_AudioDecoderStatus(void)
 {
     char *o = NULL;
 
@@ -1010,14 +1099,14 @@ int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void)
         if(o)
             free(o);
 
-        WA_DBG("WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(): test cancelled\n");
+        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): test cancelled\n");
         return -1;
     }
 
     if(o && !strcmp(o,"s"))
     {
         free(o);
-        WA_DBG("WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(): 0\n");
+        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): 0\n");
         return 0;
     }
     free(o);
@@ -1026,7 +1115,7 @@ int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void)
     if(o)
     {
         free(o);
-        WA_DBG("WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(): 1\n");
+        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): 1\n");
         return 1;
     }
     /* fall back to trying the /proc/brcm/ file */
@@ -1035,13 +1124,17 @@ int WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(void)
     o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_BRCM_FILE, "%*[^=]%*s started=");
     if (o)
     {
-        int status = o[0] == 'y'? 0 : 1;
+        /* 17.3 SDK changes the output format to started=started/stopped
+         * So, check for both started=y and started=started
+         */
+        int status1 = o[0] == 'y'? 0 : 1;
+        int status = status1 ? ((!strncmp(o,"started", 7)) ? 0 : 1) : 0;
         free(o);
-        WA_DBG("WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(): *%i\n", status);
+        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): *%i\n", status);
         return status;
     }
 
-    WA_DBG("WA_DIAG_AVDECODER_QAM_AudioDecoderStatus(): -1\n");
+    WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): -1\n");
     return -1;
 }
 

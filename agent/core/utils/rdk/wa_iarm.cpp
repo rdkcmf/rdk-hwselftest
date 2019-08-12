@@ -102,12 +102,9 @@ static WA_UTILS_IARM_ConnState_t conn;
 
 int WA_UTILS_IARM_Init(void)
 {
-    int state = -1;
     char thName [WA_OSA_TASK_NAME_MAX_LEN];
-    int getNameRes = -1;
-    IARM_Result_t ret = IARM_RESULT_INVALID_STATE;
 
-    getNameRes = WA_OSA_TaskGetName(thName);
+    int getNameRes = WA_OSA_TaskGetName(thName);
 
     if(!iarmInitialized)
     {
@@ -122,7 +119,7 @@ int WA_UTILS_IARM_Init(void)
         /*rename current thread to make threads created by arm bus distingushable */
         WA_OSA_TaskSetName("WAiarmbusifce");
 
-        ret = IARM_Bus_Init(WA_UTILS_IARM_BUS_RDKSELFTEST_NAME);
+        IARM_Result_t ret = IARM_Bus_Init(WA_UTILS_IARM_BUS_RDKSELFTEST_NAME);
 
         /*recover thread name as it was before*/
         if (getNameRes == 0)
@@ -139,7 +136,7 @@ int WA_UTILS_IARM_Init(void)
         {
             WA_ERROR("WA_UTILS_IARM_Init, IARM_Bus_Init, error code: %d\n", ret);
 
-            state = WA_OSA_MutexDestroy(conn.mutex);
+            int state = WA_OSA_MutexDestroy(conn.mutex);
 
             if(state)
             {
@@ -157,13 +154,10 @@ int WA_UTILS_IARM_Init(void)
 
 int WA_UTILS_IARM_Term(void)
 {
-    int state = -1;
-    IARM_Result_t ret = IARM_RESULT_INVALID_STATE;
-
     if(iarmInitialized)
     {
 
-        ret = IARM_Bus_Term();
+        IARM_Result_t ret = IARM_Bus_Term();
         if(ret != IARM_RESULT_SUCCESS)
         {
             WA_ERROR("DIAG_UTILS_IarmTerm: IARM_Bus_Term, error code: %d\n", ret);
@@ -172,7 +166,7 @@ int WA_UTILS_IARM_Term(void)
 
         if(conn.mutex)
         {
-            state = WA_OSA_MutexDestroy(conn.mutex);
+            int state = WA_OSA_MutexDestroy(conn.mutex);
 
             if(state)
             {
@@ -190,8 +184,6 @@ int WA_UTILS_IARM_Term(void)
 
 int WA_UTILS_IARM_Connect(void)
 {
-    IARM_Result_t ret = IARM_RESULT_INVALID_STATE;
-    int state = -1;
     int status = 0;
 
     if(!iarmInitialized)
@@ -199,7 +191,7 @@ int WA_UTILS_IARM_Connect(void)
         return -1;
     }
 
-    state = WA_OSA_MutexLock(conn.mutex);
+    int state = WA_OSA_MutexLock(conn.mutex);
     if(state)
     {
         WA_ERROR("WA_UTILS_IARM_Connect: WA_OSA_MutexLock, error code: %d\n", state);
@@ -210,7 +202,7 @@ int WA_UTILS_IARM_Connect(void)
     {
     case WA_UTILS_IARM_IFCE_NOT_CONNECTED:
     {
-        ret = IARM_Bus_Connect();
+        IARM_Result_t ret = IARM_Bus_Connect();
         if(ret != IARM_RESULT_SUCCESS)
         {
             WA_ERROR("WA_UTILS_IARM_Connect: IARM_Bus_Connect, error code: %d\n", ret);
@@ -244,8 +236,6 @@ int WA_UTILS_IARM_Connect(void)
 
 int WA_UTILS_IARM_Disconnect(void)
 {
-    IARM_Result_t ret = IARM_RESULT_INVALID_STATE;
-    int state = -1;
     int status = 0;
 
     if(!iarmInitialized)
@@ -253,7 +243,7 @@ int WA_UTILS_IARM_Disconnect(void)
         return -1;
     }
 
-    state = WA_OSA_MutexLock(conn.mutex);
+    int state = WA_OSA_MutexLock(conn.mutex);
     if(state)
     {
         WA_ERROR("WA_UTILS_IARM_Disconnect: WA_OSA_MutexLock, error code: %d\n", state);
@@ -272,7 +262,7 @@ int WA_UTILS_IARM_Disconnect(void)
         if(conn.count == 0)
         {
 
-            ret = IARM_Bus_Disconnect();
+            IARM_Result_t ret = IARM_Bus_Disconnect();
             if(ret != IARM_RESULT_SUCCESS)
             {
                 conn.count = 1;

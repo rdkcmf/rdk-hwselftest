@@ -61,7 +61,7 @@
 #include "wa_diag_tuner.h"
 #endif
 #ifdef HAVE_DIAG_AVDECODER_QAM
-#include "wa_diag_avdecoder_qam.h"
+#include "wa_diag_avdecoder.h"
 #endif
 #ifdef HAVE_DIAG_HDMIOUT
 #include "wa_diag_hdmiout.h"
@@ -90,6 +90,9 @@
 #ifdef HAVE_DIAG_BLUETOOTH
 #include "wa_diag_bluetooth.h"
 #endif
+#ifdef HAVE_DIAG_WIFI
+#include "wa_diag_wifi.h"
+#endif
 
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
@@ -99,6 +102,10 @@
  * LOCAL DEFINITIONS
  *****************************************************************************/
 #define CONFIG_FILE_NAME "hwselftest.conf"
+
+#ifndef SYSCONFDIR_DEBUG
+#define SYSCONFDIR_DEBUG "/opt/hwselftest"
+#endif
 
 #ifndef SYSCONFDIR
 #define SYSCONFDIR "/etc/hwselftest"
@@ -155,7 +162,7 @@ static WA_DIAG_proceduresConfig_t diags[] =
     {"moca_status", NULL, NULL, WA_DIAG_MOCA_status, NULL, NULL, NULL },
 #endif
 #ifdef HAVE_DIAG_AVDECODER_QAM
-    {"avdecoder_qam_status", WA_DIAG_AVDECODER_QAM_init, NULL, WA_DIAG_AVDECODER_QAM_status, NULL, NULL, NULL },
+    {"avdecoder_qam_status", WA_DIAG_AVDECODER_init, NULL, WA_DIAG_AVDECODER_status, NULL, NULL, NULL },
 #endif
 #ifdef HAVE_DIAG_TUNER
     {"tuner_status", NULL, NULL, WA_DIAG_TUNER_status, NULL, NULL, NULL },
@@ -166,6 +173,9 @@ static WA_DIAG_proceduresConfig_t diags[] =
 #ifdef HAVE_DIAG_BLUETOOTH
     {"bluetooth_status", NULL, NULL, WA_DIAG_BLUETOOTH_status, NULL, NULL, NULL },
 #endif
+#ifdef HAVE_DIAG_WIFI
+    {"wifi_status", NULL, NULL, WA_DIAG_WIFI_status, NULL, NULL, NULL },
+#endif
 
     {"previous_results", NULL, NULL, WA_DIAG_PREV_RESULTS_Info, NULL, NULL, NULL },
     /* END OF LIST */
@@ -175,6 +185,7 @@ static WA_DIAG_proceduresConfig_t diags[] =
 char * configCheckDirectories[] =
 {
     ".",
+    SYSCONFDIR_DEBUG,
     SYSCONFDIR
 };
 

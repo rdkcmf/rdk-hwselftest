@@ -261,7 +261,6 @@ void Sched::telemetryLogStore(std::string diagName)
 void Sched::telemetryLog(bool testResult)
 {
     std::string telemetry_log;
-    telemetry_log.append("'");
     for(int i=0; i< NUM_ELEMENTS; i++)
     {
         if((std::string(telemetryResults[i])).compare("Not_Enabled") != 0)
@@ -271,7 +270,6 @@ void Sched::telemetryLog(bool testResult)
         }
     }
     telemetry_log.append(std::string(testResult ? "PASSED" : "FAILED"));
-    telemetry_log.append("'");
     std::string telemetry_result = Log().format("HwTestResult_telemetry: " + telemetry_log);
     comm->sendRaw("LOG", "{\"rawmessage\": \"" + telemetry_result + "\"}", "null");
     telemetryLogInit();

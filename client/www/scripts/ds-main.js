@@ -94,7 +94,7 @@ var diagGroups = diagGroupsAll;
    So first diag name present in diagGroups gets id=1 and so on.
  */
 var diagOrder = {
-    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13],
+    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14],
     10: [11] //first av then tuners
 };
 
@@ -1114,7 +1114,7 @@ function telemetryLog() {
     }
     result_store.push(" " + completeResult);
     result_store.toString();
-    ds.notify("LOG", { message: "HwTestResult_telemetry: '" + result_store + "'" });
+    ds.notify("LOG", { message: "HwTestResult_telemetry: " + result_store });
     result_store = [];
     telemetry_order = telemetry_swap;
 }
@@ -1493,7 +1493,7 @@ function uiExit() {
 
 function dsExit() {
     var json_store_string = JSON.stringify(json_store);
-    ds.notify("LOG", { message: "HwSelfTest SysInfo: " + json_store_string });
+    ds.notify("LOG", { message: "HwSelfTest_SysInfo: " + json_store_string });
 
     ds.setCallback(null);
     cancelling = false;

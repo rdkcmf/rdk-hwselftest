@@ -370,7 +370,7 @@ class TestException: public std::exception
  *****************************************************************************/
 
 static void * gmlTaskFunc(void * arg);
-static void stopQam();
+static void stopDecoders();
 static int parseAvPlayParameters(json_t * parameters, json_t * config, VideoPosition * pVideoPosition, TuneParameters * pTuneParameters);
 static bool parseTuneParameters(json_t * json, TuneParameters * pTuneParameters);
 static int getInteger(json_t * json, const char * key, bool * pOk);
@@ -530,7 +530,7 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
 
 #ifndef MEDIA_CLIENT
     /* Consideration: Currently the rmf streamer address/port is hardcoded. */
-    static const char * videoUrlFormat = "http://%s:%d/vldms/tuner?deviceId=P0116419060&DTCP1HOST=127.0.0.1&DTCP1PORT=5000&ocap_locator=ocap://tune://frequency=%i_modulation=%i__pgmno=%i_%u%u";
+    static const char * videoUrlFormat = "http://%s:%d/vldms/tuner?DTCP1HOST=127.0.0.1&DTCP1PORT=5000&ocap_locator=ocap://tune://frequency=%i_modulation=%i__pgmno=%i_%u%u";
 
     parametersNum = parseAvPlayParameters(*pJsonInOut, config, &videoPosition, tuneParameters);
     if (parametersNum <= 0)
@@ -843,7 +843,7 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
         {
             free(videoUrl);
         }
-        stopQam(); // currently no more need to play
+        stopDecoders(); // currently no more need to play
         WA_DBG("WA_DIAG_AVDECODER_status(): step:%d result:%d,%s\n", paramSet, result,
                *pJsonInOut == NULL ? "null" : json_string_value(*pJsonInOut));
 
@@ -882,7 +882,7 @@ static void * gmlTaskFunc(void * arg)
     return NULL;
 }
 
-static void stopQam()
+static void stopDecoders()
 {
     if (source.get())
     {

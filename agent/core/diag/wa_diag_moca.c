@@ -45,6 +45,7 @@
 #include <ifaddrs.h>
 #include <poll.h>
 #include <sys/time.h>
+#include <math.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -117,6 +118,7 @@
 #define TR69_MOCA_IF_ASSOCIATED_DEVICE "Device.MoCA.Interface.1.AssociatedDevice."
 #define TR69_MOCA_IF_RX_PACKETS_COUNT ".RxPackets"
 #define TR69_MOCA_IF_NODE_SNR ".RxSNR"
+#define HWST_RMH_MAX_MOCA_NODES 16 // Copied the macro as in /moca-hal/rmh_interface/rmh_type.h
 #endif /* MEDIA_CLIENT */
 
 /* XG and Xi */
@@ -512,6 +514,8 @@ static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
 static int getMocaIfMeshTable_IARM()
 {
     int num_entries = 0;
+    // validating same as tr69hostif - MoCAInterface::get_MoCA_Mesh_NumberOfEntries
+    int max_entries = (int)((int)pow(HWST_RMH_MAX_MOCA_NODES, 2) - (HWST_RMH_MAX_MOCA_NODES));
     char *value;
 
     if (getMocaParam_IARM(TR69_MOCA_IF_MESH_TABLE_ENTRY, &value) < 0)
@@ -521,6 +525,12 @@ static int getMocaIfMeshTable_IARM()
     }
 
     num_entries = *(int*)value; // Decoding in the same format as how Tr69HostIf encoded the data
+
+    if (num_entries > max_entries) // Sometimes we get junk values which is a huge number when MoCA cable is disconnected
+    {
+        WA_ERROR("getMocaIfMeshTable_IARM(): Received incorrect value %i for %s\n", num_entries, TR69_MOCA_IF_MESH_TABLE_ENTRY);
+        num_entries = 0;
+    }
 
     return num_entries;
 }
@@ -537,6 +547,12 @@ static int getMocaIfAssociatedDevice_IARM()
     }
 
     num_devices = *(int*)value; // Decoding in the same format as how Tr69HostIf encoded the data
+
+    if (num_devices > HWST_RMH_MAX_MOCA_NODES) // Sometimes we get junk values which is a huge number when  MoCA cable is disconnected
+    {
+        WA_ERROR("getMocaIfAssociatedDevice_IARM(): Received incorrect value %i for %s\n", num_devices, TR69_MOCA_IF_ASSOCIATED_DEVICE_ENTRY);
+        num_devices = 0;
+    }
 
     return num_devices;
 }
@@ -591,12 +607,12 @@ static int getMocaParam_IARM(char *param, char **value)
     IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
     int is_connected = 0;
 
-    WA_ENTER("getMocaIfRFChannelFrequency_IARM()\n");
+    WA_ENTER("getMocaParam_IARM()\n");
 
     iarm_result = IARM_Bus_IsConnected(IARM_BUS_TR69HOSTIFMGR_NAME, &is_connected);
     if (iarm_result != IARM_RESULT_SUCCESS)
     {
-        WA_ERROR("getMocaIfRFChannelFrequency_IARM(): IARM_Bus_IsConnected('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
+        WA_ERROR("getMocaParam_IARM(): IARM_Bus_IsConnected('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
         return -1;
     }
 
@@ -612,7 +628,7 @@ static int getMocaParam_IARM(char *param, char **value)
 
         if (iarm_result != IARM_RESULT_SUCCESS)
         {
-            WA_ERROR("getMocaIfRFChannelFrequency_IARM(): IARM_Bus_Call('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
+            WA_ERROR("getMocaParam_IARM(): IARM_Bus_Call('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
             IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, stMsgDataParam);
             return -1;
         }
@@ -635,7 +651,7 @@ static int getMocaParam_IARM(char *param, char **value)
         return 0;
     }
 
-    WA_ERROR("getMocaIfRFChannelFrequency_IARM(): IARM_Malloc('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
+    WA_ERROR("getMocaParam_IARM(): IARM_Malloc('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
     return -1;
 }
 #endif /* MEDIA_CLIENT */
@@ -678,14 +694,15 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
         WA_ERROR("Device configuration unknown.\n");
         return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
     }
-#ifndef MEDIA_CLIENT
-    else if(ret == 0) // Not considering this check for Xi. Though /etc/device.properties has MOCA_INTERFACE=eth1, jsonConfig is NULL in Xi.
+
+    if(ret == 0)
     {
         WA_ERROR("Device does not have MoCA interface.\n");
         return setReturnData(WA_DIAG_ERRCODE_NOT_APPLICABLE, params);
     }
-    WA_DBG("MoCA supported.\n");
+    WA_DBG("MoCA supported on device.\n");
 
+#ifndef MEDIA_CLIENT
     value.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
     ret = getMocaIfEnableStatus(group, ifIndex, &value, WA_UTILS_SNMP_REQ_TYPE_WALK);
     if(ret < 0)
@@ -704,12 +721,15 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
 
     if(ret < 1)
     {
-
+#ifndef MEDIA_CLIENT
+        if(WA_UTILS_IARM_Disconnect())
+        {
+            WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() failed\n");
+        }
+#endif
         if(WA_OSA_TaskCheckQuit())
         {
             WA_DBG("getMocaIfEnableStatus: test cancelled\n");
-            ret = WA_UTILS_IARM_Disconnect();
-            WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
             return setReturnData(WA_DIAG_ERRCODE_CANCELLED, params);
         }
 
@@ -718,17 +738,11 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
         switch(ret)
         {
             case 0:
-                ret = WA_UTILS_IARM_Disconnect();
-                WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
                 return setReturnData(WA_DIAG_ERRCODE_MOCA_DISABLED, params);
             case -1:
-                ret = WA_UTILS_IARM_Disconnect();
-                WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
                 return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
             case -2:
             default:
-                ret = WA_UTILS_IARM_Disconnect();
-                WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
                 return setReturnData(WA_DIAG_ERRCODE_FAILURE, params);
         }
     }
@@ -746,14 +760,10 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
         if(WA_OSA_TaskCheckQuit())
         {
             WA_DBG("getMocaIfNodesCount: test cancelled\n");
-            ret = WA_UTILS_IARM_Disconnect();
-            WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
             return setReturnData(WA_DIAG_ERRCODE_CANCELLED, params);
         }
 
         WA_ERROR("moca_status, getMocaIfNodesCount, error code: %d\n", ret);
-        ret = WA_UTILS_IARM_Disconnect();
-        WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
         return setReturnData((ret == 0 ? WA_DIAG_ERRCODE_MOCA_NO_CLIENTS : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR), params);
     }
 
@@ -771,8 +781,7 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
     ret = getMocaIfRxPacketsCount_IARM();
     if(WA_UTILS_IARM_Disconnect())
     {
-        WA_ERROR("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() Failed \n");
-        return -1;
+        WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() Failed \n");
     }
 #endif /* MEDIA_CLIENT */
 

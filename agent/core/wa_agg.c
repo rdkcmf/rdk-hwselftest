@@ -54,6 +54,7 @@
  * LOCAL DEFINITIONS
  *****************************************************************************/
 #define AGG_RESULTS_FILE "/tmp/hwselftest.results"
+#define DEFAULT_RESULT_VALUE -200
 
  /*****************************************************************************
  * LOCAL TYPES
@@ -117,7 +118,7 @@ int WA_AGG_Init(const WA_DIAG_proceduresConfig_t *diags)
 
                 agg_results[i].diag_results[count].diag = pDiag->name;
                 agg_results[i].diag_results[count].timestamp = 0;
-                agg_results[i].diag_results[count].result = -1;
+                agg_results[i].diag_results[count].result = DEFAULT_RESULT_VALUE;
 
                 count++;
             }

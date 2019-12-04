@@ -37,6 +37,7 @@
 #else
 #define HWST_DBG(str, ...) ((void)0)
 #endif
+#define DEFAULT_RESULT_VALUE -200
 
 namespace hwst {
 
@@ -107,11 +108,14 @@ std::string DiagPrevResults::getStrStatus() const
                     char *timestamp = NULL;
                     if (!json_unpack(jdiag, "{s:s,s:i}", "timestamp", &timestamp, "result", &diag_status))
                     {
-                        e.diag->status.status = diag_status;
-                        results += timestamp;
-                        results += " " + e.diag->getStrStatus() + "\n";
-                        if (!e.diag->getPresentationResult().compare("FAILED"))
-                            passed = false;
+                        if (diag_status != DEFAULT_RESULT_VALUE)
+                        {
+                            e.diag->status.status = diag_status;
+                            results += timestamp;
+                            results += " " + e.diag->getStrStatus() + "\n";
+                            if (!e.diag->getPresentationResult().compare("FAILED"))
+                                passed = false;
+                        }
                     }
                     else
                     {

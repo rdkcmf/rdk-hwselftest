@@ -44,4 +44,7 @@ var DIAG_ERRCODE = {
         TUNER_BUSY:             -111,
         RF4CE_NO_RESPONSE:      -112,
         WIFI_NO_CONNECTION:     -113
+
+        /* Currently defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment
+        DEFAULT_RESULT_VALUE    -200 */
 };

@@ -70,6 +70,8 @@ extern "C"
 #define WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE   (-112)
 #define WA_DIAG_ERRCODE_WIFI_NO_CONNECTION  (-113)
 
+//#define DEFAULT_RESULT_VALUE (-200) /* Currently defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
+
 /*****************************************************************************
  * EXPORTED TYPES
  *****************************************************************************/

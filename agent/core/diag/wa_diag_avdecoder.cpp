@@ -519,7 +519,6 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
     unsigned int numberOfTuners = 0;
     int parametersNum;
     struct timeval timeNow;
-    int av_force_test = 0;
 #if WA_DEBUG
     WA_DIAG_TUNER_TunerStatus_t tunerStatus[DEBUG_TUNERS];
     int numLocked;
@@ -570,10 +569,6 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
         videoUrlFormat = url;
     }
 
-    if (!config || (json_unpack(config, "{sb}", "av_force_test", &av_force_test) != 0))
-    {
-        WA_ERROR("WA_DIAG_AVDECODER_status(): Unable to retrieve av_force_test from av_decoder_qam configuration.\n");
-    }
 #endif /* MEDIA_CLIENT */
 
     json_decref(*pJsonInOut);
@@ -590,21 +585,17 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
     audioDecoderStatus = WA_DIAG_AVDECODER_AudioDecoderStatus();
     if(!videoDecoderStatus && !audioDecoderStatus)
     {
-        CLIENT_LOG("WA_DIAG_AVDECODER_status(): Decoders already in use, av_force_test:%s.\n", (av_force_test ? "true" : "false"));
-
-        if (!av_force_test)
-        {
-            return WA_DIAG_ERRCODE_SUCCESS;
-        }
+        WA_INFO("WA_DIAG_AVDECODER_status(): Decoders already in use.\n");
+        return WA_DIAG_ERRCODE_SUCCESS;
     }
 
 #ifdef MEDIA_CLIENT
-    CLIENT_LOG("AV Decoder Test: Testing through url=%s, av_force_test=%s\n", videoUrlFormat, (av_force_test ? "true" : "false"));
-
     if (!validUrl)
     {
+        WA_ERROR("WA_DIAG_AVDECODER_status(): Not a valid URL\n");
         return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
+    WA_DBG("Executing AV Decoder test through a valid url: %s\n", videoUrlFormat);
 #endif /* MEDIA_CLIENT */
 
     playErrorCond = WA_OSA_CondCreate();
@@ -685,6 +676,8 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
             sink.reset(new RMFManager<MediaPlayerSink>());
 
             WA_DBG("WA_DIAG_AVDECODER_status(): Source and sink created\n");
+
+            sleep(DECODER_CHECK_STEP_TIME); // COLBO-70: Using this sleep to avoid crash particularly on Xi6 devices
 
             if (!source->init())
             {
@@ -768,22 +761,24 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
                 WA_DBG("WA_DIAG_AVDECODER_status(): decoder start: test cancelled\n");
                 throw TestException(WA_DIAG_ERRCODE_CANCELLED, "Test cancelled.");
             }
-#ifndef MEDIA_CLIENT
             if (playError) // playError - actually it stands for error BEFORE the decoder
             {
                 if(useSi)
                 {
                     WA_UTILS_SICACHE_TuningSetLuckyId(-1);
                 }
-
                 WA_DBG("WA_DIAG_AVDECODER_status(): Playback error - test failure\n");
+#ifndef MEDIA_CLIENT
                 throw TestException(WA_DIAG_ERRCODE_AV_NO_SIGNAL, "No stream data.");
+#else
+                throw TestException(WA_DIAG_ERRCODE_FAILURE, "Play status error.");
+#endif /* MEDIA_CLIENT */
+
             }
             if(useSi)
             {
                 WA_UTILS_SICACHE_TuningSetLuckyId(paramSet);
             }
-#endif /* MEDIA_CLIENT */
             videoDecoderStatus = -1;
             audioDecoderStatus = -1;
             /* The status is not ready immediately */

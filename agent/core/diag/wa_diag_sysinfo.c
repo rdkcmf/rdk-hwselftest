@@ -77,7 +77,7 @@
 #define DEV_FILE_PATH      "/tmp/.deviceDetails.cache"
 #define BUFFER_LENGTH      512
 #define MESSAGE_LENGTH     8192 /* On reference from xdiscovery.log which shows data length can be more than 5000*/
-#define DEVNAME_LENGTH     10
+#define DEVNAME_LENGTH     15
 #ifndef MEDIA_CLIENT
 #define STB_IP             "estb_ip="
 #define SNMP_SERVER        "localhost"

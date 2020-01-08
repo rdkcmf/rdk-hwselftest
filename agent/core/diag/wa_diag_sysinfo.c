@@ -76,7 +76,7 @@
 #define MAX_LINE 100
 #define DEV_FILE_PATH      "/tmp/.deviceDetails.cache"
 #define BUFFER_LENGTH      512
-#define MESSAGE_LENGTH     8192 /* On reference from xdiscovery.log which shows data length can be more than 5000*/
+#define MESSAGE_LENGTH     8192 * 4 /* On reference from xdiscovery.log which shows data length can be more than 5000 */ /* Increased the value 4 times because of DELIA-38611 */
 #define DEVNAME_LENGTH     15
 #ifndef MEDIA_CLIENT
 #define STB_IP             "estb_ip="

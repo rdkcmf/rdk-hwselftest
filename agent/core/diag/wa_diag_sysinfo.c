@@ -149,6 +149,8 @@ int getSysInfoParam_IARM(char *param, char **value);
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
 char *mocaNodeInfo;
+int  sysParamInt = 0;
+char *sysParam;
 char sysIARM[TR69HOSTIFMGR_MAX_PARAM_LEN];
 
 /*****************************************************************************
@@ -179,16 +181,15 @@ static json_t *sysinfo_Get()
     SysinfoParam_t params[3];
 #ifdef HAVE_DIAG_MOCA
     SysinfoParam_t moca_data[WA_MOCA_INFO_MAX];
-    int nMocaItems;
 #endif /* HAVE_DIAG_MOCA */
 #ifdef HAVE_DIAG_WIFI
     SysinfoParam_t wifi_data[WA_WIFI_INFO_MAX];
-    int nWifiItems;
 #endif /* HAVE_DIAG_WIFI */
     char *rdkver;
     char *addr;
-    char rev_id[256] = "Not Available";
-    char xconf_ver[256] = "Not Available";
+    char rev_id[256] = "Error Reading Value";
+    char xconf_ver[256] = "Error Reading Value";
+    char notAvailable[] = "N/A";
 #ifndef MEDIA_CLIENT
     char date_time[256];
     char num_ch[256];
@@ -234,23 +235,21 @@ static json_t *sysinfo_Get()
     for (int i = 0; i < WA_MOCA_INFO_MAX; i++)
     {
         moca_data[i].value = (char*)malloc(sizeof(char) * 256);
-    }
-
-    nMocaItems = getMocaNetworkInfo(&moca_data[0]);
-    if (nMocaItems != 0)
-    {
-        WA_ERROR("sysinfo_Get(): getMocaNetworkInfo failed to fetch %d items\n", nMocaItems);
-    }
-
-    for (int i = 0; i < WA_MOCA_INFO_MAX; i++)
-    {
         if (moca_data[i].value == NULL)
         {
             WA_ERROR("NULL pointer exception in moca_data %i\n", i);
+            goto exit;
         }
+        /* Copy default string as N/A */
+        snprintf(moca_data[i].value, sizeof(notAvailable), "%s", notAvailable);
 
-        WA_DBG("moca_data(%i) returned: %s\n", i, moca_data[i].value);
     }
+
+    if (getMocaNetworkInfo(&moca_data[0]) != 0)
+    {
+        WA_ERROR("sysinfo_Get(): getMocaNetworkInfo failed to fetch MoCA items\n");
+    }
+
 #endif /* HAVE_DIAG_MOCA */
 
 #ifdef HAVE_DIAG_WIFI
@@ -260,22 +259,18 @@ static json_t *sysinfo_Get()
     for (int i = 0; i < WA_WIFI_INFO_MAX; i++)
     {
         wifi_data[i].value = (char*)malloc(sizeof(char) * 256);
-    }
-
-    nWifiItems = getWifiNetworkInfo(&wifi_data[0]);
-    if (nWifiItems != 0)
-    {
-        WA_ERROR("sysinfo_Get(): getWifiNetworkInfo failed to fetch %d items\n", nWifiItems);
-    }
-
-    for (int i = 0; i < WA_WIFI_INFO_MAX; i++)
-    {
         if (wifi_data[i].value == NULL)
         {
             WA_ERROR("NULL pointer exception in wifi_data %i\n", i);
+            goto exit;
         }
+        /* Copy default string as N/A */
+        snprintf(wifi_data[i].value, sizeof(notAvailable), "%s", notAvailable);
+    }
 
-        WA_DBG("wifi_data(%i) returned: %s\n", i, wifi_data[i].value);
+    if (getWifiNetworkInfo(&wifi_data[0]) != 0)
+    {
+        WA_ERROR("sysinfo_Get(): getWifiNetworkInfo failed to fetch WiFi items\n");
     }
 #endif /* HAVE_DIAG_WIFI */
 
@@ -334,16 +329,16 @@ static json_t *sysinfo_Get()
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
        "RDK",    (rdkver ? rdkver : "N/A"),
        "Ver", WA_VERSION,
-       "xConf Version", (xconf_ver[0] == '\0' ? "N/A" : xconf_ver),
+       "xConf Version", (xconf_ver[0] == '\0' ? rdkver : xconf_ver),
        "Time Zone", date_time,
        "Receiver ID", rev_id,
        "eSTB IP", (!addr ? "N/A" : addr),
        "Number of Channels", channels,
        "Home Network", mocaNodeInfo,
-       "MoCA RF Channel", (!moca_data[WA_MOCA_INFO_RF_CHANNEL].value ? "N/A" : moca_data[WA_MOCA_INFO_RF_CHANNEL].value),
-       "MoCA NC", (!moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value ? "N/A" : moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value),
-       "MoCA Bitrate", (!moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value ? "N/A" : moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value),
-       "MoCA SNR", (!moca_data[WA_MOCA_INFO_NODE_SNR].value ? "N/A" : moca_data[WA_MOCA_INFO_NODE_SNR].value),
+       "MoCA RF Channel", ((moca_data[WA_MOCA_INFO_RF_CHANNEL].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_RF_CHANNEL].value),
+       "MoCA NC", ((moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value),
+       "MoCA Bitrate", ((moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value),
+       "MoCA SNR", ((moca_data[WA_MOCA_INFO_NODE_SNR].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_NODE_SNR].value),
        "DOCSIS DwStrmPower", docsisParams.DOCSIS_DwStreamChPwr,
        "DOCSIS UpStrmPower", docsisParams.DOCSIS_UpStreamChPwr,
        "DOCSIS SNR", docsisParams.DOCSIS_SNR,
@@ -373,14 +368,15 @@ static json_t *sysinfo_Get()
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
        "RDK",    (rdkver ? rdkver : "N/A"),
        "Ver", WA_VERSION,
-       "xConf Version", (xconf_ver[0] == '\0' ? "N/A" : xconf_ver),
+       "xConf Version", (xconf_ver[0] == '\0' ? rdkver : xconf_ver),
        "Receiver ID", rev_id,
        "eSTB IP", (!addr ? "N/A" : addr),
        "Home Network", mocaNodeInfo,
-       "MoCA RF Channel", (!moca_data[WA_MOCA_INFO_RF_CHANNEL].value ? "N/A" : moca_data[WA_MOCA_INFO_RF_CHANNEL].value),
-       "MoCA NC", (!moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value ? "N/A" : moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value),
-       "MoCA Bitrate", (!moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value ? "N/A" : moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value),
-       "MoCA SNR", (!moca_data[WA_MOCA_INFO_NODE_SNR].value ? "N/A" : moca_data[WA_MOCA_INFO_NODE_SNR].value));
+       "MoCA RF Channel", ((moca_data[WA_MOCA_INFO_RF_CHANNEL].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_RF_CHANNEL].value),
+       "MoCA NC", ((moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value),
+       "MoCA Bitrate", ((moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value),
+       "MoCA SNR", ((moca_data[WA_MOCA_INFO_NODE_SNR].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_NODE_SNR].value));
+
 #endif /* HAVE_DIAG_MOCA */
 #ifdef HAVE_DIAG_WIFI
     json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
@@ -389,7 +385,7 @@ static json_t *sysinfo_Get()
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
        "RDK",    (rdkver ? rdkver : "N/A"),
        "Ver", WA_VERSION,
-       "xConf Version", (xconf_ver[0] == '\0' ? "N/A" : xconf_ver),
+       "xConf Version", (xconf_ver[0] == '\0' ? rdkver : xconf_ver),
        "Receiver ID", rev_id,
        "eSTB IP", (!addr ? "N/A" : addr),
        "Home Network", mocaNodeInfo,
@@ -397,8 +393,10 @@ static json_t *sysinfo_Get()
        "WiFi SSID MAC", ((wifi_data[WA_WIFI_SSID_MAC_ADDR].value[0] == '\0') ? "N/A" : wifi_data[WA_WIFI_SSID_MAC_ADDR].value),
        "WiFi Op Frequency", ((wifi_data[WA_WIFI_OPER_FREQ].value[0] == '\0') ? "N/A" : wifi_data[WA_WIFI_OPER_FREQ].value),
        "WiFi Signal Strength", ((wifi_data[WA_WIFI_SIGNAL_STRENGTH].value[0] == '\0') ? "N/A" : wifi_data[WA_WIFI_SIGNAL_STRENGTH].value));
+
 #endif /* HAVE_DIAG_WIFI */
 #endif /* MEDIA_CLIENT */
+    exit:
     if (json == NULL)
     {
         WA_ERROR("Error in JSON.. Ignoring all data \n");
@@ -531,7 +529,7 @@ static bool getUpnpResults()
             char param_devName[BUFFER_LENGTH];
             json_t *jparam_devName = json_object_get(jval, "deviceName");
 
-            /* If deviceName is not empty*/
+            /* If deviceName is not empty */
             if (strcmp(json_string_value(jparam_devName), ""))
             {
                 strxfrm(param_devName, json_string_value(jparam_devName), DEVNAME_LENGTH); /* Get first 10 characters */
@@ -543,7 +541,7 @@ static bool getUpnpResults()
                 json_t *jparam_devType = json_object_get(jval, "DevType");
                 json_t *jparam_gateway = json_object_get(jval, "isgateway");
 
-                /* If DevType is a gateway*/
+                /* If DevType is a gateway */
                 if (!strcmp(json_string_value(jparam_gateway), "yes"))
                 {
                     json_t *jparam_Mac = json_object_get(jval, "hostMacAddress");
@@ -621,7 +619,8 @@ static int xconfVerGet(char *xconf_ver, size_t size)
 {
     if (!WA_UTILS_SNMP_GetString(SNMP_SERVER, OID_XCONF_VER, xconf_ver, size, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
-        WA_ERROR("xConf version fetching, failed.\n");
+        WA_DBG("xConf version fetching, failed.\n");
+        xconf_ver[0] = '\0';
 
         return -1;
     }
@@ -633,7 +632,6 @@ static int xconfVerGet(char *xconf_ver, size_t size)
 
 static int getMocaNetworkInfo(SysinfoParam_t *moca)
 {
-    int ret = 0;
     int index = -1;
     int group = 0; // 0 for MOCA_GROUP_11
     size_t size = 256;
@@ -646,39 +644,39 @@ static int getMocaNetworkInfo(SysinfoParam_t *moca)
         moca_data[i].type = WA_UTILS_SNMP_RESP_TYPE_LONG;
     }
 
-    if (getMocaIfRFChannelFrequency(&group, index, &moca_data[WA_MOCA_INFO_RF_CHANNEL], type) < 0)
+    if (getMocaIfRFChannelFrequency(&group, index, &moca_data[WA_MOCA_INFO_RF_CHANNEL], type) >= 0)
     {
+        snprintf(moca[WA_MOCA_INFO_RF_CHANNEL].value, size, "%ld MHz", moca_data[WA_MOCA_INFO_RF_CHANNEL].data.l);
+        WA_DBG("moca[WA_MOCA_INFO_RF_CHANNEL].value = %s\n", moca[WA_MOCA_INFO_RF_CHANNEL].value);
+    }
+    else
         WA_ERROR("getMocaNetworkInfo(): getMocaIfRFChannelFrequency() failed. Group=%d\n", group);
-        ret++;
-    }
 
-    snprintf(moca[WA_MOCA_INFO_RF_CHANNEL].value, size, "%ld MHz", moca_data[WA_MOCA_INFO_RF_CHANNEL].data.l);
-
-    if (getMocaIfNetworkController(group, index, &moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER], type) < 0)
+    if (getMocaIfNetworkController(group, index, &moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER], type) >= 0)
     {
-        WA_ERROR("getMocaNetworkInfo(): getMocaIfNetworkController() failed. Group=%d\n", group);
-        ret++;
+        snprintf(moca[WA_MOCA_INFO_NETWORK_CONTROLLER].value, size, "%ld", moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].data.l);
+        WA_DBG("moca[WA_MOCA_INFO_NETWORK_CONTROLLER].value = %s\n", moca[WA_MOCA_INFO_NETWORK_CONTROLLER].value);
     }
+    else
+         WA_ERROR("getMocaNetworkInfo(): getMocaIfNetworkController() failed. Group=%d\n", group);
 
-    snprintf(moca[WA_MOCA_INFO_NETWORK_CONTROLLER].value, size, "%ld", moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].data.l);
-
-    if (getMocaIfTransmitRate(group, index, &moca_data[WA_MOCA_INFO_TRANSMIT_RATE], type) < 0)
+    if (getMocaIfTransmitRate(group, index, &moca_data[WA_MOCA_INFO_TRANSMIT_RATE], type) >= 0)
     {
+        snprintf(moca[WA_MOCA_INFO_TRANSMIT_RATE].value, size, "%ld Mbps", moca_data[WA_MOCA_INFO_TRANSMIT_RATE].data.l);
+        WA_DBG("moca[WA_MOCA_INFO_TRANSMIT_RATE].value = %s\n", moca[WA_MOCA_INFO_TRANSMIT_RATE].value);
+    }
+    else
         WA_ERROR("getMocaNetworkInfo(): getMocaIfTransmitRate() failed. Group=%d\n", group);
-        ret++;
-    }
 
-    snprintf(moca[WA_MOCA_INFO_TRANSMIT_RATE].value, size, "%ld Mbps", moca_data[WA_MOCA_INFO_TRANSMIT_RATE].data.l);
-
-    if (getMocaNodeSNR(group, index, &moca_data[WA_MOCA_INFO_NODE_SNR], type) < 0)
+    if (getMocaNodeSNR(group, index, &moca_data[WA_MOCA_INFO_NODE_SNR], type) >= 0)
     {
-        WA_ERROR("getMocaNetworkInfo(): getMocaNodeSNR() failed. Group=%d\n", group);
-        ret++;
+        snprintf(moca[WA_MOCA_INFO_NODE_SNR].value, size, "%ld dB", moca_data[WA_MOCA_INFO_NODE_SNR].data.l);
+        WA_DBG("moca[WA_MOCA_INFO_NODE_SNR].value = %s\n", moca[WA_MOCA_INFO_NODE_SNR].value);
     }
+    else
+        WA_ERROR("getMocaNetworkInfo(): getMocaNodeSNR() failed. Group=%d\n", group);
 
-    snprintf(moca[WA_MOCA_INFO_NODE_SNR].value, size, "%ld dB", moca_data[WA_MOCA_INFO_NODE_SNR].data.l);
-
-    return ret;
+    return 0;
 }
 #else
 static int getReceiverId(char *rev_id, size_t size)
@@ -713,94 +711,100 @@ static int xconfVerGet(char *xconf_ver, size_t size)
 #ifdef HAVE_DIAG_MOCA
 static int getMocaNetworkInfo(SysinfoParam_t *moca)
 {
-    int ret = 0;
     int value = 0;
     size_t size = 256;
     char data[size];
 
-    if (getMocaIfRFChannelFrequency_IARM(&value) < 0)
+    if (getMocaIfRFChannelFrequency_IARM(&value) == 0)
     {
+        snprintf(moca[WA_MOCA_INFO_RF_CHANNEL].value, size, "%i MHz", value );
+        WA_DBG("moca[WA_MOCA_INFO_RF_CHANNEL].value = %s\n", moca[WA_MOCA_INFO_RF_CHANNEL].value);
+    }
+    else
         WA_ERROR("getMocaNetworkInfo(): getMocaIfRFChannelFrequency_IARM() failed\n");
-        ret++;
-    }
 
-    snprintf(moca[WA_MOCA_INFO_RF_CHANNEL].value, size, "%i MHz", value);
 
-    if (getMocaIfNetworkController_IARM(&value) < 0)
+    if (getMocaIfNetworkController_IARM(&value) == 0)
     {
+        snprintf(moca[WA_MOCA_INFO_NETWORK_CONTROLLER].value, size, "%i", value);
+        WA_DBG("moca[WA_MOCA_INFO_NETWORK_CONTROLLER].value = %s\n", moca[WA_MOCA_INFO_NETWORK_CONTROLLER].value);
+    }
+    else
         WA_ERROR("getMocaNetworkInfo(): getMocaIfNetworkController_IARM() failed\n");
-        ret++;
-    }
 
-    snprintf(moca[WA_MOCA_INFO_NETWORK_CONTROLLER].value, size, "%i", value);
 
     memset(&data, 0, sizeof(data));
-    if (getMocaIfTransmitRate_IARM(&data[0]) < 0)
+    if (getMocaIfTransmitRate_IARM(&data[0]) == 0)
     {
+        snprintf(moca[WA_MOCA_INFO_TRANSMIT_RATE].value, size, "%s", data);
+        WA_DBG("moca[WA_MOCA_INFO_TRANSMIT_RATE].value = %s\n", moca[WA_MOCA_INFO_TRANSMIT_RATE].value);
+    }
+    else
         WA_ERROR("getMocaNetworkInfo(): getMocaIfTransmitRate_IARM() failed\n");
-        ret++;
-    }
 
-    snprintf(moca[WA_MOCA_INFO_TRANSMIT_RATE].value, size, "%s", data);
 
     memset(&data, 0, sizeof(data));
-    if (getMocaNodeSNR_IARM(&data[0]) < 0)
+    if (getMocaNodeSNR_IARM(&data[0]) == 0)
     {
-        WA_ERROR("getMocaNetworkInfo(): getMocaNodeSNR_IARM() failed\n");
-        ret++;
+        snprintf(moca[WA_MOCA_INFO_NODE_SNR].value, size, "%s", data);
+        WA_DBG("moca[WA_MOCA_INFO_NODE_SNR].value = %s\n", moca[WA_MOCA_INFO_NODE_SNR].value);
     }
+    else
+        WA_ERROR("getMocaNetworkInfo(): getMocaNodeSNR_IARM() failed\n");
 
-    snprintf(moca[WA_MOCA_INFO_NODE_SNR].value, size, "%s", data);
-
-    return ret;
+    return 0;
 }
 #endif /* HAVE_DIAG_MOCA */
 
 #ifdef HAVE_DIAG_WIFI
 static int getWifiNetworkInfo(SysinfoParam_t *wifi)
 {
-    int ret = 0;
     int value = 0;
     char *data;
     size_t size = 256;
 
-    if (getWifiSSID_IARM(&data)<0)
+    /* Check for SSID */
+    if (getWifiSSID_IARM(&data) == 0)
     {
+        snprintf(wifi[WA_WIFI_SSID].value, size, "%s", data);
+        WA_DBG("wifi[WA_WIFI_SSID].value = %s\n", wifi[WA_WIFI_SSID].value);
+    }
+    else
         WA_ERROR("getWiFiNetworkInfo(): SSID status failed\n");
-        ret++;
-    }
 
-    snprintf(wifi[WA_WIFI_SSID].value, size, "%s", data);
-    WA_DBG("wifi[WA_WIFI_SSID].value = %s\n", wifi[WA_WIFI_SSID].value);
-
-    if (getWifiMacAddress_IARM(&data)<0)
+    /* Check for MAC Address */
+    if (getWifiMacAddress_IARM(&data) == 0)
     {
+        snprintf(wifi[WA_WIFI_SSID_MAC_ADDR].value, size, "%s", data);
+        WA_DBG("wifi[WA_WIFI_SSID_MAC_ADDR].value = %s\n", wifi[WA_WIFI_SSID_MAC_ADDR].value);
+    }
+    else
         WA_ERROR("getWiFiNetworkInfo(): WiFi Mac address fetching failed\n");
-        ret++;
-    }
 
-    snprintf(wifi[WA_WIFI_SSID_MAC_ADDR].value, size, "%s", data);
-    WA_DBG("wifi[WA_WIFI_SSID_MAC_ADDR].value = %s\n", wifi[WA_WIFI_SSID_MAC_ADDR].value);
-
-    if (getWifiOperFrequency_IARM(&data)<0)
+    /* Check for Operator frequency */
+    if (getWifiOperFrequency_IARM(&data) == 0)
     {
+        snprintf(wifi[WA_WIFI_OPER_FREQ].value, size, "%s", data);
+        WA_DBG("wifi[WA_WIFI_OPER_FREQ].value = %s\n", wifi[WA_WIFI_OPER_FREQ].value);
+    }
+    else
         WA_ERROR("getWiFiNetworkInfo(): Operator frequency fetching failed\n");
-        ret++;
-    }
 
-    snprintf(wifi[WA_WIFI_OPER_FREQ].value, size, "%s", data);
-    WA_DBG("wifi[WA_WIFI_OPER_FREQ].value = %s\n", wifi[WA_WIFI_OPER_FREQ].value);
-
-    if (getWifiSignalStrength_IARM(&value)<0)
+    /* Check for Signal strength */
+    if (getWifiSignalStrength_IARM(&value) == 0)
     {
+        snprintf(wifi[WA_WIFI_SIGNAL_STRENGTH].value, size, "%i", value);
+        WA_DBG("wifi[WA_WIFI_SIGNAL_STRENGTH].value = %s\n", wifi[WA_WIFI_SIGNAL_STRENGTH].value);
+    }
+    else
         WA_ERROR("getWiFiNetworkInfo(): Signal strength fetching failed\n");
-        ret++;
+
+    if(value == 0)
+    {
+        wifi[WA_WIFI_SSID].value[0] = '\0';
     }
 
-    snprintf(wifi[WA_WIFI_SIGNAL_STRENGTH].value, size, "%i", value);
-    WA_DBG("wifi[WA_WIFI_SIGNAL_STRENGTH].value = %s\n", wifi[WA_WIFI_SIGNAL_STRENGTH].value);
-
-    return ret;
+    return 0;
 }
 #endif /* HAVE_DIAG_WIFI */
 

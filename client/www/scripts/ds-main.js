@@ -1029,6 +1029,12 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.WIFI_NO_CONNECTION:
         info = "No Connection";
         break;
+    case DIAG_ERRCODE.EMMC_MAX_LIFE_EXCEED_FAILURE:
+        info = "Device Exceeded Max Life";
+        break;
+    case DIAG_ERRCODE.EMMC_ZERO_LIFETIME_FAILURE:
+        info = "Device Returned Invalid Response";
+        break;
     case DIAG_ERRCODE.INTERNAL_TEST_ERROR:
     case DIAG_ERRCODE.CANCELLED:
     default:
@@ -1124,6 +1130,8 @@ function setElemResult(elem, status, data) {
     elem.data = data;
     switch(status) {
     case DIAG_ERRCODE.FAILURE:
+    case DIAG_ERRCODE.EMMC_MAX_LIFE_EXCEED_FAILURE:
+    case DIAG_ERRCODE.EMMC_ZERO_LIFETIME_FAILURE:
         elem.result = results.error;
         break;
     case DIAG_ERRCODE.SUCCESS:

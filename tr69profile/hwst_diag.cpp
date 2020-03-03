@@ -50,6 +50,7 @@ Diag::Diag(const std::string name_, const std::string &params_):
     presentationResult.insert(std::pair<int, const std::string>(INTERNAL_TEST_ERROR, "WARNING"));
 
     presentationComment.insert(std::pair<int, const std::string>(INTERNAL_TEST_ERROR, "Error. Please Rerun Test"));
+    presentationComment.insert(std::pair<int, const std::string>(NOT_APPLICABLE, "Not Applicable"));
 }
 
 Diag::~Diag()

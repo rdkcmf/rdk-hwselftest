@@ -38,6 +38,7 @@
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
 #include "wa_json.h"
+#include "hostIf_tr69ReqHandler.h"
 
 #ifdef __cplusplus
 extern "C"

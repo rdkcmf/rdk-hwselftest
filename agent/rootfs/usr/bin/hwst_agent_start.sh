@@ -50,7 +50,7 @@ function create_cg() {
         if [ "$?" -eq 0 ]; then
             d_log "create_cg: group: $1 created"
         else
-            d_log "create_cg: could not create $1 group, exiting"
+            n_log "create_cg: could not create $1 group, exiting"
             quit 1
         fi
     else
@@ -72,7 +72,7 @@ function remove_cg() {
         if [ ! -d $1 ]; then
             d_log "remove_cg: group: $1 removed"
         else
-            d_log "remove_cg: could not remove group, exiting"
+            n_log "remove_cg: could not remove group, exiting"
             quit 2
         fi
     else
@@ -88,9 +88,13 @@ function remove_cg() {
 function set_dram_limit() {
 
     if [ ! -d $1 ]; then
-        d_log "set_dram_limit: missing group $1, exiting"
+        n_log "set_dram_limit: missing group $1, exiting hwselftest"
         quit 3
     else
+        if [ ! -f $1/memory.limit_in_bytes ]; then
+            n_log "set_dram_limit: missing file $1/memory.limit_in_bytes, exiting hwselftest"
+            quit 3
+        fi
         OLD_LIMIT_B=`cat $1/memory.limit_in_bytes`
         OLD_LIMIT_MB=$(( $OLD_LIMIT_B / 1024 / 1024 ))
         # d_log "set_dram_limit: group: $1: old limit: $OLD_LIMIT_MB MBytes"
@@ -109,9 +113,13 @@ function set_dram_limit() {
 function set_cpu_limit() {
 
     if [ ! -d $1 ]; then
-        d_log "set_cpu_limit: missing group $1, exiting"
+        n_log "set_cpu_limit: missing group $1, exiting hwselftest"
         quit 4
     else
+        if [ ! -f $1/cpu.shares ]; then
+            n_log "set_cpu_limit: missing file $1/cpu.shares, exiting hwselftest"
+            quit 3
+        fi
         OLD_LIMIT_RAW=`cat $1/cpu.shares`
         OLD_LIMIT_PERCENT=$(( $OLD_LIMIT_RAW * 100 / 1024 ))
         # d_log "set_cpu_limit: group: $1: old limit: $OLD_LIMIT_PERCENT %"
@@ -137,12 +145,12 @@ function cap_process_to_cg() {
 # Execution starts here:
 #
 if [ "$#" -ne 1 ]; then
-    d_log "Missing pid, exiting"
+    n_log "Missing pid, exiting"
     quit 5
 fi
 
 if [ ! -d /proc/$1 ]; then
-    d_log "No such process, exiting"
+    n_log "No such process, exiting"
     quit 6
 fi
 

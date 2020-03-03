@@ -72,6 +72,9 @@
 #ifdef HAVE_DIAG_FLASH
 #include "wa_diag_flash.h"
 #endif
+#ifdef HAVE_DIAG_FLASH_XI6
+#include "wa_diag_flash.h"
+#endif
 #ifdef HAVE_DIAG_DRAM
 #include "wa_diag_dram.h"
 #endif
@@ -141,6 +144,9 @@ static WA_DIAG_proceduresConfig_t diags[] =
     {"sdcard_status", NULL, NULL, WA_DIAG_SDCARD_status, NULL, NULL, NULL },
 #endif
 #ifdef HAVE_DIAG_FLASH
+    {"flash_status", NULL, NULL, WA_DIAG_FLASH_status, NULL, NULL, NULL },
+#endif
+#ifdef HAVE_DIAG_FLASH_XI6
     {"flash_status", NULL, NULL, WA_DIAG_FLASH_status, NULL, NULL, NULL },
 #endif
 #ifdef HAVE_DIAG_DRAM

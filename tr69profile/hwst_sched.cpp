@@ -81,7 +81,7 @@ Sched::Sched(std::string host, std::string port, int timeout):
 void Sched::telemetryLogInit()
 {
     std::string telemetry ("NA");
-    for(int i=0; i < NUM_ELEMENTS; i++)
+    for(int i = 0; i < NUM_ELEMENTS_DEFAULT; i++)
     {
         telemetry.copy(telemetryResults[i], telemetry.length(), 0);
     }
@@ -92,12 +92,11 @@ void Sched::telemetryLogInit()
     telemetryResults[2][RF_default.length()] = '\0';
     IR_default.copy(telemetryResults[10], IR_default.length(), 0); //this is for IR element
     telemetryResults[10][IR_default.length()] = '\0';
-    ne.copy(telemetryResults[11], ne.length(), 0); //this is for sdcard element
-    telemetryResults[11][ne.length()] = '\0';
-    ne.copy(telemetryResults[12], ne.length(), 0); //this is for bluetooth element
-    telemetryResults[12][ne.length()] = '\0';
-    ne.copy(telemetryResults[13], ne.length(), 0); //this is for wifi element
-    telemetryResults[13][ne.length()] = '\0';
+    for(int i = NUM_ELEMENTS_DEFAULT+1; i < NUM_ELEMENTS; i++) //default values for sdcard, bluetooth, wifi components
+    {
+        ne.copy(telemetryResults[i], ne.length(), 0);
+        telemetryResults[i][ne.length()] = '\0';
+    }
 }
 
 Sched::~Sched()
@@ -176,11 +175,13 @@ void Sched::worker(void)
                         HWST_DBG("Running: " + e.diag->name + " finished");
                         std::string tmp = e.diag->getStrStatus();
                         if (!quiet && (tmp.find("Test result:") != std::string::npos))
+                        {
                             comm->sendRaw("LOG", "{\"rawmessage\": \"" + Log().format(tmp) + "\"}", "null");
+                            telemetryLogStore(e.diag->name);
+                        }
                         if (!summary.empty())
                             summary += "\n";
                         summary += tmp;
-                        telemetryLogStore(e.diag->name);
                     }
                 }
             }

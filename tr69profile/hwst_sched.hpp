@@ -29,6 +29,7 @@
 #include <map>
 
 #define NUM_ELEMENTS 14
+#define NUM_ELEMENTS_DEFAULT 10
 #define BUFFERLEN 256
 
 namespace hwst {

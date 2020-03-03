@@ -61,6 +61,9 @@ endif
 if HAVE_DIAG_FLASH
    hwselftest_SOURCES += core/diag/wa_diag_flash.c
 endif
+if HAVE_DIAG_FLASH_XI6
+   hwselftest_SOURCES += core/diag/wa_diag_flash.c
+endif
 if HAVE_DIAG_HDMIOUT
    hwselftest_SOURCES += core/diag/wa_diag_hdmiout.c
 endif

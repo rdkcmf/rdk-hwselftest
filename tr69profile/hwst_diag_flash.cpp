@@ -32,6 +32,11 @@ namespace hwst {
 DiagFlash::DiagFlash(const std::string &params_):
     Diag("flash_status", params_)
 {
+    presentationResult.insert(std::pair<int, const std::string>(EMMC_MAX_LIFE_EXCEED_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(EMMC_ZERO_LIFETIME_FAILURE, "FAILED"));
+
+    presentationComment.insert(std::pair<int, const std::string>(EMMC_MAX_LIFE_EXCEED_FAILURE, "Device Exceeded Max Life"));
+    presentationComment.insert(std::pair<int, const std::string>(EMMC_ZERO_LIFETIME_FAILURE, "Device Returned Invalid Response"));
 }
 
 std::string DiagFlash::getPresentationName() const

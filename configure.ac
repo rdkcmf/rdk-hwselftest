@@ -170,6 +170,12 @@ AC_ARG_WITH([diag-flash],
         [echo "FLASH test support is disabled"])
 AM_CONDITIONAL([HAVE_DIAG_FLASH], [test x$DIAG_FLASH_ENABLE = xtrue])
 
+AC_ARG_WITH([diag-flash-xi6],
+        AS_HELP_STRING([--with-diag-flash-xi6],[enable FLASH Xi6 test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_FLASH_XI6" DIAG_FLASH_XI6_ENABLE=true]),
+        [echo "FLASH Xi6 test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_FLASH_XI6], [test x$DIAG_FLASH_XI6_ENABLE = xtrue])
+
 AC_ARG_WITH([diag-hdmiout],
         AS_HELP_STRING([--with-diag-hdmiout],[enable HDMIOUT test (default is no)]),
         AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_HDMIOUT" DIAG_HDMIOUT_ENABLE=true]),
@@ -231,7 +237,7 @@ AC_ARG_WITH([diag-wifi],
         [echo "WIFI test support is disabled"])
 AM_CONDITIONAL([HAVE_DIAG_WIFI], [test x$DIAG_WIFI_ENABLE = xtrue])
 
-AM_CONDITIONAL([HAVE_DIAG_FILE], [test x$DIAG_FLASH_ENABLE = xtrue -o x$DIAG_DRAM_ENABLE = xtrue])
+AM_CONDITIONAL([HAVE_DIAG_FILE], [test x$DIAG_FLASH_ENABLE = xtrue -o x$DIAG_DRAM_ENABLE = xtrue -o x$DIAG_FLASH_XI6_ENABLE = xtrue])
 
 AC_SUBST([DIAG_ENABLE_FLAGS])
 

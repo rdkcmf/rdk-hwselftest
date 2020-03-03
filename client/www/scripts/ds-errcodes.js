@@ -43,8 +43,13 @@ var DIAG_ERRCODE = {
 
         TUNER_BUSY:             -111,
         RF4CE_NO_RESPONSE:      -112,
-        WIFI_NO_CONNECTION:     -113
+        WIFI_NO_CONNECTION:     -113,
 
+        NON_RF4CE_INPUT:        -117,
+
+        /* Failure Specific Error Codes */
+        EMMC_MAX_LIFE_EXCEED_FAILURE:   -118,
+        EMMC_ZERO_LIFETIME_FAILURE:     -119
         /* Currently defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment
         DEFAULT_RESULT_VALUE    -200 */
 };

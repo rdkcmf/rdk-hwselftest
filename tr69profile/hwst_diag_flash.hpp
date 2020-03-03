@@ -29,6 +29,11 @@ class Comm;
 class DiagFlash: public Diag
 {
     friend class hwst::Comm;
+
+    enum {
+        EMMC_MAX_LIFE_EXCEED_FAILURE = -118,
+        EMMC_ZERO_LIFETIME_FAILURE   = -119
+    };
 public:
     DiagFlash(const std::string &params_ = "");
     ~DiagFlash() {}

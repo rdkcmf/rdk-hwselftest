@@ -307,7 +307,7 @@ static int getMocaOptionStatus(MocaOption_t opt, int index, WA_UTILS_SNMP_Resp_t
         }
         else
         {
-            WA_ERROR("getMocaOptionStatus, option: %s, failed.\n", MocaOptions[opt]);
+            WA_DBG("getMocaOptionStatus, option: %s, failed.\n", MocaOptions[opt]);
             return -1;
         }
     }

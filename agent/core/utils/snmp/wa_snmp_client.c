@@ -165,7 +165,7 @@ bool WA_UTILS_SNMP_GetString(const char *server, const char * reqoid, char * buf
     WaSnmpSingleResult result = waSnmpGetSingle(server, reqoid, reqType);
     if (!result)
     {
-        WA_ERROR("WA_UTILS_SNMP_GetString(): waSnmpGetSingle() failed\n");
+        WA_DBG("WA_UTILS_SNMP_GetString(): waSnmpGetSingle() failed\n");
         WA_OSA_MutexUnlock(snmpMutex);
         return false;
     }
@@ -208,7 +208,7 @@ bool WA_UTILS_SNMP_GetNumber(const char *server, const char *reqoid, WA_UTILS_SN
     WaSnmpSingleResult result = waSnmpGetSingle(server, reqoid, reqType);
     if (!result)
     {
-        WA_ERROR("WA_UTILS_SNMP_GetNumber(): waSnmpGetSingle() failed\n");
+        WA_DBG("WA_UTILS_SNMP_GetNumber(): waSnmpGetSingle() failed\n");
         WA_OSA_MutexUnlock(snmpMutex);
         return false;
     }
@@ -428,14 +428,14 @@ static WaSnmpSingleResult waSnmpGetSingle(const char *server, const char * reqOi
 
         if(netsnmp_oid_is_subtree(reqOid, reqOidLength, vars->name, vars->name_length))
         {
-            WA_ERROR("waSnmpGetSingle(): not corelated response, giving up...\n");
+            WA_DBG("waSnmpGetSingle(): not corelated response, giving up...\n");
             waSnmpSessionDataCleanup(&sd);
             return NULL;
         }
 
         if(vars->val_len == 0)
         {
-            WA_ERROR("waSnmpGetSingle(): empty response, giving up...\n");
+            WA_DBG("waSnmpGetSingle(): empty response, giving up...\n");
             waSnmpSessionDataCleanup(&sd);
             return NULL;
         }

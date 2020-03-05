@@ -1127,7 +1127,7 @@ static void *InstanceTask(void *p)
     status = pContext->pConfig->fnc(pInstance, pContext->handle, &jparams);
     if(status != 0)
     {
-        WA_ERROR("InstanceTask(): fnc(): %d\n", status);
+        WA_DBG("InstanceTask(): fnc(): %d\n", status);
     }
 
     timestamp = time(0);

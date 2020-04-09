@@ -59,12 +59,12 @@ int WA_DIAG_CAPABILITIES_Info(void *instanceHandle, void *initHandle, json_t **p
     json_decref(*params); //not used
 
     const WA_DIAG_proceduresConfig_t *diags = WA_CONFIG_GetDiags();
-
+#ifdef HAVE_DIAG_RF4CE
     if (isRF4CEPaired() == -1)
     {
         rf4ce = 0;
     }
-
+#endif
     if (diags)
     {
         json_t *jroot = json_object();

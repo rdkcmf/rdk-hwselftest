@@ -449,7 +449,7 @@ static int load_results(const char *file, WA_AGG_AggregateResults_t *bank)
         json_decref(json);
     }
     else
-        WA_ERROR("load_results(): json_load_file() failed\n");
+        WA_DBG("load_results(): json_load_file() failed\n");
 
     WA_RETURN("load_results(): %d\n", status);
 

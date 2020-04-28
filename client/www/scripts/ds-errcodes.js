@@ -49,7 +49,9 @@ var DIAG_ERRCODE = {
 
         /* Failure Specific Error Codes */
         EMMC_MAX_LIFE_EXCEED_FAILURE:   -118,
-        EMMC_ZERO_LIFETIME_FAILURE:     -119
-        /* Currently defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment
-        DEFAULT_RESULT_VALUE    -200 */
+        EMMC_ZERO_LIFETIME_FAILURE:     -119,
+        RF4CE_CTRLM_NO_RESPONSE:        -120,
+
+        /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
+        DEFAULT_RESULT_VALUE:           -200
 };

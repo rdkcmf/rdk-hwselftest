@@ -32,6 +32,13 @@ namespace hwst {
 DiagRf4ce::DiagRf4ce(const std::string &params_):
     Diag("rf4ce_status", params_)
 {
+    presentationResult.insert(std::pair<int, const std::string>(RF4CE_NO_RESPONSE, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(NON_RF4CE_INPUT, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(RF4CE_CTRLM_NO_RESPONSE, "WARNING"));
+
+    presentationComment.insert(std::pair<int, const std::string>(RF4CE_NO_RESPONSE, "RF Input Not Detected In Last 10 Minutes"));
+    presentationComment.insert(std::pair<int, const std::string>(NON_RF4CE_INPUT, "RF Paired But No RF Input"));
+    presentationComment.insert(std::pair<int, const std::string>(RF4CE_CTRLM_NO_RESPONSE, "RF Controller Issue"));
 }
 
 std::string DiagRf4ce::getPresentationName() const

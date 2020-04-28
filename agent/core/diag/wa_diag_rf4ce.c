@@ -77,7 +77,6 @@
 #define RF4CE_CHANNEL_MAX            (26)
 
 #define PREVIOUS_RF4CE_KEY_EVENT_MIN 10 /*minutes*/
-#define RF4CE_NO_RESPONSE            2
 
 /*****************************************************************************
  * LOCAL TYPES
@@ -203,17 +202,20 @@ static int checkRCULastKeyInfo()
                     else
                     {
                         WA_WARN("checkRCULastKeyInfo(): RF4CE key event time difference is more than %i minutes\n", PREVIOUS_RF4CE_KEY_EVENT_MIN);
-                        result = RF4CE_NO_RESPONSE;
+                        result = WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE;
                     }
                 }
                 else
                 {
-                    WA_ERROR("checkRCULastKeyInfo(): last_key_info returned by CtrlMgr is not from RF4CE: %i\n", last_key_info_param->controller_id);
-                    result = RF4CE_NO_RESPONSE;
+                    WA_DBG("checkRCULastKeyInfo(): last_key_info returned by CtrlMgr is not from RF4CE, controller_id: %i\n", last_key_info_param->controller_id);
+                    result = WA_DIAG_ERRCODE_NON_RF4CE_INPUT;
                 }
             }
             else
-                WA_ERROR("checkRCULastKeyInfo(): Invalid status returned by CtrlMgr: %i\n", last_key_info_param->result);
+            {
+                WA_DBG("checkRCULastKeyInfo(): Invalid status returned by CtrlMgr: %i\n", last_key_info_param->result);
+                result = WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE;
+            }
         }
         else
             WA_ERROR("checkRCULastKeyInfo(): IARM_Bus_Call() returned %i\n", iarm_result);
@@ -330,96 +332,100 @@ static int checkRf4ceStatusViaCtrlMgr()
     WA_ENTER("checkRf4ceStatusViaCtrlMgr()\n");
 
     iarm_result = IARM_Bus_IsConnected(CTRLM_MAIN_IARM_BUS_NAME, &is_connected);
-    if (iarm_result != IARM_RESULT_SUCCESS)
-        WA_DBG("checkRf4ceStatusViaCtrlMgr(): IARM_Bus_IsConnected('%s') failed\n", CTRLM_MAIN_IARM_BUS_NAME);
-
-    if (is_connected)
+    if (iarm_result != IARM_RESULT_SUCCESS || !is_connected)
     {
-        /* Find out the network id of the RF4CE controller */
-        ctrlm_main_iarm_call_status_t *ctrm_status_param = NULL;
-        ctrlm_network_id_t rf4ce_network_id = -1;
+        WA_ERROR("checkRf4ceStatusViaCtrlMgr(): IARM_Bus_IsConnected('%s') failed. CtrlMgr not available.\n", CTRLM_MAIN_IARM_BUS_NAME);
+        return WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE;
+    }
 
-        WA_DBG("checkRf4ceStatusViaCtrlMgr(): attempting to verify RF interface via CtrlMgr...\n");
+    /* Find out the network id of the RF4CE controller */
+    ctrlm_main_iarm_call_status_t *ctrm_status_param = NULL;
+    ctrlm_network_id_t rf4ce_network_id = -1;
 
-        iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(*ctrm_status_param), (void**)&ctrm_status_param);
-        if ((iarm_result == IARM_RESULT_SUCCESS) && ctrm_status_param)
+    WA_DBG("checkRf4ceStatusViaCtrlMgr(): attempting to verify RF interface via CtrlMgr...\n");
+
+    iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(*ctrm_status_param), (void**)&ctrm_status_param);
+    if ((iarm_result == IARM_RESULT_SUCCESS) && ctrm_status_param)
+    {
+        memset(ctrm_status_param, 0, sizeof(*ctrm_status_param));
+        ctrm_status_param->api_revision = CTRLM_MAIN_IARM_BUS_API_REVISION;
+
+        WA_DBG("checkRf4ceStatusViaCtrlMgr(): IARM_Bus_Call('%s', '%s', ...)\n", CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_STATUS_GET);
+        iarm_result = IARM_Bus_Call(CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_STATUS_GET,
+                                   (void *)ctrm_status_param, sizeof(*ctrm_status_param));
+
+        if (iarm_result == IARM_RESULT_SUCCESS)
         {
-            memset(ctrm_status_param, 0, sizeof(*ctrm_status_param));
-            ctrm_status_param->api_revision = CTRLM_MAIN_IARM_BUS_API_REVISION;
+            if (ctrm_status_param->result == CTRLM_IARM_CALL_RESULT_SUCCESS)
+            {
+                for (int i = 0; i < ctrm_status_param->network_qty; i++)
+                {
+                    if (ctrm_status_param->networks[i].type == CTRLM_NETWORK_TYPE_RF4CE)
+                    {
+                        rf4ce_network_id = ctrm_status_param->networks[i].id;
+                        WA_DBG("checkRf4ceStatusViaCtrlMgr(): RF4CE network supported by CtrlMgr, network id: %i\n", rf4ce_network_id);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                WA_DBG("checkRf4ceStatusViaCtrlMgr(): unexpected status retured by CtrlMgr\n");
+                result = WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE;
+            }
+        }
+        else
+            WA_ERROR("checkRf4ceStatusViaCtrlMgr(): IARM_Bus_Call() returned %i\n", iarm_result);
 
-            WA_DBG("checkRf4ceStatusViaCtrlMgr(): IARM_Bus_Call('%s', '%s', ...)\n", CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_STATUS_GET);
-            iarm_result = IARM_Bus_Call(CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_STATUS_GET,
-                                       (void *)ctrm_status_param, sizeof(*ctrm_status_param));
+        IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, ctrm_status_param);
+    }
+    else
+        WA_ERROR("checkRf4ceStatusViaCtrlMgr(): IARM_Malloc() failed\n");
+
+    if (rf4ce_network_id != -1)
+    {
+        /* Have the network id, try to retrieve the controller status */
+        ctrlm_main_iarm_call_network_status_t *network_status_param = NULL;
+
+        iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(*network_status_param), (void**)&network_status_param);
+        if ((iarm_result == IARM_RESULT_SUCCESS) && network_status_param)
+        {
+            memset(network_status_param, 0, sizeof(*network_status_param));
+            network_status_param->api_revision = CTRLM_MAIN_IARM_BUS_API_REVISION;
+            network_status_param->network_id = rf4ce_network_id;
+
+            WA_DBG("checkRf4ceStatusViaCtrlMgr(): IARM_Bus_Call('%s', '%s', ...)\n", CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_NETWORK_STATUS_GET);
+            iarm_result = IARM_Bus_Call(CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_NETWORK_STATUS_GET,
+                                        (void *)network_status_param, sizeof(*network_status_param));
 
             if (iarm_result == IARM_RESULT_SUCCESS)
             {
-                if (ctrm_status_param->result == CTRLM_IARM_CALL_RESULT_SUCCESS)
+                if (network_status_param->result == CTRLM_IARM_CALL_RESULT_SUCCESS)
                 {
-                    for (int i = 0; i < ctrm_status_param->network_qty; i++)
-                    {
-                        if (ctrm_status_param->networks[i].type == CTRLM_NETWORK_TYPE_RF4CE)
-                        {
-                            rf4ce_network_id = ctrm_status_param->networks[i].id;
-                            WA_DBG("checkRf4ceStatusViaCtrlMgr(): RF4CE network supported by CtrlMgr, network id: %i\n", rf4ce_network_id);
-                            break;
-                        }
-                    }
+                    ctrlm_network_status_rf4ce_t *status = (ctrlm_network_status_rf4ce_t *)&network_status_param->status.rf4ce;
+                    result = verifyRf4ceStatus(status->controller_qty, CTRLM_MAIN_MAX_BOUND_CONTROLLERS, status->rf_channel_active.number);
                 }
                 else
-                    WA_ERROR("checkRf4ceStatusViaCtrlMgr(): unexpected status retured by CtrlMgr\n");
+                {
+                    WA_DBG("checkRf4ceStatusViaCtrlMgr(): invalid status retured by CtrlMgr\n");
+                    result = WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE;
+                }
             }
             else
                 WA_ERROR("checkRf4ceStatusViaCtrlMgr(): IARM_Bus_Call() returned %i\n", iarm_result);
 
-            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, ctrm_status_param);
+            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, network_status_param);
         }
         else
             WA_ERROR("checkRf4ceStatusViaCtrlMgr(): IARM_Malloc() failed\n");
-
-        if (rf4ce_network_id != -1)
-        {
-            /* Have the network id, try to retrieve the controller status */
-            ctrlm_main_iarm_call_network_status_t *network_status_param = NULL;
-
-            iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(*network_status_param), (void**)&network_status_param);
-            if ((iarm_result == IARM_RESULT_SUCCESS) && network_status_param)
-            {
-                memset(network_status_param, 0, sizeof(*network_status_param));
-                network_status_param->api_revision = CTRLM_MAIN_IARM_BUS_API_REVISION;
-                network_status_param->network_id = rf4ce_network_id;
-
-                WA_DBG("checkRf4ceStatusViaCtrlMgr(): IARM_Bus_Call('%s', '%s', ...)\n", CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_NETWORK_STATUS_GET);
-                iarm_result = IARM_Bus_Call(CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_NETWORK_STATUS_GET,
-                                            (void *)network_status_param, sizeof(*network_status_param));
-
-                if (iarm_result == IARM_RESULT_SUCCESS)
-                {
-                    if (network_status_param->result == CTRLM_IARM_CALL_RESULT_SUCCESS)
-                    {
-                        ctrlm_network_status_rf4ce_t *status = (ctrlm_network_status_rf4ce_t *)&network_status_param->status.rf4ce;
-                        result = verifyRf4ceStatus(status->controller_qty, CTRLM_MAIN_MAX_BOUND_CONTROLLERS, status->rf_channel_active.number);
-                    }
-                    else
-                        WA_ERROR("checkRf4ceStatusViaCtrlMgr(): invalid status retured by CtrlMgr\n");
-                }
-                else
-                    WA_ERROR("checkRf4ceStatusViaCtrlMgr(): IARM_Bus_Call() returned %i\n", iarm_result);
-
-                IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, network_status_param);
-            }
-            else
-                WA_ERROR("checkRf4ceStatusViaCtrlMgr(): IARM_Malloc() failed\n");
-        }
-        else
-            WA_ERROR("checkRf4ceStatusViaCtrlMgr(): RF4CE network not supported by CtrlMgr\n");
-
-        if (!checkOnlyPairing && result)
-        {
-            result = checkRCULastKeyInfo();
-        }
     }
     else
-        WA_INFO("checkRf4ceStatusViaCtrlMgr(): CtrlMgr not available\n");
+        WA_ERROR("checkRf4ceStatusViaCtrlMgr(): RF4CE network not supported by CtrlMgr\n");
+
+    if (!checkOnlyPairing && result == 1)
+    {
+        result = checkRCULastKeyInfo();
+    }
 
     WA_RETURN("checkRf4ceStatusViaCtrlMgr(): return code: %d\n", result);
 
@@ -479,7 +485,15 @@ static int setReturnData(int status, json_t **param)
         break;
 
     case WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE:
-        *param = json_string("Rf input not detected.");
+        *param = json_string("RF input not detected.");
+        break;
+
+    case WA_DIAG_ERRCODE_NON_RF4CE_INPUT:
+        *param = json_string("RF paired but no RF input.");
+        break;
+
+    case WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE:
+        *param = json_string("RF controller issue.");
         break;
 
     default:
@@ -514,7 +528,7 @@ int WA_DIAG_RF4CE_status(void* instanceHandle, void *initHandle, json_t **params
         WA_ERROR("Device configuration unknown.\n");
         return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
     }
-    else if(ret == 0)
+    if(ret == 0)
     {
         WA_ERROR("Device does not have rf4ce interface.\n");
         return setReturnData(WA_DIAG_ERRCODE_NOT_APPLICABLE, params);
@@ -531,27 +545,31 @@ int WA_DIAG_RF4CE_status(void* instanceHandle, void *initHandle, json_t **params
 
     if(WA_UTILS_IARM_Disconnect())
     {
-        return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
+        WA_DBG("WA_DIAG_RF4CE_status, WA_UTILS_IARM_Disconnect() Failed\n");
     }
 
-    if(ret < 1)
+    if(ret < 0)
     {
-        WA_ERROR("WA_DIAG_RF4CE_status, checkRf4ceStatus, error code: %d\n", ret);
-        return setReturnData((ret == 0 ? WA_DIAG_ERRCODE_FAILURE : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR), params);
+        WA_DBG("WA_DIAG_RF4CE_status, checkRf4ceStatus, return code: %d\n", ret);
+
+        if (ret == -1)
+        {
+            return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
+        }
+
+        return setReturnData(ret, params);
     }
 
     WA_DBG("Rf4ce healthy.\n");
 
     WA_RETURN("WA_DIAG_RF4CE_status, return code: %d.\n", WA_DIAG_ERRCODE_SUCCESS);
 
-    return setReturnData((ret == RF4CE_NO_RESPONSE ? WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE : WA_DIAG_ERRCODE_SUCCESS), params);
+    return setReturnData((ret == 1 ? WA_DIAG_ERRCODE_SUCCESS : WA_DIAG_ERRCODE_FAILURE), params);
 }
 
 int isRF4CEPaired()
 {
     int ret = -1;
-
-    checkOnlyPairing = 1;
 
     if (WA_UTILS_IARM_Connect())
     {
@@ -559,15 +577,16 @@ int isRF4CEPaired()
         return -1;
     }
 
+    checkOnlyPairing = 1;
+
     ret = checkRf4ceStatus();
+
+    checkOnlyPairing = 0;
 
     if(WA_UTILS_IARM_Disconnect())
     {
-        WA_ERROR("isRF4CEPaired(): WA_UTILS_IARM_Disconnect() Failed \n");
-        return -1;
+        WA_DBG("isRF4CEPaired(): WA_UTILS_IARM_Disconnect() Failed \n");
     }
-
-    checkOnlyPairing = 0;
 
     return ret;
 }

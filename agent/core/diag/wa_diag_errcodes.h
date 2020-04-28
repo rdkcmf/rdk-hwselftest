@@ -73,7 +73,9 @@ extern "C"
 #define WA_DIAG_ERRCODE_NON_RF4CE_INPUT                 (-117)
 #define WA_DIAG_ERRCODE_EMMC_MAX_LIFE_EXCEED_FAILURE    (-118)
 #define WA_DIAG_ERRCODE_EMMC_ZERO_LIFETIME_FAILURE      (-119)
-//#define DEFAULT_RESULT_VALUE (-200) /* Currently defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
+#define WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE         (-120)
+
+#define WA_DIAG_ERRCODE_DEFAULT_RESULT_VALUE            (-200) /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
 
 /*****************************************************************************
  * EXPORTED TYPES

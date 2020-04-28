@@ -984,7 +984,7 @@ function getInfo(elemName, status, data) {
         info = "";
         break;
     case DIAG_ERRCODE.NOT_APPLICABLE:
-        info = "Error. Not Applicable";
+        info = "Test Not Applicable";
         break;
     case DIAG_ERRCODE.HDD_STATUS_MISSING:
         info = "Health Status Unavailable";
@@ -1024,7 +1024,7 @@ function getInfo(elemName, status, data) {
         info = "Lock Failed - Check Cable";
         break;
     case DIAG_ERRCODE.RF4CE_NO_RESPONSE:
-        info = "RF input not detected in last 10 minutes";
+        info = "RF Input Not Detected In Last 10 Minutes";
         break;
     case DIAG_ERRCODE.WIFI_NO_CONNECTION:
         info = "No Connection";
@@ -1035,11 +1035,22 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.EMMC_ZERO_LIFETIME_FAILURE:
         info = "Device Returned Invalid Response";
         break;
+    case DIAG_ERRCODE.NON_RF4CE_INPUT:
+        info = "RF Paired But No RF Input";
+        break;
+    case DIAG_ERRCODE.RF4CE_CTRLM_NO_RESPONSE:
+        info = "RF Controller Issue";
+        break;
     case DIAG_ERRCODE.INTERNAL_TEST_ERROR:
+        info = "Test Internal Error. Please Rerun Test";
+        break;
     case DIAG_ERRCODE.CANCELLED:
+        info = "Test Cancelled. Please Rerun Test";
+        break;
+    case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
     default:
         if(status < 0) {
-            info = "Error. Please Rerun Test"
+            info = "Test Not Executed. Please Rerun Test"
         } else {
             info = "";
         }
@@ -1152,6 +1163,9 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.IR_NOT_DETECTED:
     case DIAG_ERRCODE.RF4CE_NO_RESPONSE:
     case DIAG_ERRCODE.CM_NO_SIGNAL:
+    case DIAG_ERRCODE.NON_RF4CE_INPUT:
+    case DIAG_ERRCODE.RF4CE_CTRLM_NO_RESPONSE:
+    case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
         elem.result = results.warning;
         break;
 /* currently mapped to DIAG_ERRCODE.FAILURE in wa_diag_errcodes.h

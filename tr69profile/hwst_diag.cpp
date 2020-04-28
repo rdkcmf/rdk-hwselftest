@@ -48,9 +48,12 @@ Diag::Diag(const std::string name_, const std::string &params_):
     presentationResult.insert(std::pair<int, const std::string>(NOT_APPLICABLE, "WARNING"));
     presentationResult.insert(std::pair<int, const std::string>(CANCELLED, "WARNING"));
     presentationResult.insert(std::pair<int, const std::string>(INTERNAL_TEST_ERROR, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(DEFAULT_RESULT_VALUE, "WARNING"));
 
-    presentationComment.insert(std::pair<int, const std::string>(INTERNAL_TEST_ERROR, "Error. Please Rerun Test"));
-    presentationComment.insert(std::pair<int, const std::string>(NOT_APPLICABLE, "Not Applicable"));
+    presentationComment.insert(std::pair<int, const std::string>(CANCELLED, "Test Cancelled. Please Rerun Test"));
+    presentationComment.insert(std::pair<int, const std::string>(INTERNAL_TEST_ERROR, "Test Internal Error. Please Rerun Test"));
+    presentationComment.insert(std::pair<int, const std::string>(NOT_APPLICABLE, "Test Not Applicable"));
+    presentationComment.insert(std::pair<int, const std::string>(DEFAULT_RESULT_VALUE, "Test Not Executed. Please Rerun Test"));
 }
 
 Diag::~Diag()

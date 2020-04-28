@@ -30,6 +30,11 @@ class DiagRf4ce: public Diag
 {
     friend class hwst::Comm;
 
+    enum {
+        RF4CE_NO_RESPONSE = -112,
+        NON_RF4CE_INPUT   = -117,
+        RF4CE_CTRLM_NO_RESPONSE  = -120
+    };
 public:
     DiagRf4ce(const std::string &params_ = "");
     ~DiagRf4ce() {}

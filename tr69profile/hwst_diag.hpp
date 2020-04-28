@@ -60,7 +60,8 @@ public:
         /* generic codes */
         NOT_APPLICABLE = -1,
         CANCELLED = -2,
-        INTERNAL_TEST_ERROR = -3
+        INTERNAL_TEST_ERROR = -3,
+        DEFAULT_RESULT_VALUE = -200
     };
 
     struct Status

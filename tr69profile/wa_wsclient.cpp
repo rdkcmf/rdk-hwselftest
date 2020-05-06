@@ -62,7 +62,7 @@ const char *HWSELFTEST_AGENT_SERVER_PORT = "8002";
 const char *HWSELFTEST_ENABLE_FILE = "/tmp/.hwselftest_enable";
 const char *HWSELFTEST_SETTINGS_FILE = "/tmp/.hwselftest_settings";
 
-const int CONNECTION_TIMEOUT = 5; // sec
+const int CONNECTION_TIMEOUT = 60; // sec /* Increased timeout value, fix for DELIA-42225  */
 const int PREV_RESULTS_FETCH_TIMEOUT = 1000; // msec
 
 const char *SYSTEMD_SERVICE_PATH = "/run/systemd/system";
@@ -98,7 +98,7 @@ wa_wsclient::wa_wsclient():
     _runner_timer.set_description("RDK Hardware Self Test periodic run timer");
     _runner_timer.set_unit(HWSELFTEST_RUNNER_SERVICE);
 
-    if (_settings.get(HWST_PERIODIC_FREQ_NAME).empty() || (std::stoi(_settings.get(HWST_CPU_THRESHOLD_NAME)) < MIN_PERIODIC_FREQUENCY))
+    if (_settings.get(HWST_PERIODIC_FREQ_NAME).empty() || (std::stoi(_settings.get(HWST_PERIODIC_FREQ_NAME)) < MIN_PERIODIC_FREQUENCY))
         _settings.set(HWST_PERIODIC_FREQ_NAME, DEFAULT_PERIODIC_FREQUENCY);
 
     if (_settings.get(HWST_CPU_THRESHOLD_NAME).empty() || (std::stoi(_settings.get(HWST_CPU_THRESHOLD_NAME)) > 100))

@@ -226,6 +226,7 @@ static void writeLineToLog(const char * line)
     close(file);
 #else
     printf("%s\n", line);
+    fflush(stdout); /* Fix for COLBO-110, DELIA-40567 */
 #endif
 }
 

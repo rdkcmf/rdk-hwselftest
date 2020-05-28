@@ -57,4 +57,4 @@ libtr69ProfileHwSelfTest_la_SOURCES = \
     hwst_ws.cpp
 
 libtr69ProfileHwSelfTest_la_CXXFLAGS = $(AM_CXXFLAGS) -std=c++11
-libtr69ProfileHwSelfTest_la_LDFLAGS = $(AM_LDFLAGS) -ljansson -lnopoll
+libtr69ProfileHwSelfTest_la_LDFLAGS = $(AM_LDFLAGS) -ljansson -lnopoll -lIARMBus

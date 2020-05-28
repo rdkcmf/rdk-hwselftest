@@ -48,7 +48,7 @@
 #define WA_DBG(f, ...) (void)0
 #endif
 
-#define HWSELFTEST_WSCLIENT_VERSION "0010" /* Increased version number for enhanced features */
+#define HWSELFTEST_WSCLIENT_VERSION "0011" /* Increased version number as part of RDK-28856 */
 
 
 namespace {

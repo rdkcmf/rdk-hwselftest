@@ -80,6 +80,7 @@
 #define BUFFER_LENGTH      512
 #define MESSAGE_LENGTH     8192 * 4 /* On reference from xdiscovery.log which shows data length can be more than 5000 */ /* Increased the value 4 times because of DELIA-38611 */
 #define DEVNAME_LENGTH     15
+#define ESTB_MAC           "estb_mac="
 #ifndef MEDIA_CLIENT
 #define STB_IP             "estb_ip="
 #define SNMP_SERVER        "localhost"
@@ -157,6 +158,7 @@ int getSysInfoParam_IARM(char *param, char **value);
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
 char *mocaNodeInfo;
+int  dstOffset = 0;
 int  sysParamInt = 0;
 char *sysParam;
 char sysIARM[TR69HOSTIFMGR_MAX_PARAM_LEN];
@@ -195,6 +197,7 @@ static json_t *sysinfo_Get()
 #endif /* HAVE_DIAG_WIFI */
     char *rdkver;
     char *addr;
+    char *mac_addr;
     char rev_id[256] = "Error Reading Value";
     char xconf_ver[256] = "Error Reading Value";
     char notAvailable[] = "N/A";
@@ -231,6 +234,7 @@ static json_t *sysinfo_Get()
     WA_DBG("Home Network returned: %s\n", mocaNodeInfo);
 
     addr = WA_UTILS_FILEOPS_OptionFind(DEV_FILE_PATH, STB_IP);
+    mac_addr = WA_UTILS_FILEOPS_OptionFind(DEV_FILE_PATH, ESTB_MAC);
     getReceiverId(&rev_id[0], sizeof(rev_id));
     xconfVerGet(&xconf_ver[0], sizeof(xconf_ver));
 
@@ -333,10 +337,11 @@ static json_t *sysinfo_Get()
     WA_DBG("system(num_ch) returned: %s\n", channels);
     WA_DBG("getDateAndTime returned: %s\n", date_time);
 
-    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
+    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
        "Vendor", (!params[WA_UTILS_MFR_PARAM_MANUFACTURER].size? "N/A" : params[WA_UTILS_MFR_PARAM_MANUFACTURER].value),
        "Model",  (!params[WA_UTILS_MFR_PARAM_MODEL].size? "N/A" : params[WA_UTILS_MFR_PARAM_MODEL].value),
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
+       "MAC", (!mac_addr ? "N/A" : mac_addr),
        "RDK", (rdkver ? rdkver : "N/A"),
        "Ver", WA_VERSION,
        "xConf Version", (xconf_ver[0] == '\0' ? rdkver : xconf_ver),
@@ -374,10 +379,11 @@ static json_t *sysinfo_Get()
     temperatureGet(&cpuTemp[0], sizeof(cpuTemp));
     WA_DBG("State of CPU temperature: %s\n", cpuTemp);
 #ifdef HAVE_DIAG_MOCA
-    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
+    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
        "Vendor", (!params[WA_UTILS_MFR_PARAM_MANUFACTURER].size? "N/A" : params[WA_UTILS_MFR_PARAM_MANUFACTURER].value),
        "Model",  (!params[WA_UTILS_MFR_PARAM_MODEL].size? "N/A" : params[WA_UTILS_MFR_PARAM_MODEL].value),
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
+       "MAC", (!mac_addr ? "N/A" : mac_addr),
        "RDK", (rdkver ? rdkver : "N/A"),
        "Ver", WA_VERSION,
        "xConf Version", (xconf_ver[0] == '\0' ? rdkver : xconf_ver),
@@ -392,10 +398,11 @@ static json_t *sysinfo_Get()
 
 #endif /* HAVE_DIAG_MOCA */
 #ifdef HAVE_DIAG_WIFI
-    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
+    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
        "Vendor", (!params[WA_UTILS_MFR_PARAM_MANUFACTURER].size? "N/A" : params[WA_UTILS_MFR_PARAM_MANUFACTURER].value),
        "Model",  (!params[WA_UTILS_MFR_PARAM_MODEL].size? "N/A" : params[WA_UTILS_MFR_PARAM_MODEL].value),
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
+       "MAC", (!mac_addr ? "N/A" : mac_addr),
        "RDK", (rdkver ? rdkver : "N/A"),
        "Ver", WA_VERSION,
        "xConf Version", (xconf_ver[0] == '\0' ? rdkver : xconf_ver),
@@ -592,6 +599,22 @@ static bool getUpnpResults()
             strcpy(tmp, mocaNodeInfo);
             strcat(tmp, ", ");
             json_decref(jparam_devName);
+
+            json_t *jparam_dayLightTime = json_object_get(jval, "usesdaylighttime");
+            if(jparam_dayLightTime)
+            {
+                if(!strcmp("yes", json_string_value(jparam_dayLightTime)) && dstOffset == 0)
+                {
+                    char param_dstOffset[256];
+                    json_t *jparam_dstOffset = json_object_get(jval, "dstoffset");
+                    if(jparam_dstOffset)
+                    {
+                        strcpy(param_dstOffset, json_string_value(jparam_dstOffset));
+                        dstOffset = atoi(param_dstOffset) / 60; /* convert offset value received in minutes to hours */ 
+                        WA_DBG("DST off set = %d\n", dstOffset);
+                    }
+                }
+            }
         }
     }
 
@@ -614,7 +637,7 @@ static int getDateAndTime(char *date_time, size_t size)
         return -1;
     }
 
-    snprintf(date_time, size, "UTC %ld", val.data.l);
+    snprintf(date_time, size, "UTC %ld", val.data.l + dstOffset);
 
     WA_RETURN("TimeZone value: %s.\n", date_time);
 

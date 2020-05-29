@@ -506,6 +506,7 @@ function tableCreateSystemInfo(data) {
         case "eSTB IP":
         case "Receiver ID":
         case "Number of Channels":
+        case "Device Temperature":
         case "Time Zone":
             var tr = document.createElement('tr');
             tr.style.border = '5px';

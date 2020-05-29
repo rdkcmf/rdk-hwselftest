@@ -65,6 +65,8 @@
 #include "wa_diag_tuner.h"
 #endif
 
+#include "pwrMgr.h"
+#include "rfcapi.h"
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
  *****************************************************************************/
@@ -94,6 +96,10 @@
 #endif
 #define TR69_XCONF_VERSION "Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareToDownload"
 #define TR69_RECEIVER_ID   "Device.X_COMCAST-COM_Xcalibur.Client.XRE.xreReceiverId"
+#define THERMAL_PROTECTION_GROUP        "Thermal_Config"
+#define TR69_CPU_TEMP                   "Device.DeviceInfo.X_RDKCENTRAL-COM.CPUTemp"
+#define TEMPERATURE_HIGH_THRESHOLD      100 /* This value is from generic/iarmmgrs/generic/power/therm_mgr.c */
+#define TEMPERATURE_CRITICAL_THRESHOLD  110 /* This value is from generic/iarmmgrs/generic/power/therm_mgr.c */
 #endif
 
 /*****************************************************************************
@@ -142,6 +148,8 @@ static int getWifiNetworkInfo(SysinfoParam_t *wifi);
 #ifndef MEDIA_CLIENT
 static int getDateAndTime(char *date_time, size_t size);
 #else
+static int read_RFCProperty(const char* key);
+static int temperatureGet(char *cpuTemp, size_t size);
 int getSysInfoParam_IARM(char *param, char **value);
 #endif /* MEDIA_CLIENT */
 
@@ -195,13 +203,15 @@ static json_t *sysinfo_Get()
     char num_ch[256];
     char channels[256];
     FILE *fp;
+#else
+    char cpuTemp[256] = "Error Reading Value";
 #endif /* MEDIA_CLIENT */
 
     WA_ENTER("SYSINFO_Get()\n");
 
     memset(&params, 0, sizeof(params));
 
-    if(WA_UTILS_IARM_Connect())
+    if (WA_UTILS_IARM_Connect())
         return json;
 
     rdkver = WA_UTILS_FILEOPS_OptionFind("/version.txt", "imagename:");
@@ -213,7 +223,7 @@ static json_t *sysinfo_Get()
     }
 
     mocaNodeInfo = (char*)malloc(BUFFER_LENGTH * sizeof(char));
-    if(!getUpnpResults())
+    if (!getUpnpResults())
     {
         snprintf(mocaNodeInfo, BUFFER_LENGTH, "Not Available");
         WA_ERROR("Home Network returned: %s\n", mocaNodeInfo);
@@ -281,13 +291,13 @@ static json_t *sysinfo_Get()
     fscanf(fp, "%s", channels);
     fclose(fp);
 
-    if(channels[0] == '\0' || channels[0] == '0') {
+    if (channels[0] == '\0' || channels[0] == '0') {
         WA_DBG("grep from %s failed\n", SI_PATH);
         snprintf(num_ch, sizeof(num_ch), "%s | grep \"SRCID\" | wc -l", TMP_SI_PATH);
         fp = popen(num_ch, "r");
         fscanf(fp, "%s", channels);
         fclose(fp);
-        if(channels[0] == '\0') {
+        if (channels[0] == '\0') {
             WA_DBG("grep from %s failed\n", TMP_SI_PATH);
         }
     }
@@ -327,7 +337,7 @@ static json_t *sysinfo_Get()
        "Vendor", (!params[WA_UTILS_MFR_PARAM_MANUFACTURER].size? "N/A" : params[WA_UTILS_MFR_PARAM_MANUFACTURER].value),
        "Model",  (!params[WA_UTILS_MFR_PARAM_MODEL].size? "N/A" : params[WA_UTILS_MFR_PARAM_MODEL].value),
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
-       "RDK",    (rdkver ? rdkver : "N/A"),
+       "RDK", (rdkver ? rdkver : "N/A"),
        "Ver", WA_VERSION,
        "xConf Version", (xconf_ver[0] == '\0' ? rdkver : xconf_ver),
        "Time Zone", date_time,
@@ -361,17 +371,20 @@ static json_t *sysinfo_Get()
     if (qamParams.QAM_SNR != NULL)
         free(qamParams.QAM_SNR);
 #else
+    temperatureGet(&cpuTemp[0], sizeof(cpuTemp));
+    WA_DBG("State of CPU temperature: %s\n", cpuTemp);
 #ifdef HAVE_DIAG_MOCA
-    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
+    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
        "Vendor", (!params[WA_UTILS_MFR_PARAM_MANUFACTURER].size? "N/A" : params[WA_UTILS_MFR_PARAM_MANUFACTURER].value),
        "Model",  (!params[WA_UTILS_MFR_PARAM_MODEL].size? "N/A" : params[WA_UTILS_MFR_PARAM_MODEL].value),
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
-       "RDK",    (rdkver ? rdkver : "N/A"),
+       "RDK", (rdkver ? rdkver : "N/A"),
        "Ver", WA_VERSION,
        "xConf Version", (xconf_ver[0] == '\0' ? rdkver : xconf_ver),
        "Receiver ID", rev_id,
        "eSTB IP", (!addr ? "N/A" : addr),
        "Home Network", mocaNodeInfo,
+       "Device Temperature", cpuTemp,
        "MoCA RF Channel", ((moca_data[WA_MOCA_INFO_RF_CHANNEL].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_RF_CHANNEL].value),
        "MoCA NC", ((moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value),
        "MoCA Bitrate", ((moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value),
@@ -379,16 +392,17 @@ static json_t *sysinfo_Get()
 
 #endif /* HAVE_DIAG_MOCA */
 #ifdef HAVE_DIAG_WIFI
-    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
+    json = json_pack("{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}",
        "Vendor", (!params[WA_UTILS_MFR_PARAM_MANUFACTURER].size? "N/A" : params[WA_UTILS_MFR_PARAM_MANUFACTURER].value),
        "Model",  (!params[WA_UTILS_MFR_PARAM_MODEL].size? "N/A" : params[WA_UTILS_MFR_PARAM_MODEL].value),
        "Serial", (!params[WA_UTILS_MFR_PARAM_SERIAL].size? "N/A" : params[WA_UTILS_MFR_PARAM_SERIAL].value),
-       "RDK",    (rdkver ? rdkver : "N/A"),
+       "RDK", (rdkver ? rdkver : "N/A"),
        "Ver", WA_VERSION,
        "xConf Version", (xconf_ver[0] == '\0' ? rdkver : xconf_ver),
        "Receiver ID", rev_id,
        "eSTB IP", (!addr ? "N/A" : addr),
        "Home Network", mocaNodeInfo,
+       "Device Temperature", cpuTemp,
        "WiFi SSID", ((wifi_data[WA_WIFI_SSID].value[0] == '\0') ? "N/A" : wifi_data[WA_WIFI_SSID].value),
        "WiFi SSID MAC", ((wifi_data[WA_WIFI_SSID_MAC_ADDR].value[0] == '\0') ? "N/A" : wifi_data[WA_WIFI_SSID_MAC_ADDR].value),
        "WiFi Op Frequency", ((wifi_data[WA_WIFI_OPER_FREQ].value[0] == '\0') ? "N/A" : wifi_data[WA_WIFI_OPER_FREQ].value),
@@ -407,7 +421,7 @@ static json_t *sysinfo_Get()
 
     for(i = 0; i < sizeof(params)/sizeof(params[0]); i++)
     {
-       if(params[i].value != NULL)
+       if (params[i].value != NULL)
        {
            free(params[i].value);
        }
@@ -416,7 +430,7 @@ static json_t *sysinfo_Get()
 #ifdef HAVE_DIAG_MOCA
     for(i = 0; i < WA_MOCA_INFO_MAX; i++)
     {
-       if(moca_data[i].value != NULL)
+       if (moca_data[i].value != NULL)
        {
            free(moca_data[i].value);
        }
@@ -426,7 +440,7 @@ static json_t *sysinfo_Get()
 #ifdef HAVE_DIAG_WIFI
     for(i = 0; i < WA_WIFI_INFO_MAX; i++)
     {
-       if(wifi_data[i].value != NULL)
+       if (wifi_data[i].value != NULL)
        {
            free(wifi_data[i].value);
        }
@@ -545,13 +559,19 @@ static bool getUpnpResults()
                 if (!strcmp(json_string_value(jparam_gateway), "yes"))
                 {
                     json_t *jparam_Mac = json_object_get(jval, "hostMacAddress");
-                    strcpy(param_Mac, json_string_value(jparam_Mac));
+                    if (jparam_Mac)
+                    {
+                        strcpy(param_Mac, json_string_value(jparam_Mac));
+                    }
                     json_decref(jparam_Mac);
                 }
                 else
                 {
                     json_t *jparam_Mac = json_object_get(jval, "bcastMacAddress");
-                    strcpy(param_Mac, json_string_value(jparam_Mac));
+                    if (jparam_Mac)
+                    {
+                        strcpy(param_Mac, json_string_value(jparam_Mac));
+                    }
                     json_decref(jparam_Mac);
                 }
 
@@ -708,6 +728,115 @@ static int xconfVerGet(char *xconf_ver, size_t size)
     return 0;
 }
 
+static int read_RFCProperty(const char* key)
+{
+    RFC_ParamData_t param;
+    char valueBuf[16] = {'\0'};
+    int dataLen;
+    int threshold_value = 0;
+
+    WDMP_STATUS status = getRFCParameter(THERMAL_PROTECTION_GROUP, key, &param);
+
+    if (status == WDMP_SUCCESS)
+    {
+        dataLen = strlen(param.value);
+        if ((param.value[0] == '"') && (param.value[dataLen-1] == '"'))
+        {
+            // remove quotes arround data
+            strncpy (valueBuf, &param.value[1], dataLen-2);
+            valueBuf[dataLen-2] = '\0';
+        }
+        else
+        {
+            strncpy (valueBuf, param.value, dataLen);
+            valueBuf[dataLen] = '\0';
+        }
+
+        threshold_value = atoi(&valueBuf[0]);
+        WA_DBG("read_RFCProperty() name = %s, type = %d, value = %s, status = %d\n", param.name, param.type, param.value, status);
+    }
+    else
+    {
+        WA_DBG("read_RFCProperty() property %s is not configured, Status %d  \n", key, status);
+    }
+
+    return threshold_value;
+}
+
+static int temperatureGet(char *cpuTemp, size_t size)
+{
+    int data;
+    int high = 0, critical = 0;
+    char *value;
+    if (getSysInfoParam_IARM(TR69_CPU_TEMP, &value))
+    {
+        WA_ERROR("temperatureGet(): CPU temperature value fetching, failed.\n");
+        return -1;
+    }
+
+    data = *(int*)value;
+    WA_DBG("temperatureGet(): CPU temperature= %d\n", data);
+
+    /* get threshold values from RFC API */
+    RFC_ParamData_t param;
+    bool isRFCEnabled = false;
+    WDMP_STATUS status = getRFCParameter(THERMAL_PROTECTION_GROUP, "RFC_ENABLE_ThermalProtection", &param);
+
+    if (status == WDMP_SUCCESS)
+    {
+        WA_DBG("temperatureGet() RFC_ENABLE_ThermalProtection value is %s  \n", param.value);
+        if (!strcasecmp(param.value, "true") || !strcasecmp(param.value, "\"true\""))
+        {
+            isRFCEnabled = true;
+            high = read_RFCProperty("RFC_DATA_ThermalProtection_DECLOCK_CONCERN_THRESHOLD");
+            critical = read_RFCProperty("RFC_DATA_ThermalProtection_DECLOCK_CRITICAL_THRESHOLD");
+            WA_DBG("temperatureGet(): Got current temperature thresholds using RFC - high: %d, critical: %d\n", high, critical);
+        }
+    }
+
+    if (!isRFCEnabled || (high == 0) || (critical == 0))
+    {
+        WA_DBG("temperatureGet() Required RFC properties are not available with RFC_ENABLE_ThermalProtection status = %d  \n", status);
+        /* Code to find high, critical threshold values through IARM */
+        IARM_Bus_PWRMgr_GetTempThresholds_Param_t param;
+
+        IARM_Result_t res = IARM_Bus_Call(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_API_GetTemperatureThresholds, (void *)&param, sizeof(param));
+
+        if (res == IARM_RESULT_SUCCESS)
+        {
+            high = param.tempHigh;
+            critical = param.tempCritical;
+            WA_DBG("temperatureGet(): Got current temperature thresholds using IARM_Call - high: %d, critical: %d\n", high, critical);
+        } /* End of Threshold values code */
+        else
+        {
+            WA_ERROR("temperatureGet(): IARM_Bus_Call() for Get Temperature thresholds failed with result = %d\n", res);
+        }
+    }
+
+    if ((high == 0) || (critical == 0))
+    {
+        WA_ERROR("temperatureGet(): Unable to get Temperature threshold values using RFC and IARM Bus call\n");
+        return 0;
+    }
+
+    if (data >= critical)
+    {
+        strcpy(cpuTemp, "Critical");
+    }
+    else if (data >= high)
+    {
+        strcpy(cpuTemp, "High");
+    }
+    else
+    {
+        strcpy(cpuTemp, "Normal");
+    }
+
+    WA_RETURN("CPU temperature state: %s\n", cpuTemp);
+    return 0;
+}
+
 #ifdef HAVE_DIAG_MOCA
 static int getMocaNetworkInfo(SysinfoParam_t *moca)
 {
@@ -799,7 +928,7 @@ static int getWifiNetworkInfo(SysinfoParam_t *wifi)
     else
         WA_ERROR("getWiFiNetworkInfo(): Signal strength fetching failed\n");
 
-    if(value == 0)
+    if (value == 0)
     {
         wifi[WA_WIFI_SSID].value[0] = '\0';
     }
@@ -840,8 +969,17 @@ int getSysInfoParam_IARM(char *param, char **value)
             return -1;
         }
 
-        strcpy(sysIARM, stMsgDataParam->paramValue);
-        *value = (char *)sysIARM;
+        if (!strcmp(param, TR69_CPU_TEMP))
+        {
+            sysParam = (char *)&stMsgDataParam->paramValue[0];
+            sysParamInt = *(int *)sysParam;
+            *value = (char *)&sysParamInt;
+        }
+        else
+        {
+            strcpy(sysIARM, stMsgDataParam->paramValue);
+            *value = (char *)sysIARM;
+        }
 
         WA_DBG("getSysInfoParam_IARM() %s: %s\n", param, *value);
 

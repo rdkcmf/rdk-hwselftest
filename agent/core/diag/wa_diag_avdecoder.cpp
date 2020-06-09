@@ -550,7 +550,7 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
     /* Use the URL from config if present */
     if (!config || (json_unpack(config, "{ss}", "url", &url) != 0))
     {
-        WA_ERROR("WA_DIAG_AVDECODER_status(): Unable to retrieve url from av_decoder_qam configuration.\n");
+        WA_DBG("WA_DIAG_AVDECODER_status(): Unable to retrieve url from av_decoder_qam configuration.\n");
     }
 
     if (url)
@@ -562,7 +562,7 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
 
         if ((strcmp(httpStr, "http://") != 0) || (strcmp(tsStr, ".ts") != 0))
         {
-            WA_ERROR("WA_DIAG_AVDECODER_status(): Incorrect url format. Expecting: 'http://<url_path_filename>.ts', Resulted: '%s<url_path_filename>%s'\n", httpStr, tsStr);
+            WA_DBG("WA_DIAG_AVDECODER_status(): Incorrect url format. Expecting: 'http://<url_path_filename>.ts', Resulted: '%s<url_path_filename>%s'\n", httpStr, tsStr);
             validUrl = false;
         }
 
@@ -592,9 +592,23 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
 #ifdef MEDIA_CLIENT
     if (!validUrl)
     {
-        WA_ERROR("WA_DIAG_AVDECODER_status(): Not a valid URL\n");
+        WA_ERROR("WA_DIAG_AVDECODER_status(): The URL '%s' is not valid\n", videoUrlFormat);
         return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
+
+    { /* Check if AV URL is reachable */
+        char testUrl[256];
+        char host[256];
+        strcpy(testUrl, videoUrlFormat);
+        char * hostName = strtok(&testUrl[7], "/");
+        sprintf(host, "ping -c 1 -W 1 %s> /dev/null", hostName);
+        if(system(host) != 0)
+        {
+            WA_DBG("WA_DIAG_AVDECODER_status(): Unable to reach AV URL\n");
+            return WA_DIAG_ERRCODE_AV_URL_NOT_REACHABLE;
+        }
+    }
+
     WA_DBG("Executing AV Decoder test through a valid url: %s\n", videoUrlFormat);
 #endif /* MEDIA_CLIENT */
 

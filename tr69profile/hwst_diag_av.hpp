@@ -32,7 +32,8 @@ class DiagAv: public Diag
 
     enum {
         SI_CACHE_MISSING = -105,
-        AV_NO_SIGNAL = -107
+        AV_NO_SIGNAL = -107,
+        AV_URL_NOT_REACHABLE = -114
     };
 public:
     DiagAv(const std::string &params_ = "");

@@ -44,6 +44,7 @@ var DIAG_ERRCODE = {
         TUNER_BUSY:             -111,
         RF4CE_NO_RESPONSE:      -112,
         WIFI_NO_CONNECTION:     -113,
+        AV_URL_NOT_REACHABLE:   -114,
 
         NON_RF4CE_INPUT:        -117,
 

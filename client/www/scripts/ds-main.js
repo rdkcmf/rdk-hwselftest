@@ -1030,6 +1030,9 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.WIFI_NO_CONNECTION:
         info = "No Connection";
         break;
+    case DIAG_ERRCODE.AV_URL_NOT_REACHABLE:
+        info = "No AV. URL Not Reachable Or Check Cable";
+        break;
     case DIAG_ERRCODE.EMMC_MAX_LIFE_EXCEED_FAILURE:
         info = "Device Exceeded Max Life";
         break;
@@ -1164,6 +1167,7 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.IR_NOT_DETECTED:
     case DIAG_ERRCODE.RF4CE_NO_RESPONSE:
     case DIAG_ERRCODE.CM_NO_SIGNAL:
+    case DIAG_ERRCODE.AV_URL_NOT_REACHABLE:
     case DIAG_ERRCODE.NON_RF4CE_INPUT:
     case DIAG_ERRCODE.RF4CE_CTRLM_NO_RESPONSE:
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:

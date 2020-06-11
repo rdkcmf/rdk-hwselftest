@@ -59,10 +59,8 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
-#define WA_OSA_Q_NAME_PREFIX "/wa_q_"
-#define WA_OSA_Q_NAME_SIZE (sizeof(WA_OSA_Q_NAME_PREFIX) + \
-        (sizeof(uint16_t)<<1)/* appId */ + \
-        (sizeof(uint16_t)<<1)/* qCnt */)
+#define WA_OSA_Q_NAME_PREFIX "/wa_q_hwst_" /* Fix for COLBO-67, DELIA-38417 */
+#define WA_OSA_Q_NAME_SIZE (sizeof(WA_OSA_Q_NAME_PREFIX) + (sizeof(uint16_t)<<1)/* qCnt */)
 
 /*****************************************************************************
  * LOCAL TYPES
@@ -1028,7 +1026,7 @@ void *WA_OSA_QCreate(const unsigned int deep, long maxSize)
         goto end;
     }
 
-    (void)snprintf(qName, WA_OSA_Q_NAME_SIZE, "%s%04x%04x", WA_OSA_Q_NAME_PREFIX, WA_OSA_AppId(), qCnt++);
+    (void)snprintf(qName, WA_OSA_Q_NAME_SIZE, "%s%04x", WA_OSA_Q_NAME_PREFIX, qCnt++);
     qName[WA_OSA_Q_NAME_SIZE-1]='\0';
 
     WA_INFO("WA_OSA_QCreate(): name:\"%s\"\n", qName);

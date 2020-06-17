@@ -109,7 +109,7 @@ static int disk_supported(void)
 }
 
 /* 1 - SSID enable status is true
-   0 - hardware enable is succesful but no connection
+   0 - SSID enable status is false, hence No Connection
   -1 - couldn't get enable status */
 static int getWifiHwStatus_IARM()
 {
@@ -123,36 +123,11 @@ static int getWifiHwStatus_IARM()
 
     if (ret == 0)
     {
+        WA_DBG("getWifiHwStatus_IARM(): WiFi Enable status = %d\n", enable);
         ret = enable ? 1 : 0;
     }
 
-    if(ret == 0) /* enable status is false */
-    {
-        IARM_Bus_WiFiSrvMgr_Param_t param;
-        IARM_Result_t retVal = IARM_RESULT_SUCCESS;
-        memset(&param, 0, sizeof(param));
-
-        param.data.setwifiadapter.enable = true;
-        retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_setEnabled, (void *)&param, sizeof(param));
-        if(retVal != IARM_RESULT_SUCCESS)
-        {
-            WA_ERROR("getWifiHwStatus_IARM(): WiFi Interface enable cannot be set to true\n");
-            return -1;
-        }
-
-        param.data.setwifiadapter.enable = false;
-        retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_setEnabled, (void *)&param, sizeof(param));
-        if(retVal != IARM_RESULT_SUCCESS)
-        {
-            WA_ERROR("getWifiHwStatus_IARM(): WiFi Interface enable cannot be set to false\n");
-            return -1;
-        }
-
-        WA_DBG("getWifiHwStatus_IARM(): Able to set the enable value but no connection\n");
-        return 0; /* It is decided as no connection because it is not enabled, but we enable and disable to verify hardware status */
-    }
-
-    WA_RETURN("getWifiHwStatus_IARM(): Enable value - %d\n", ret);
+    WA_RETURN("getWifiHwStatus_IARM(): return value - %d\n", ret);
     return ret;
 }
 

@@ -425,6 +425,7 @@ static json_t *sysinfo_Get()
 
     free(rdkver);
     free(addr);
+    free(mac_addr);
 
     for(i = 0; i < sizeof(params)/sizeof(params[0]); i++)
     {
@@ -546,7 +547,7 @@ static bool getUpnpResults()
                 return false;
             }
 
-            char param_Mac[BUFFER_LENGTH];
+            char param_Sno[BUFFER_LENGTH];
             char param_devName[BUFFER_LENGTH];
             json_t *jparam_devName = json_object_get(jval, "deviceName");
 
@@ -560,40 +561,28 @@ static bool getUpnpResults()
             else
             {
                 json_t *jparam_devType = json_object_get(jval, "DevType");
-                json_t *jparam_gateway = json_object_get(jval, "isgateway");
+                json_t *jparam_sno = json_object_get(jval, "sno");
 
-                /* If DevType is a gateway */
-                if (!strcmp(json_string_value(jparam_gateway), "yes"))
+                if (jparam_sno)
                 {
-                    json_t *jparam_Mac = json_object_get(jval, "hostMacAddress");
-                    if (jparam_Mac)
-                    {
-                        strcpy(param_Mac, json_string_value(jparam_Mac));
-                    }
-                    json_decref(jparam_Mac);
-                }
-                else
-                {
-                    json_t *jparam_Mac = json_object_get(jval, "bcastMacAddress");
-                    if (jparam_Mac)
-                    {
-                        strcpy(param_Mac, json_string_value(jparam_Mac));
-                    }
-                    json_decref(jparam_Mac);
+                    strcpy(param_Sno, json_string_value(jparam_sno));
                 }
 
-                /* Take only last 4 characters of Macaddress */
-                char* token = strtok(param_Mac, ":");
-                for (int i = 0; i < 4; i++)
-                {
-                    token = strtok(NULL, ":");
-                }
-                char *octet = token;
-                token = strtok(NULL, ":");
+                /* Take only last 4 characters of serial number */
+                const int len = 4;
+                char token[len];
+                int digits = 0;
+                int sno_length = strlen(param_Sno);
 
-                snprintf(mocaNodeInfo, BUFFER_LENGTH, "%s%s(%s%s)", tmp, json_string_value(jparam_devType), octet, token);
+                for (int index = (sno_length - len); index < sno_length; index++)
+                {
+                    token[digits++] = param_Sno[index];
+                }
+                token[digits] = '\0';
+
+                snprintf(mocaNodeInfo, BUFFER_LENGTH, "%s%s(%s)", tmp, json_string_value(jparam_devType), token);
                 json_decref(jparam_devType);
-                json_decref(jparam_gateway);
+                json_decref(jparam_sno);
             }
 
             strcpy(tmp, mocaNodeInfo);

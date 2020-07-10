@@ -1053,6 +1053,9 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.RF4CE_CTRLM_NO_RESPONSE:
         info = "RF Controller Issue";
         break;
+    case DIAG_ERRCODE.HDD_MARGINAL_ATTRIBUTES_FOUND:
+        info = "Marginal HDD Values";
+        break;
     case DIAG_ERRCODE.INTERNAL_TEST_ERROR:
         info = "Test Internal Error. Please Rerun Test";
         break;
@@ -1205,6 +1208,7 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.AV_URL_NOT_REACHABLE:
     case DIAG_ERRCODE.NON_RF4CE_INPUT:
     case DIAG_ERRCODE.RF4CE_CTRLM_NO_RESPONSE:
+    case DIAG_ERRCODE.HDD_MARGINAL_ATTRIBUTES_FOUND:
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
         elem.result = results.warning;
         break;

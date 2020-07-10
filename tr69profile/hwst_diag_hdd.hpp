@@ -29,9 +29,10 @@ class Comm;
 class DiagHdd: public Diag
 {
     friend class hwst::Comm;
-    
+
     enum {
-        HDD_STATUS_MISSING = -100
+        HDD_STATUS_MISSING = -100,
+        HDD_MARGINAL_ATTRIBUTES_FOUND = -121
     };
 public:
     DiagHdd(const std::string &params_ = "");

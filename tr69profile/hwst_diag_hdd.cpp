@@ -33,8 +33,10 @@ DiagHdd::DiagHdd(const std::string &params_):
     Diag("hdd_status", params_)
 {
     presentationResult.insert(std::pair<int, const std::string>(HDD_STATUS_MISSING, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(HDD_MARGINAL_ATTRIBUTES_FOUND, "WARNING"));
 
     presentationComment.insert(std::pair<int, const std::string>(HDD_STATUS_MISSING, "Health Status Unavailable"));
+    presentationComment.insert(std::pair<int, const std::string>(HDD_MARGINAL_ATTRIBUTES_FOUND, "Marginal HDD Values"));
 }
 
 std::string DiagHdd::getPresentationName() const

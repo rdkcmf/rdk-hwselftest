@@ -43,25 +43,24 @@ var inprogressTimer = null;
 var cancelling = false;
 var previousResultsAvailable = false;
 
-var result_store = [];
 var json_store = {};
 
 var telemetry_swap = {};
 var telemetry_order = {
-    'Hard Drive': 'NA',
-    'Cable Card': 'NA',
-    'RF Remote Interface': 'RF_Not_Paired',
-    'HDMI Output': 'NA',
-    'MoCA': 'NA',
-    'Cable Modem': 'NA',
-    'Flash Memory': 'NA',
-    'Dynamic RAM': 'NA',
-    'Audio/Video Decoder': 'NA',
-    'Video Tuner': 'NA',
-    'IR Remote Interface': 'IR_NA_as_RF_Paired',
-    'SD Card': 'Not_Enabled',
-    'Bluetooth': 'Not_Enabled',
-    'WiFi':'Not_Enabled'
+    'Hard Drive': ['HDD', 'N'],
+    'Flash Memory': ['Flash', 'N'],
+    'SD Card': ['SDCard', 'N'],
+    'Dynamic RAM': ['DRAM', 'N'],
+    'HDMI Output': ['HDMI', 'N'],
+    'Cable Card': ['CableCard', 'N'],
+    'RF Remote Interface': ['RFRemote', 'N'],
+    'IR Remote Interface': ['IRremote', 'N'],
+    'MoCA': ['MoCA', 'N'],
+    'Audio/Video Decoder': ['AVDecoder', 'N'],
+    'Video Tuner': ['QAMTuner', 'N'],
+    'Cable Modem': ['CableModem', 'N'],
+    'Bluetooth': ['BTLE', 'N'],
+    'WiFi':['WiFi', 'N']
 };
 
 /*
@@ -1060,6 +1059,9 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.CANCELLED:
         info = "Test Cancelled. Please Rerun Test";
         break;
+    case DIAG_ERRCODE.CANCELLED_NOT_STANDBY:
+        info = "Test Cancelled. Device not in standby";
+        break;
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
     default:
         if(status < 0) {
@@ -1112,39 +1114,62 @@ function setGroupResult(group, showPrevious) {
             logTextResult += "_" + warningInfo.replace(/ /g, "_");
         }
         ds.notify("LOG", { message: "Test result: " + group.name + ":" + logTextResult });
-        telemetryLogStore(group.name, logTextResult);
     }
 }
-
-function telemetryLogStore(diagname, result) {
-    telemetry_order[diagname] = result;
-}
-
 
 function telemetryLog() {
+    var result_header = [];
     for (var t in telemetry_order) {
-        if (telemetry_order[t] === 'Not_Enabled') {
-            continue;
-        }
-        else {
-            if (t === 'Hard Drive') {
-                result_store.push(telemetry_order[t]);
-            } else {
-                result_store.push(" " + telemetry_order[t]);
+        result_header.push(telemetry_order[t][0]);
+    }
+    result_header.push("Result");
+    result_header.toString();
+    ds.notify("LOG", { message: "HwTestResultHeader: " + result_header });
+
+    var result_store = [];
+    for(var group in groupStatus) {
+        var elems = groupStatus[group].elems;
+        for(var e in elems) {
+            var stat = elems[e].status;
+            var result = elems[e].result;
+            switch(result) {
+                case results.error:
+                    if (stat === DIAG_ERRCODE.FAILURE)
+                        result_data = "F";
+                    else
+                        result_data = "F" + stat;
+                    break;
+                case results.passed:
+                    result_data = "P";
+                    break;
+                case results.warning:
+                    if (stat === DIAG_ERRCODE.DEFAULT_RESULT_VALUE)
+                        result_data = "X";
+                    else
+                        result_data = "W" + stat;
+                    break;
+                default:
+                    result_data = "X";
+                    break;
             }
         }
+        telemetry_order[group][1] = result_data;
     }
 
-    var completeResult = "PASSED";
+    for (var t in telemetry_order) {
+        result_store.push(telemetry_order[t][1]);
+    }
+    var completeResult = "P";
     for(var g in groupStatus) {
         if(groupStatus[g].result === results.failed) {
-            completeResult = "FAILED";
+            completeResult = "F";
             break;
         }
     }
-    result_store.push(" " + completeResult);
+    result_store.push(completeResult);
     result_store.toString();
-    ds.notify("LOG", { message: "HwTestResult_telemetry: " + result_store });
+    ds.notify("LOG", { message: "HwTestResult2: " + result_store });
+
     result_store = [];
     telemetry_order = telemetry_swap;
 }
@@ -1163,6 +1188,7 @@ function setElemResult(elem, status, data) {
         break;
     case DIAG_ERRCODE.NOT_APPLICABLE:
     case DIAG_ERRCODE.CANCELLED:
+    case DIAG_ERRCODE.CANCELLED_NOT_STANDBY:
     case DIAG_ERRCODE.INTERNAL_TEST_ERROR:
     case DIAG_ERRCODE.HDD_STATUS_MISSING:
     case DIAG_ERRCODE.HDMI_NO_DISPLAY:

@@ -61,6 +61,7 @@ public:
         NOT_APPLICABLE = -1,
         CANCELLED = -2,
         INTERNAL_TEST_ERROR = -3,
+        CANCELLED_NOT_STANDBY = -4,
         DEFAULT_RESULT_VALUE = -200
     };
 
@@ -83,6 +84,7 @@ public:
     const std::string getName() const { return name; }
     const std::string getPresentationResult() const;
     const std::string getPresentationComment() const;
+    int getPresentationStatus() const;
     void setEnabled(bool val = true);
 
 protected:

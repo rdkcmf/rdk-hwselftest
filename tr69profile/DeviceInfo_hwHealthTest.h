@@ -61,7 +61,7 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_ExecuteTest(const char *l
 /**
  * @brief get_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_Results
  *
- * This method is used to retrieve the most recent harware health test results.
+ * This method is used to retrieve the most recent hardware health test results.
  * with following TR-069 definition:
  *   Parameter Name: Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.hwHealthTest.Results
  *
@@ -69,6 +69,42 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_ExecuteTest(const char *l
  * @retval false if operation fails.
  */
 bool get_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_Results(const char *log_module, HOSTIF_MsgData_t *stMsgData);
+
+/**
+ * @brief set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_SetTuneType
+ *
+ * This method is used to set the tune type to run tuner test for NGAN.
+ * with following TR-069 definition:
+ *   Parameter Name: Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.hwHealthTest.SetTuneType
+ *
+ * @retval true if it is successful.
+ * @retval false if operation fails.
+ */
+bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_SetTuneType(const char *log_module, HOSTIF_MsgData_t *stMsgData);
+
+/**
+ * @brief set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_ExecuteTuneTest
+ *
+ * This method is used to execute the tune test for NGAN.
+ * with following TR-069 definition:
+ *   Parameter Name: Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.hwHealthTest.ExecuteTuneTest
+ *
+ * @retval true if it is successful.
+ * @retval false if operation fails.
+ */
+bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_ExecuteTuneTest(const char *log_module, HOSTIF_MsgData_t *stMsgData);
+
+/**
+ * @brief get_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTestTune_TuneResults
+ *
+ * This method is used to retrieve the most recent hardware health tune test results.
+ * with following TR-069 definition:
+ *   Parameter Name: Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.hwHealthTestTune.TuneResults
+ *
+ * @retval true if it is successful.
+ * @retval false if operation fails.
+ */
+bool get_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTestTune_TuneResults(const char *log_module, HOSTIF_MsgData_t *stMsgData);
 
 /**
  * @brief set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_EnablePeriodicRun

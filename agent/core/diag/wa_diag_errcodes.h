@@ -53,6 +53,7 @@ extern "C"
 #define WA_DIAG_ERRCODE_NOT_APPLICABLE      (-1)
 #define WA_DIAG_ERRCODE_CANCELLED           (-2)
 #define WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR (-3)
+#define WA_DIAG_ERRCODE_CANCELLED_NOT_STANDBY           (-4)
 
 /* specific codes */
 #define WA_DIAG_ERRCODE_HDD_STATUS_MISSING  (-100)

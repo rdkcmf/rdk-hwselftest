@@ -29,7 +29,6 @@
 #include <map>
 
 #define NUM_ELEMENTS 14
-#define NUM_ELEMENTS_DEFAULT 10
 #define BUFFERLEN 256
 
 namespace hwst {
@@ -49,7 +48,7 @@ public:
 
     Sched(std::string host, std::string port, int timeout);
     ~Sched();
-    int issue(const std::vector<std::string>& jobs, const std::string& client = "");
+    int issue(const std::vector<std::string>& jobs, const std::string& client = "", const std::string& param = "");
     int get(std::string &result);
 
 
@@ -67,6 +66,7 @@ private:
     bool update;
     bool connected;
     char telemetryResults[NUM_ELEMENTS][BUFFERLEN];
+    char telemetryNames[NUM_ELEMENTS][BUFFERLEN] = {"HDD", "Flash", "SDCard", "DRAM", "HDMI", "CableCard", "RFRemote", "IRremote", "MoCA", "AVDecoder", "QAMTuner", "CableModem", "BTLE", "WiFi"};
     void cbConnected(void);
     void cbDisconnected(void);
     void cbUpdate(void);
@@ -79,6 +79,7 @@ private:
     std::unique_ptr<Scenario> scenario;
     std::string summary;
     bool quiet;
+    bool standAloneTest;
 };
 
 } // namespace hwst

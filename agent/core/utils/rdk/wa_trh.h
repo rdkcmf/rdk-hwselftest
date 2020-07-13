@@ -83,13 +83,14 @@ int WA_UTILS_TRH_Exit();
  * param when        Timestamp when to reserve the tuner (epoch, 0: now).
  * param duration    Duration for how long to reserve the tuner (ms).
  * param timeout_ms  Maximum time to wait for the reservation to happen (ms, 0: forever).
+ * param tuner_count Total number of available tuners in the device.
  * param out_handle  Output: reservation handle.
  *
  * @retval 0 on success.
  * @retval 1 on failure.
  * @retval 2 on timeout.
  */
-int WA_UTILS_TRH_ReserveTuner(const char *url, uint64_t when, uint64_t duration, int timeout_ms, void **out_handle);
+int WA_UTILS_TRH_ReserveTuner(const char *url, uint64_t when, uint64_t duration, int timeout_ms, int tuner_count, void **out_handle);
 
 /**
  * @brief Attempts to release a tuner via TRM.

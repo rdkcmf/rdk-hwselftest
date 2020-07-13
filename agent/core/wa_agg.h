@@ -125,6 +125,13 @@ int WA_AGG_FinishTestRun(time_t timestamp);
 int WA_AGG_SetTestResult(const char *diag_name, int result, time_t timestamp);
 
 /**
+ * @brief Sets the bool value whether to write the results or not.
+ *
+ * @param writeResult true or false.
+ */
+void WA_AGG_SetWriteTestResult(bool writeResult);
+
+/**
  * @brief Returns latest available aggregated results if available.
  *
  * @returns Latest available aggregated results

@@ -82,6 +82,8 @@ int WA_UTILS_SICACHE_TuningGetLuckyId();
 
 void WA_UTILS_SICACHE_TuningSetLuckyId(int id);
 
+void WA_UTILS_SICACHE_TuningSetTuneData(char *tuneData);
+
 /*****************************************************************************
  * LOCAL FUNCTIONS
  *****************************************************************************/

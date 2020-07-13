@@ -159,6 +159,13 @@ extern int WA_DIAG_SendStr(void *instanceHandle, char *msg, void *responseCookie
 extern void WA_DIAG_SendProgress(void* instanceHandle, int progress);
 
 /**
+ * Set whether or not the results to be written into results file.
+ *
+ * @param storeTestResults to set the value
+ */
+extern void WA_DIAG_SetWriteTestResult(bool writeResult);
+
+/**
  * Initialize the diag module.
  *
  * @param diags the array of diag procedures to attach to the system

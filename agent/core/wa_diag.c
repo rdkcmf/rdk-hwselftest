@@ -134,6 +134,7 @@ static const WA_DIAG_localProcedures_t localProcedures[] =
         {"DIAG", DiagControl},
         {"TESTRUN", TestRunControl}
 };
+
 /*****************************************************************************
  * FUNCTION DEFINITIONS
  *****************************************************************************/
@@ -601,6 +602,11 @@ void WA_DIAG_SendProgress(void* instanceHandle, int progress)
             WA_ERROR("WA_DIAG_SendProgress(): WA_OSA_QSend(): %d\n", status);
         }
     }
+}
+
+void WA_DIAG_SetWriteTestResult(bool writeResult)
+{
+    WA_AGG_SetWriteTestResult(writeResult);
 }
 
 /*****************************************************************************

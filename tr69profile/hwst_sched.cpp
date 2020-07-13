@@ -52,17 +52,17 @@ std::map<std::string, int> diagPool =
 {
 
     {"hdd_status", 0},
-    {"mcard_status", 1},
-    {"rf4ce_status", 2},
-    {"hdmiout_status", 3},
-    {"moca_status", 4},
-    {"modem_status", 5},
-    {"flash_status", 6},
-    {"dram_status", 7},
-    {"avdecoder_qam_status", 8},
-    {"tuner_status", 9},
-    {"ir_status", 10},
-    {"sdcard_status", 11},
+    {"flash_status", 1},
+    {"sdcard_status", 2},
+    {"dram_status", 3},
+    {"hdmiout_status", 4},
+    {"mcard_status", 5},
+    {"rf4ce_status", 6},
+    {"ir_status", 7},
+    {"moca_status", 8},
+    {"avdecoder_qam_status", 9},
+    {"tuner_status", 10},
+    {"modem_status", 11},
     {"bluetooth_status", 12},
     {"wifi_status", 13}
 };
@@ -72,7 +72,8 @@ Sched::Sched(std::string host, std::string port, int timeout):
     port(port),
     timeout(timeout),
     working(false),
-    state(idle)
+    state(idle),
+    standAloneTest(false)
 {
     HWST_DBG("Sched");
     telemetryLogInit();
@@ -80,22 +81,11 @@ Sched::Sched(std::string host, std::string port, int timeout):
 
 void Sched::telemetryLogInit()
 {
-    std::string telemetry ("NA");
-    for(int i = 0; i < NUM_ELEMENTS_DEFAULT; i++)
+    std::string telemetry ("N");
+    for(int i = 0; i < NUM_ELEMENTS; i++)
     {
         telemetry.copy(telemetryResults[i], telemetry.length(), 0);
-    }
-    std::string RF_default ("RF_Not_Paired");
-    std::string IR_default ("IR_NA_as_RF_Paired");
-    std::string ne ("Not_Enabled");
-    RF_default.copy(telemetryResults[2], RF_default.length(), 0); //this is for RF element
-    telemetryResults[2][RF_default.length()] = '\0';
-    IR_default.copy(telemetryResults[10], IR_default.length(), 0); //this is for IR element
-    telemetryResults[10][IR_default.length()] = '\0';
-    for(int i = NUM_ELEMENTS_DEFAULT+1; i < NUM_ELEMENTS; i++) //default values for sdcard, bluetooth, wifi components
-    {
-        ne.copy(telemetryResults[i], ne.length(), 0);
-        telemetryResults[i][ne.length()] = '\0';
+        telemetryResults[i][telemetry.length()] = '\0';
     }
 }
 
@@ -177,7 +167,6 @@ void Sched::worker(void)
                         if (!quiet && (tmp.find("Test result:") != std::string::npos))
                         {
                             comm->sendRaw("LOG", "{\"rawmessage\": \"" + Log().format(tmp) + "\"}", "null");
-                            telemetryLogStore(e.diag->name);
                         }
                         if (!summary.empty())
                             summary += "\n";
@@ -214,7 +203,10 @@ void Sched::worker(void)
                             summary += "\n";
                             summary += tmp;
                             comm->sendRaw("LOG", "{\"rawmessage\": \"" + tmp + "\"}", "null");
-                            telemetryLog(passed);
+                            if (!standAloneTest)
+                            {
+                                telemetryLog(passed);
+                            }
                             comm->sendRaw("TESTRUN", "{\"state\": \"finish\"}", "null");
                         }
 
@@ -235,43 +227,62 @@ void Sched::worker(void)
     HWST_DBG("Sched-loop-finished");
 }
 
-void Sched::telemetryLogStore(std::string diagName)
-{
-    for(auto const& e: scenario->elements)
-    {
-        if(e.diag->name.compare(diagName) == 0)
-        {
-            std::string result_value = e.diag->getPresentationResult();
-
-            std::string errorText = e.diag->getPresentationComment();
-            if(!errorText.empty())
-            {
-                std::replace(errorText.begin(), errorText.end(), ' ', '_');
-                result_value.append("_");
-                result_value.append(errorText);
-            }
-            auto it = diagPool.find(diagName);
-            int index = it->second;
-            result_value.copy(telemetryResults[index], result_value.length(), 0);
-            telemetryResults[index][result_value.length()] = '\0';
-            break;
-        }
-    }
-}
-
 void Sched::telemetryLog(bool testResult)
 {
+    std::string diag_result;
+    for(auto const& e: scenario->elements)
+    {
+        Diag::Status s = e.diag->getStatus(true);
+        if ((s.state == Diag::error) || (s.state == Diag::finished))
+        {
+            std::string result_value = e.diag->getPresentationResult();
+            int result_status = e.diag->getPresentationStatus();
+            if (result_value.compare("FAILED") == 0)
+            {
+                if (result_status == Diag::FAILURE)
+                    diag_result = "F";
+                else
+                    diag_result = "F" + std::to_string(result_status);
+            }
+            else if (result_value.compare("PASSED") == 0)
+            {
+                diag_result = "P";
+            }
+            else if (result_value.compare("WARNING") == 0)
+            {
+                if (result_status == Diag::DEFAULT_RESULT_VALUE)
+                    diag_result = "X";
+                else
+                    diag_result = "W" + std::to_string(result_status);
+            }
+            else
+                diag_result = "X";
+
+            auto it = diagPool.find(e.diag->name);
+            if (it == diagPool.end())
+                continue;
+            int index = it->second;
+            diag_result.copy(telemetryResults[index], diag_result.length(), 0);
+            telemetryResults[index][diag_result.length()] = '\0';
+        }
+    }
+
+    std::string telemetry_header;
     std::string telemetry_log;
     for(int i=0; i< NUM_ELEMENTS; i++)
     {
-        if((std::string(telemetryResults[i])).compare("Not_Enabled") != 0)
-        {
-            telemetry_log.append(telemetryResults[i]);
-            telemetry_log.append(", ");
-        }
+        telemetry_header.append(telemetryNames[i]);
+        telemetry_header.append(",");
+        telemetry_log.append(telemetryResults[i]);
+        telemetry_log.append(",");
     }
-    telemetry_log.append(std::string(testResult ? "PASSED" : "FAILED"));
-    std::string telemetry_result = Log().format("HwTestResult_telemetry: " + telemetry_log);
+    telemetry_header.append("Result");
+    telemetry_log.append(std::string(testResult ? "P" : "F"));
+
+    std::string telemetry_resultHeader = Log().format("HwTestResultHeader: " + telemetry_header);
+    std::string telemetry_result = Log().format("HwTestResult2: " + telemetry_log);
+
+    comm->sendRaw("LOG", "{\"rawmessage\": \"" + telemetry_resultHeader + "\"}", "null");
     comm->sendRaw("LOG", "{\"rawmessage\": \"" + telemetry_result + "\"}", "null");
     telemetryLogInit();
 }
@@ -340,7 +351,7 @@ int Sched::get(std::string &result)
     return status;
 }
 
-int Sched::issue(const std::vector<std::string>& jobs, const std::string& client)
+int Sched::issue(const std::vector<std::string>& jobs, const std::string& client, const std::string& param)
 {
     int status = -1;
     HWST_DBG("issue:" + jobs);
@@ -366,12 +377,25 @@ int Sched::issue(const std::vector<std::string>& jobs, const std::string& client
         // suppress logging when running single job
         quiet = (jobs.size() == 1);
 
+        if (quiet)
+        {
+            for (auto & e : jobs)
+            {
+                if (e.find("_status") != std::string::npos)
+                {
+                    quiet = false;
+                    standAloneTest = !param.empty() ? true : false;
+                    break;
+                }
+            }
+        }
+
         if (!jobs.size())
             scenario = std::unique_ptr<Scenario>(new ScenarioAuto());
         else
             scenario = std::unique_ptr<Scenario>(new ScenarioSet());
 
-        if (!scenario->init(jobs))
+        if (!scenario->init(jobs, param))
             break;
 
         HWST_DBG("Scenario created");

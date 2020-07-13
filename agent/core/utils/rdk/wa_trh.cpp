@@ -42,6 +42,7 @@
  *****************************************************************************/
 #include "wa_osa.h"
 #include "wa_debug.h"
+#include "wa_json.h"
 #include "wa_trh.h"
 #include "wa_trh_listener.h"
 
@@ -54,6 +55,7 @@
  * LOCAL DEFINITIONS
  *****************************************************************************/
 #define MAX_TUNER_RESERVATION_HELPERS 6
+#define OUTPUT_LEN                    2040
 
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
@@ -123,9 +125,20 @@ int WA_UTILS_TRH_Exit()
     return status;
 }
 
-int WA_UTILS_TRH_ReserveTuner(const char *url, uint64_t when, uint64_t duration, int timeout_ms, void **out_handle)
+int WA_UTILS_TRH_ReserveTuner(const char *url, uint64_t when, uint64_t duration, int timeout_ms, int tuner_count, void **out_handle)
 {
     int status = 1;
+    int num_tuner = 0;
+    int freeTuners = 0;
+    char output[OUTPUT_LEN] = {'\0'};
+    const char *tunerState;
+    const char *key;
+    json_t *json;
+    json_t *allStates = NULL;
+    json_t *trmResp = NULL;
+    json_t *value;
+    std::string tunerId;
+    std::string tunerStates;
 
     WA_ENTER("WA_UTILS_TRH_ReserveTuner(): url='%s', when=%llu, duration=%llu, timeout_ms=%i, out_handle=%p\n",
                 url, when, duration, timeout_ms, out_handle);
@@ -134,6 +147,67 @@ int WA_UTILS_TRH_ReserveTuner(const char *url, uint64_t when, uint64_t duration,
     {
         WA_DBG("WA_UTILS_TRH_ReserveTuner(): requesting tuner reservation for '%s' from TRM...\n", url);
         TrhHandler *handler = new TrhHandler(url);
+
+        // Get all tuner states before tuning to ensure there are free tuners
+        if (handler->helper->getAllTunerStates(tunerStates) == false)
+        {
+            WA_ERROR("WA_UTILS_TRH_ReserveTuner(): Failed to get tuner states\n");
+            delete handler;
+            return TRH_STATUS_RESERVATION_FAIL;
+        }
+
+        WA_DBG("WA_UTILS_TRH_ReserveTuner(): Tuner states from TRM (success): '%s'\n", tunerStates.c_str());
+
+        // To check if at-least one tuner is in Free state by checking all the tuners
+        if (tunerStates.compare("") != 0)
+        {
+            snprintf(output, sizeof(output),"%s", tunerStates.c_str());
+            json = json_loads((char*)output, JSON_DISABLE_EOF_CHECK, NULL);
+            if (!json)
+            {
+                WA_ERROR("WA_UTILS_TRH_ReserveTuner(): TRM output json_loads() error\n");
+                return TRH_STATUS_RESERVATION_FAIL;
+            }
+
+            status = json_unpack(json, "{so}", "getAllTunerStatesResponse", &trmResp);
+            if (status || !trmResp)
+            {
+                WA_ERROR("WA_UTILS_TRH_ReserveTuner(): json_unpack(\"getAllTunerStatesResponse\") error\n");
+                return TRH_STATUS_RESERVATION_FAIL;
+            }
+
+            status = json_unpack(trmResp, "{so}", "allStates", &allStates);
+            if (status || !allStates)
+            {
+                WA_ERROR("WA_UTILS_TRH_ReserveTuner(): json_unpack(\"allStates\") error\n");
+                return TRH_STATUS_RESERVATION_FAIL;
+            }
+
+            void *iter = json_object_iter(allStates);
+            while(iter && num_tuner < MAX_TUNER_RESERVATION_HELPERS)
+            {
+                key = json_object_iter_key(iter);
+                value = json_object_iter_value(iter);
+                tunerState = json_string_value(value);
+
+                if (strstr(key, "TunerId-") && !strcmp(tunerState, "Free"))
+                {
+                    freeTuners++;
+                }
+
+                num_tuner++;
+
+                iter = json_object_iter_next(allStates, iter);
+            }
+        }
+
+        if (freeTuners == 0)
+        {
+            WA_ERROR("WA_UTILS_TRH_ReserveTuner(): Could not get Free tuners\n");
+            return TRH_STATUS_RESERVATION_FAIL;
+        }
+
+        WA_DBG("WA_UTILS_TRH_ReserveTuner(): Free tuners available: %i\n", freeTuners);
 
         if (!when)
         {

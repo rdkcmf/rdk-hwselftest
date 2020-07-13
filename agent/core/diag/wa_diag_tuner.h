@@ -81,7 +81,7 @@ typedef struct WA_DIAG_TUNER_QamParams_tag
  *****************************************************************************/
 extern int WA_DIAG_TUNER_status(void* instanceHandle, void *initHandle, json_t **params);
 
-bool WA_DIAG_TUNER_GetTunerStatuses(WA_DIAG_TUNER_TunerStatus_t * statuses, size_t statusCount, int * pNumLocked);
+bool WA_DIAG_TUNER_GetTunerStatuses(WA_DIAG_TUNER_TunerStatus_t * statuses, size_t statusCount, int * pNumLocked, bool* freqLocked, char* freq);
 bool WA_DIAG_TUNER_GetDocsisParams(WA_DIAG_TUNER_DocsisParams_t * params);
 bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params);
 

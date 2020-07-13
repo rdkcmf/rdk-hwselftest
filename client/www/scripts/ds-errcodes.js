@@ -25,6 +25,7 @@ var DIAG_ERRCODE = {
         NOT_APPLICABLE:         -1,
         CANCELLED:              -2,
         INTERNAL_TEST_ERROR:    -3,
+        CANCELLED_NOT_STANDBY:  -4,
 
         /* specific codes */
         HDD_STATUS_MISSING:     -100,

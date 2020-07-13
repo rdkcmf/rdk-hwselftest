@@ -70,6 +70,7 @@
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
 static int luckyId = -1;
+static char* tuneParam = NULL;
 
 /*****************************************************************************
  * FUNCTION DEFINITIONS
@@ -91,6 +92,15 @@ void WA_UTILS_SICACHE_TuningSetLuckyId(int id)
     WA_DBG("WA_UTILS_SICACHE_TuningSetLuckyId(): %d\n", luckyId);
 }
 
+void WA_UTILS_SICACHE_TuningSetTuneData(char *tuneData)
+{
+    tuneParam = NULL;
+    if (tuneData && strcmp(tuneData, "") != 0)
+    {
+        tuneParam = tuneData;
+    }
+    WA_DBG("WA_UTILS_SICACHE_TuningSetTuneData(): %s\n", tuneParam);
+}
 
 int WA_UTILS_SICACHE_TuningRead(int numEntries, WA_UTILS_SICACHE_Entries_t **ppEntries)
 {
@@ -150,6 +160,12 @@ int WA_UTILS_SICACHE_TuningRead(int numEntries, WA_UTILS_SICACHE_Entries_t **ppE
         goto end;
     }
 
+    if (tuneParam)
+    {
+        numEntries = 1;
+        skipFirst = false;
+    }
+
     numFound = 0;
     while(fgets(line, sizeof(line)-1, f) != NULL)
     {
@@ -157,6 +173,13 @@ int WA_UTILS_SICACHE_TuningRead(int numEntries, WA_UTILS_SICACHE_Entries_t **ppE
         {
             WA_DBG("WA_UTILS_SICACHE_TuningRead: fgets: test cancelled\n");
             break;
+        }
+
+        if (tuneParam)
+        {
+            c = strstr(line, tuneParam);
+            if (!c)
+                continue;
         }
 
         /* Example line:

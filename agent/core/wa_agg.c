@@ -72,6 +72,7 @@ static int save_results(const char *file, const WA_AGG_AggregateResults_t *bank)
 static void *api_mutex = NULL;
 static int current_bank = -1;
 static WA_AGG_AggregateResults_t agg_results[2];
+static bool writeTestResult = true;
 
 /*****************************************************************************
  * FUNCTION DEFINITIONS
@@ -218,9 +219,12 @@ int WA_AGG_FinishTestRun(time_t timestamp)
     {
         agg_results[current_bank].end_time = timestamp;
 
-        /* save results to file */
-        if (save_results(AGG_RESULTS_FILE, &agg_results[current_bank]))
-            WA_ERROR("WA_AGG_FinishTestRun(): failed to save results file\n");
+        if (writeTestResult)
+        {
+            /* save results to file */
+            if (save_results(AGG_RESULTS_FILE, &agg_results[current_bank]))
+                WA_ERROR("WA_AGG_FinishTestRun(): failed to save results file\n");
+        }
 
         /* mark the bank as valid, force the other bank as dirty */
         agg_results[current_bank].dirty = false;
@@ -279,6 +283,12 @@ err:
     WA_RETURN("WA_AGG_SetTestResult(): %d\n", status);
 
     return status;
+}
+
+void WA_AGG_SetWriteTestResult(bool writeResult)
+{
+    writeTestResult = writeResult;
+    WA_DBG("WA_DIAG_SetWriteTestResult(): %d\n", writeTestResult);
 }
 
 const WA_AGG_AggregateResults_t *WA_AGG_GetPreviousResults()

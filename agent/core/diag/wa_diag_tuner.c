@@ -75,6 +75,15 @@
 /* module interface */
 #include "wa_diag_tuner.h"
 
+/* NGAN */
+#include <sys/stat.h>
+#include "wa_log.h"
+#include "wa_iarm.h"
+#include "pwrMgr.h"
+#include "libIBus.h"
+#include "libIARMCore.h"
+#include "hostIf_tr69ReqHandler.h"
+
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
  *****************************************************************************/
@@ -100,6 +109,8 @@
 #define SNMP_SERVER_ESTB "localhost"
 #define SNMP_SERVER_ECM "192.168.100.1"
 #define TUNER_LOCKED 5
+/* NGAN */
+#define OID_TUNER_BER "OC-STB-HOST-MIB::ocStbHostInBandTunerBER"
 #endif
 
 #define USE_FRONTEND_PROCFS 1
@@ -117,6 +128,7 @@
 
 #define SNMP_SERVER_ESTB "localhost"
 #else
+#define HWSELFTEST_TUNERESULTS_FILE "/opt/logs/hwselftest.tuneresults" /* NGAN */
 #define PROCFS_STATUS_FILE "/proc/brcm/frontend"
 #define LINE_LEN 256
 #endif
@@ -168,8 +180,12 @@ typedef struct TuneSession_tag
  *****************************************************************************/
 
 static unsigned int getNumberOfTuners(json_t * config);
-static json_t * getTuneUrls();
+static json_t * getTuneUrls(char* tuneData, int *frequency);
 static int checkQamConnection(unsigned int tunersCount, json_t **pJsonInOut);
+static int getTuneData(json_t *pJson, char *tuneData, size_t size);
+static int verifyStandbyState();
+static int saveTuneResults(int frontend, char *freq, char *lockStatus, char *SNR, char *fecCorrected, char *fecUncorrected);
+static int saveTuneFailureMsg(const char *errString);
 
 static bool startTuneSessions(void * instanceHandle,
         TuneSession_t * sessions,
@@ -201,7 +217,6 @@ static int IssueRequest(uint32_t sourceIP, uint32_t serverIP, unsigned short int
 static uint32_t FindNonexistentIf(uint32_t lastIP);
 #endif /* USE_RMF */
 
-
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
@@ -223,7 +238,7 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
   * LOCAL FUNCTIONS
   *****************************************************************************/
 
- static json_t * getTuneUrls()
+ static json_t * getTuneUrls(char* tuneData, int *frequency)
  {
      json_t * result;
      WA_UTILS_SICACHE_Entries_t *pEntries=NULL;
@@ -231,6 +246,8 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
      char request[REQUEST_MAX_LENGTH];
 
      result = json_array();
+
+     WA_UTILS_SICACHE_TuningSetTuneData(tuneData);
 
      lucky = WA_UTILS_SICACHE_TuningGetLuckyId();
 
@@ -241,6 +258,7 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
          snprintf(request, REQUEST_MAX_LENGTH, REQUEST_PATTERN, pEntries[lucky].freq, pEntries[lucky].mod, pEntries[lucky].prog);
          WA_DBG("getTuneUrls(): lucky[%d], %s\n", lucky, request);
          json_array_append_new(result, json_string(request));
+         *frequency = pEntries[lucky].freq;
          ++entries;
      }
 
@@ -256,6 +274,7 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
              snprintf(request, REQUEST_MAX_LENGTH, REQUEST_PATTERN, pEntries[i].freq, pEntries[i].mod, pEntries[i].prog);
              WA_DBG("getTuneUrls(): url[%d], %s\n", i, request);
              json_array_append_new(result, json_string(request));
+             *frequency = pEntries[i].freq;
              ++entries;
          }
      }
@@ -376,6 +395,41 @@ static int checkQamConnection(unsigned int tunersCount, json_t **pJsonInOut)
 
     WA_RETURN(" Exit func=%s line=%d\n", __FUNCTION__, __LINE__);
     return WA_DIAG_ERRCODE_FAILURE;
+}
+
+static int getTuneData(json_t *pJson, char *tuneData, size_t size)
+{
+    char* tuneValue = NULL;
+    char* freq = NULL;
+    char* prog = NULL;
+
+    memset(tuneData, 0, size);
+
+    if (pJson)
+    {
+        if (!json_unpack(pJson, "{ss}", "SRCID", &tuneValue))
+        {
+            snprintf(tuneData, size, "SRCID#%s", tuneValue);
+            WA_DIAG_SetWriteTestResult(false);
+        }
+        else if (!json_unpack(pJson, "{ss}", "VCN", &tuneValue))
+        {
+            snprintf(tuneData, size, "VCN#%s", tuneValue);
+            WA_DIAG_SetWriteTestResult(false);
+        }
+        else if (!json_unpack(pJson, "{ss}", "FREQ_PROG", &tuneValue))
+        {
+            freq = strtok(tuneValue, ",");
+            if (strcmp(freq, ""))
+            {
+                prog = strtok(NULL, ",");
+            }
+            snprintf(tuneData, size, "Freq[%s]-Mode[0016]-Prog[%s]", freq, prog);
+            WA_DIAG_SetWriteTestResult(false);
+        }
+    }
+
+    return 0;
 }
 
 #ifdef USE_RMF
@@ -597,6 +651,7 @@ static int checkQamConnection(unsigned int tunersCount, json_t **pJsonInOut)
      int timeout;
      struct timeval timeOfDayStart, timeOfDay;
      int numLocked;
+     bool freqLocked = false;
 
      WA_INFO("WaitSessions(): %p\n", (void*)sessions);
 
@@ -702,7 +757,7 @@ static int checkQamConnection(unsigned int tunersCount, json_t **pJsonInOut)
          gettimeofday(&timeOfDay, NULL);
          timeout = (TUNE_RESPONSE_TIMEOUT*sessionCount) - (timeOfDay.tv_sec - timeOfDayStart.tv_sec)*1000;
 
-         WA_DIAG_TUNER_GetTunerStatuses(statuses, sessionCount, &numLocked);
+         WA_DIAG_TUNER_GetTunerStatuses(statuses, sessionCount, &numLocked, &freqLocked, "");
      }while((status > 0) && (timeout > 0));
 
      end:
@@ -920,7 +975,7 @@ static bool startTuneSessions(void *instanceHandle,
     (void)statuses;
     bool result = false;
 
-    WA_ENTER("startTuneSessions(instanceHandle=%p, sessions=%p, sessionCount=%u, urlBase='%s', currentPass=%u, totalPasses=%u, statuses=%p)\n", 
+    WA_ENTER("startTuneSessions(instanceHandle=%p, sessions=%p, sessionCount=%u, urlBase='%s', currentPass=%u, totalPasses=%u, statuses=%p)\n",
                 instanceHandle, sessions, sessionCount, urlBase, currentPass, totalPasses, statuses);
 
     if (!closeTuneSessions(sessions, sessionCount))
@@ -959,7 +1014,7 @@ static bool startTuneSessions(void *instanceHandle,
 
         /* For each reserve request adjust frequency slightly, so it's different to TRM, but close enough to still be lockable. */
         snprintf(adj_url, max_url_len, REQUEST_PATTERN, freq + i, mod, pgmo);
-        if (!WA_UTILS_TRH_ReserveTuner(strstr(adj_url, "ocap://"), 0 /* now */, TRM_TUNER_RESERVATION_TIME, TRM_TUNER_RESERVATION_TIMEOUT, (void **)&sessions[i].socket))
+        if (!WA_UTILS_TRH_ReserveTuner(strstr(adj_url, "ocap://"), 0 /* now */, TRM_TUNER_RESERVATION_TIME, TRM_TUNER_RESERVATION_TIMEOUT, (int)sessionCount, (void **)&sessions[i].socket))
         {
             if (WA_OSA_TaskCheckQuit())
             {
@@ -1256,7 +1311,7 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
     return true;
 }
 
- bool WA_DIAG_TUNER_GetTunerStatuses(WA_DIAG_TUNER_TunerStatus_t * statuses, size_t statusCount, int * pNumLocked)
+ bool WA_DIAG_TUNER_GetTunerStatuses(WA_DIAG_TUNER_TunerStatus_t * statuses, size_t statusCount, int * pNumLocked, bool* freqLocked, char* freq)
  {
 #ifndef USE_FRONTEND_PROCFS
      char oid[256];
@@ -1308,15 +1363,23 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
 
 #else /* USE_FRONTEND_PROCFS */
     FILE* fd;
+    bool freqExists = false;
     char buf[LINE_LEN];
     char format[LINE_LEN];
     char result[LINE_LEN];
+    char lockStatus[LINE_LEN];
+    char SNR[LINE_LEN];
+    char fecCorrected[LINE_LEN];
+    char fecUncorrected[LINE_LEN];
     int frontend = 0;
     typedef enum {
         parseFe = 0,
-        parseLock
+        parseLock,
+        parseFreq
     } parseMode_t;
     parseMode_t parseMode = parseFe;
+
+    WA_DBG("GetTunerStatusses(): Freq: %s\n", freq);
 
     *pNumLocked = 0;
     if ((fd = fopen(PROCFS_STATUS_FILE,"r")) == NULL)
@@ -1338,13 +1401,17 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
                 WA_DBG("GetTunerStatusses(): Frontend[%d]:%s\n", frontend, result);
                 if(result[0] == 'y')
                 {
-                    parseMode = parseLock;
+                    parseMode = (freq && strcmp(freq, "")) ? parseFreq : parseLock;
                     statuses[frontend].used = true;
                 }
                 else if(statuses[frontend].locked)
                 {
                     WA_DBG("GetTunerStatusses(): RELEASE DETECTED[%d]\n", frontend);
                     ++(*pNumLocked);
+                }
+                if (result[0] == 'n')
+                {
+                    ++frontend;
                 }
             }
             break;
@@ -1358,6 +1425,7 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
                 WA_DBG("GetTunerStatusses(): Lock[%d]:%s\n", frontend, result);
                 if(!strcmp(result, "locked,"))
                 {
+                    *freqLocked = freqExists ? true : false;
                     statuses[frontend].locked = true;
                     ++(*pNumLocked);
                 }
@@ -1366,10 +1434,44 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
                     WA_DBG("GetTunerStatusses(): UNLOCK DETECTED[%d]\n", frontend);
                     ++(*pNumLocked);
                 }
+
+                if (*freqLocked)
+                {
+                    snprintf(format, LINE_LEN, " lockStatus=%%s snr=%%s (est), fecCorrected=%%s fecUncorrected=%%s");
+                    if (sscanf(buf, format, lockStatus, SNR, fecCorrected, fecUncorrected) == 4)
+                    {
+                        lockStatus[strlen(lockStatus)-1] = 0;
+                        fecCorrected[strlen(fecCorrected)-1] = 0;
+                        saveTuneResults(frontend, freq, lockStatus, SNR, fecCorrected, fecUncorrected);
+                    }
+                    else
+                    {
+                        WA_ERROR("GetTunerStatusses(): Unable to retrieve required metrics data from frontend file\n");
+                        *freqLocked = false; // Setting it back to false when we don't get required data
+                    }
+
+                }
                 parseMode = parseFe;
                 ++frontend;
             }
             break;
+        case parseFreq:
+            /* freq=387000000 hz, modulation=Qam-256, annex=B */
+            snprintf(format, LINE_LEN, " freq=%%%ds", LINE_LEN);
+            if (sscanf(buf, format, result) == 1)
+            {
+                freqExists = strstr(buf, freq) ? true : false;
+                parseMode = parseLock;
+                WA_DBG("GetTunerStatusses(): freq[%s], freqExists:%i\n", freq, freqExists);
+            }
+            break;
+        }
+
+        if (freqExists && *freqLocked)
+        {
+            WA_DBG("GetTunerStatusses(): frontend=%i, freqLocked=%s, lockStatus=%s, snr=%s, fecCorrected=%s, fecUncorrected=%s\n", frontend, freq, lockStatus, SNR, fecCorrected, fecUncorrected);
+            fclose(fd);
+            return true;
         }
 #if WA_DEBUG
         {
@@ -1408,38 +1510,74 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
      int result = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
      json_t * config = NULL;
      json_t * tuneUrls;
+     char tuneData[128];
+     char freq[64];
+     int frequency = 0;
      int retCode = 0;
+     int numTestTuner = 0;
+     bool standAloneTest = false;
+     bool freqLocked = false;
 #ifdef USE_SEVERAL_LOCK_PROBES
      int i;
      struct timespec sTime = {.tv_nsec=(LOCK_LOOP_TIME * 1000000), .tv_sec=0};
 #endif
+
+     // Read the input json before setting it to null, for ngan tune test and to decide whether it is ngan test or general test
+     getTuneData(*pJsonInOut, &tuneData[0], sizeof(tuneData));
+     standAloneTest = strcmp(tuneData, "") ? true : false;
+
+     WA_DBG("%s(%d): Standalone Test: %i, Tune Data: %s\n", __FUNCTION__, __LINE__, standAloneTest, tuneData);
+
+     // Clear the json for output data
      json_decref(*pJsonInOut);
      *pJsonInOut = NULL;
 
+     if (standAloneTest)
+     {
+         result = verifyStandbyState();
+         if (result != WA_DIAG_ERRCODE_SUCCESS) // If result is success, continue to ngan tune test
+         {
+             *pJsonInOut = json_string("Device state not received.");
+             WA_RETURN("WA_DIAG_TUNER_status(): NGAN test returns after power state check with result : %d\n", result); // Related Telemetry and Tuneresults are handled in verifyStandbyState()
+             return result;
+         }
+     }
+
      /* Determine if the test is applicable: */
-
      config = ((WA_DIAG_proceduresConfig_t*)initHandle)->config;
-
      unsigned int tunersCount = getNumberOfTuners(config);
 
      if (tunersCount <= 0)
      {
          WA_INFO("WA_DIAG_TUNER_status(): Not applicable (tuner count: %i)\n", (int)tunersCount);
          *pJsonInOut = json_string("Not applicable.");
+         if (standAloneTest)
+         {
+             CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_NOT_AVAILABLE\n");
+             saveTuneFailureMsg("TUNER_NOT_AVAILABLE");
+         }
+
          return WA_DIAG_ERRCODE_NOT_APPLICABLE;
      }
 
      /* To check if the cable is connected and if the tuners are locked */
      result = checkQamConnection(tunersCount, pJsonInOut);
-     if (result != WA_DIAG_ERRCODE_FAILURE)
+
+     if (standAloneTest && (result == WA_DIAG_ERRCODE_TUNER_NO_LOCK))
      {
+         CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_NOT_AVAILABLE\n");
+         saveTuneFailureMsg("TUNER_NOT_AVAILABLE");
          return result;
      }
 
-     tunersCount = 1; // Testing only one tuner is enough for tuner diagnostics
-     tuneUrls = getTuneUrls();
+     if (!standAloneTest && (result != WA_DIAG_ERRCODE_FAILURE))
+         return result;
 
-     WA_DBG("WA_DIAG_TUNER_status(): Tuning to url (tuner count: %i)\n", (int)tunersCount);
+     numTestTuner = 1; // Testing only one tuner is enough for tuner diagnostics with only one session
+     tuneUrls = getTuneUrls(tuneData, &frequency);
+     snprintf(freq, sizeof(freq),"%i", frequency);
+
+     WA_DBG("WA_DIAG_TUNER_status(): Tuning to url (tuner count: %i, tuners to test: %i, frequency: %s)\n", (int)tunersCount, numTestTuner, freq);
 
      if(WA_OSA_TaskCheckQuit())
      {
@@ -1453,16 +1591,22 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
      {
          json_decref(tuneUrls);
          *pJsonInOut = json_string("Missing SICache.");
+         if (standAloneTest)
+         {
+             CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_FAILED\n");
+             saveTuneFailureMsg("TUNE_FAILED");
+         }
+
          return WA_DIAG_ERRCODE_SI_CACHE_MISSING;
      }
 
-     TuneSession_t sessions[tunersCount];
+     TuneSession_t sessions[numTestTuner];
      memset(sessions, 0, sizeof(sessions));
 
      WA_DIAG_TUNER_TunerStatus_t statuses[tunersCount];
      memset(statuses, 0, sizeof(statuses));
 
-     for (size_t urlIndex = 0; (urlIndex < urlCount) && (result != WA_DIAG_ERRCODE_SUCCESS); ++urlIndex)
+     for (size_t urlIndex = 0; (urlIndex < urlCount); ++urlIndex)
      {
          int numLocked = 0;
 
@@ -1473,7 +1617,7 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
              break;
          }
 
-        retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked);
+        retCode = !standAloneTest ? WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, "") : 0;
         if(retCode && (numLocked == tunersCount))
         {
             WA_INFO("WA_DIAG_TUNER_status(): All tuners initially locked.\n");
@@ -1492,7 +1636,7 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
 
          retCode = startTuneSessions(instanceHandle,
              sessions,
-             tunersCount,
+             numTestTuner,
              url,
              urlIndex,
              urlCount,
@@ -1510,17 +1654,17 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
              WA_ERROR("WA_DIAG_TUNER_status(): Could not start tune sessions for URL: %s\n", url);
          }
 #ifndef USE_SEVERAL_LOCK_PROBES
-         retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked);
+         retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, freq);
 #else
          for(i=0, retCode=true, numLocked=0;
-             retCode && (i<LOCK_LOOP_COUNT) && (numLocked < tunersCount) && !WA_OSA_TaskCheckQuit(); ++i)
+             retCode && (i<LOCK_LOOP_COUNT) && (numLocked < tunersCount) && !WA_OSA_TaskCheckQuit() && !freqLocked; ++i)
          {
-             retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked);
+             retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, freq);
 
 #if defined(USE_FRONTEND_PROCFS) && defined(USE_UNRELIABLE_PROCFS_WORKAROUND)
              if(retCode && (numLocked == 0))
 #else
-             if(retCode && (numLocked < tunersCount))
+             if(!standAloneTest && retCode && (numLocked < tunersCount))
 #endif
              {
                  WA_DBG("WA_DIAG_TUNER_status(): retrying status check (%i)...\n", i);
@@ -1529,17 +1673,23 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
          }
 #endif /* USE_SEVERAL_LOCK_PROBES */
 
-         closeTuneSessions(sessions, tunersCount);
+         closeTuneSessions(sessions, numTestTuner);
 
          WA_UTILS_SICACHE_TuningSetLuckyId(numLocked ? urlIndex : -1);
 
          if(!retCode)
          {
+             if (standAloneTest)
+             {
+                 CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_FAILED\n");
+                 saveTuneFailureMsg("TUNE_FAILED");
+             }
+
              result = WA_DIAG_ERRCODE_FAILURE;
              break;
          }
 
-         if (numLocked == tunersCount)
+         if ((standAloneTest && freqLocked) || (!standAloneTest && (numLocked >= tunersCount)))
          {
              WA_INFO("WA_DIAG_TUNER_status(): All tuners locked.\n");
              result = WA_DIAG_ERRCODE_SUCCESS;
@@ -1547,13 +1697,19 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
          else
          {
              WA_WARN("WA_DIAG_TUNER_status(): Not all tuners locked, url: %s\n", (char*)url);
+             if (standAloneTest)
+             {
+                 CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_NOT_AVAILABLE\n");
+                 saveTuneFailureMsg("TUNER_NOT_AVAILABLE");
+             }
+
              result = WA_DIAG_ERRCODE_TUNER_NO_LOCK;
 
 #ifdef USE_TRM
-             if (numLocked == tunersCount - 1)
+             if (!standAloneTest && (numLocked == tunersCount - 1))
              {
-                WA_INFO("WA_DIAG_TUNER_status(): One tuner not locked, possible TRM tuner protection\n");
-                result = WA_DIAG_ERRCODE_TUNER_BUSY;
+                 WA_INFO("WA_DIAG_TUNER_status(): One tuner not locked, possible TRM tuner protection\n");
+                 result = WA_DIAG_ERRCODE_TUNER_BUSY;
              }
 #endif /* USE_TRM */
          }
@@ -1602,6 +1758,186 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
      return result;
  }
 
+/*
+return 0 : Continue with tune functionality
+       1 : return FAILED_TUNER_NOT_AVAILABLE
+      -3 : Failed to get power state "WARNING_Test_Not_Run"
+*/
+int verifyStandbyState()
+{
+    int state = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+    int is_connected = 0;
+    struct stat buffer;
 
+    // Delete the existing tune results file before running tune test
+    if (stat(HWSELFTEST_TUNERESULTS_FILE, &buffer) == 0)
+    {
+        if (remove(HWSELFTEST_TUNERESULTS_FILE))
+        {
+            WA_ERROR("Unable to delete tune results file\n");
+            goto end;
+        }
+    }
+
+    if (WA_UTILS_IARM_Connect())
+    {
+        WA_ERROR("verifyStandbyState() WA_UTILS_IARM_Connect() Failed \n");
+        goto end;
+    }
+
+    IARM_Result_t iarm_result = IARM_Bus_IsConnected(IARM_BUS_TR69HOSTIFMGR_NAME, &is_connected);
+    if (iarm_result != IARM_RESULT_SUCCESS)
+    {
+        WA_ERROR("verifyStandbyState(): IARM_Bus_IsConnected('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
+        goto iarm_disconnect;
+    }
+
+    IARM_Bus_PWRMgr_GetPowerState_Param_t param;
+    IARM_Result_t res = IARM_Bus_Call(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_API_GetPowerState,(void *)&param, sizeof(param));
+
+    /* Query current Power state  */
+    if (IARM_RESULT_SUCCESS == res)
+    {
+        switch (param.curState)
+        {
+            case IARM_BUS_PWRMGR_POWERSTATE_STANDBY_LIGHT_SLEEP:
+                WA_DBG ("verifyStandbyState() Current power state is LIGHTSLEEP\n");
+                state = WA_DIAG_ERRCODE_SUCCESS;
+                break;
+            default:
+                WA_ERROR ("verifyStandbyState() Current power state is not in LIGHTSLEEP\n");
+                state = WA_DIAG_ERRCODE_CANCELLED_NOT_STANDBY;
+                break;
+        }
+    }
+    else
+    {
+        WA_ERROR ("verifyStandbyState() Unable to get power state from IARM\n");
+    }
+
+iarm_disconnect:
+    if (WA_UTILS_IARM_Disconnect())
+    {
+        WA_ERROR("verifyStandbyState(): WA_UTILS_IARM_Disconnect() Failed \n");
+    }
+
+end:
+    // Print telemetry for failure cases
+    if (state == WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR)
+    {
+        CLIENT_LOG("HwTestTuneResult_telemetry: WARNING_Test_Not_Run\n");
+        saveTuneFailureMsg("TUNE_FAILED");
+    }
+    else if (state == WA_DIAG_ERRCODE_CANCELLED_NOT_STANDBY)
+    {
+        CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_NOT_AVAILABLE\n");
+        saveTuneFailureMsg("TUNER_NOT_AVAILABLE");
+    }
+
+    return state;
+}
+
+
+/*Return 0 - All data is good and written to log file and results file
+        -1 - Unable to get data
+*/
+int saveTuneResults(int frontend, char *freq, char *lockStatus, char *SNR, char *fecCorrected, char *fecUncorrected)
+{
+    char BER[LINE_LEN];
+    json_t *json = NULL;
+
+    WA_ENTER("saveTuneResults() Enter\n");
+
+    /* SNMP BER */
+    char oid[BUFFER_LEN];
+    int k = snprintf(oid, sizeof(oid), "%s.%i", OID_TUNER_BER, frontend + 1);
+    if ((k >= sizeof(oid)) || (k < 0))
+    {
+        WA_ERROR("saveTuneResults(): Unable to generate OID for QAM tuner.\n");
+        goto end;
+    }
+
+    WA_UTILS_SNMP_Resp_t tunerResp;
+    tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    tunerResp.data.l = 0;
+
+    if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ESTB, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
+    {
+        WA_ERROR("saveTuneResults(): Tuner %i failed to get QAM BER\n", frontend);
+        goto end;
+    }
+
+    WA_DBG("saveTuneResults(): Tuner %i QAM_BER = %i\n", frontend, (int)tunerResp.data.l);
+    snprintf(BER, sizeof(BER), "%i", (int) tunerResp.data.l);
+
+    /* Create json string to write into tuneresults file */
+    json = json_pack("{s:s,s:s,s:s,s:s,s:s}",
+       "SNR", SNR,
+       "Corrected", fecCorrected,
+       "Uncorrected", fecUncorrected,
+       "BER", BER,
+       "RXLock", lockStatus);
+
+    /* Write result into tuneresults file */
+    FILE *f = fopen(HWSELFTEST_TUNERESULTS_FILE, "wb+");
+    if (f)
+    {
+        if (!json_dumpf(json, f, 0))
+        {
+            fsync(fileno(f));
+
+            /* Print result in log file if writing to results file is success */
+            CLIENT_LOG("HwTestTuneResultHeader: SNR,fecCorrected,fecUncorrected,BER,lockStatus");
+            CLIENT_LOG("HwTestTuneResult_telemetry: %d,%d,%d,%d,%s", atoi(SNR), atoi(fecCorrected), atoi(fecUncorrected), atoi(BER), lockStatus);
+
+            WA_INFO("saveTuneResults(): json saved to file successfully\n");
+        }
+        else
+        {
+            WA_ERROR("saveTuneResults(): json_dump_file() failed\n");
+            fclose(f);
+            goto end;
+        }
+
+        fclose(f);
+    }
+    else
+    {
+        WA_ERROR("saveTuneResults(): failed to create file\n");
+        goto end;
+    }
+    return 0;
+
+end:
+    CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_RESULTS_NOT_AVAILABLE\n");
+    return -1;
+}
+
+static int saveTuneFailureMsg(const char *errString)
+{
+    FILE *f;
+
+    f = fopen(HWSELFTEST_TUNERESULTS_FILE, "wb+");
+    if (f)
+    {
+        if (strcmp(errString, ""))
+        {
+            fputs(errString, f);
+            WA_INFO("saveTuneFailureMsg(): Tune failure message written to file successfully\n");
+        }
+        else
+        {
+            WA_ERROR("saveTuneFailureMsg(): No data written into file\n");
+        }
+
+        fclose(f);
+    }
+    else
+    {
+        WA_ERROR("saveTuneFailureMsg(): failed to create file\n");
+    }
+
+    return 0;
+}
  /* End of doxygen group */
  /*! @} */

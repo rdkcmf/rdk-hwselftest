@@ -857,9 +857,10 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
                *pJsonInOut == NULL ? "null" : json_string_value(*pJsonInOut));
 
 #if WA_DEBUG
+        bool freqLocked = false;
         memset(tunerStatus, 0, sizeof(tunerStatus));
         WA_DIAG_TUNER_TunerStatus_t tunerStatus[DEBUG_TUNERS];
-        WA_DIAG_TUNER_GetTunerStatuses(tunerStatus, DEBUG_TUNERS, &numLocked);
+        WA_DIAG_TUNER_GetTunerStatuses(tunerStatus, DEBUG_TUNERS, &numLocked, &freqLocked, "");
 #endif
     }
 #ifdef USE_WORKAROUND_RETRY_TUNING

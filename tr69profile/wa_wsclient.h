@@ -40,6 +40,14 @@ namespace hwst { class Sched; }
 
 namespace hwselftest {
 
+typedef enum
+{
+    NO_TUNE,
+    SRCID,
+    VCN,
+    FREQ_PROG
+} tune_type_t;
+
 class wa_wsclient final {
 public:
     static wa_wsclient *instance();
@@ -48,6 +56,7 @@ public:
     bool enable(bool toggle = true);
 
     bool execute_tests(bool cli = false);
+    bool execute_tune_test(bool cli = false, const std::string& param = "");
     bool get_results(std::string& results);
     bool get_capabilities(std::string& caps);
     bool wait();
@@ -56,6 +65,8 @@ public:
     bool set_periodic_frequency(bool *invalidParam, unsigned int frequency);
     bool set_periodic_cpu_threshold(bool *invalidParam, unsigned int threshold);
     bool set_periodic_dram_threshold(unsigned int threshold);
+    bool set_tune_type(unsigned int tune_type);
+    bool get_tune_type(unsigned int* tune_type);
     void log(const std::string& message) const;
 
 private:

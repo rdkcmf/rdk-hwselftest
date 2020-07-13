@@ -26,7 +26,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-
+#include <string.h>
+#include <stdlib.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -79,6 +80,9 @@ const char *HWST_CPU_THRESHOLD_NAME = "HWST_CPU_THRESHOLD";
 
 const int DEFAULT_DRAM_THRESHOLD = 50; // MB
 const char *HWST_DRAM_THRESHOLD_NAME = "HWST_DRAM_THRESHOLD";
+
+const char *HWSELFTEST_TUNE_TYPE_FILE = "/tmp/.hwselftest_tunetype";
+const char *HWSELFTEST_TUNE_RESULTS_FILE = "/opt/logs/hwselftest.tuneresults";
 
 } // local namespeace
 
@@ -274,6 +278,43 @@ bool wa_wsclient::execute_tests(bool cli)
     }
     else
         WA_DBG("wa_wsclient::execute_tests(): scheduler not avaialable\n");
+
+    return retval;
+}
+
+/**
+ * @brief This function is used to start only tuner test by issuing request to agent
+ * @param[in] cli True if executed by CLI, False if by TR69 client.
+ * @return Status of the operation
+ * @retval true   Operation succeeded
+ * @retval false  Operation failed
+ */
+bool wa_wsclient::execute_tune_test(bool cli, const std::string &param)
+{
+    int retval = false;
+
+    if (_hwst_scheduler)
+    {
+        WA_DBG("wa_wsclient::execute_tune_test(): attempting to execute tune test...\n");
+        int status = _hwst_scheduler->issue({"tuner_status"}, (cli? HWSELFTEST_WSCLIENT_PERIODIC : HWSELFTEST_WSCLIENT_REMOTE), param);
+
+        switch(status)
+        {
+        case -1:
+        default:
+            WA_DBG("wa_wsclient::execute_tune_test(): scheduler failed (%i)\n", status);
+            break;
+        case 1:
+            WA_DBG("wa_wsclient::execute_tune_test(): scheduler busy\n");
+            break;
+        case 0:
+            WA_DBG("wa_wsclient::execute_tune_test(): successfully scheduled tune test\n");
+            retval = true;
+            break;
+        }
+    }
+    else
+        WA_DBG("wa_wsclient::execute_tune_test(): scheduler not avaialable\n");
 
     return retval;
 }
@@ -479,8 +520,95 @@ bool wa_wsclient::set_periodic_dram_threshold(unsigned int threshold)
     }
     else
         WA_DBG("wa_wsclient::set_periodic_dram_threshold(): failed to apply new periodic run dram threshold\n");
- 
+
     return retval;
+}
+
+/**
+ * @brief This function is used to set tune type for hwselftest tuner test.
+ * @return Status of the operation
+ * @retval true   Operation succeeded
+ * @retval false  Operation failed
+ */
+bool wa_wsclient::set_tune_type(unsigned int tune_type)
+{
+    bool result = true;
+    size_t byte;
+    std::string buf;
+
+    if (tune_type <= FREQ_PROG)
+    {
+        int fd = open(HWSELFTEST_TUNE_TYPE_FILE, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IROTH);
+        if (fd != -1)
+        {
+            buf = std::to_string(tune_type);
+            byte = buf.length();
+            write(fd, buf.c_str(), byte);
+            result = (close(fd) == 0);
+
+            /* Delete tune results file once tune type is received */
+            struct stat buffer;
+            if (stat(HWSELFTEST_TUNE_RESULTS_FILE, &buffer) == 0)
+            {
+                remove(HWSELFTEST_TUNE_RESULTS_FILE);
+            }
+        }
+        else
+            result = false; // failed to create the file
+    }
+    else
+    {
+        struct stat buffer;
+        if (stat(HWSELFTEST_TUNE_TYPE_FILE, &buffer) == 0)
+        {
+            remove(HWSELFTEST_TUNE_TYPE_FILE);
+        }
+    }
+
+    if (result)
+    {
+        if (tune_type <= FREQ_PROG)
+            log("Tuner test enabled.\n");
+        else
+            log("Tuner test disabled.\n");
+    }
+
+    return result;
+}
+
+/**
+ * @brief This function is used to get tune type for hwselftest tuner test.
+ * @return Status of the operation
+ * @retval true   Operation succeeded
+ * @retval false  Operation failed
+ */
+bool wa_wsclient::get_tune_type(unsigned int* tune_type)
+{
+    bool result = true;
+    char buf[5];
+    size_t byte;
+    ssize_t byte_read;
+
+    int fd = open(HWSELFTEST_TUNE_TYPE_FILE, O_RDONLY, S_IRUSR | S_IRGRP | S_IROTH);
+    if (fd != -1)
+    {
+        byte = sizeof(buf);
+        byte_read = read(fd, buf, byte);
+        if (byte_read > 0)
+        {
+            *tune_type = atoi(buf);
+        }
+        result = (close(fd) == 0);
+    }
+    else
+        result = false; // failed to read the file
+
+    if (*tune_type > 0 && *tune_type <= FREQ_PROG)
+        log("Tuner test enabled.\n");
+    else
+        log("Tuner test disabled.\n");
+
+    return result;
 }
 
 void wa_wsclient::log(const std::string& message) const

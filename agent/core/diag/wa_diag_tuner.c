@@ -124,6 +124,8 @@
 #define TUNE_RESPONSE_TIMEOUT 14000 /* in [ms] */
 #define REQUEST_PATTERN "/vldms/tuner?ocap_locator=ocap://tune://frequency=%u_modulation=%u_pgmno=%u"
 #define REQUEST_MAX_LENGTH 256
+#define QAM_CH_PWR_ERROR -25.0
+#define QAM_CH_PWR_ZERO 0.0
 
 #ifdef USE_RMF
 #define MAX_REQUEST 512
@@ -167,6 +169,7 @@ typedef struct TuneSession_tag
 
 static unsigned int getNumberOfTuners(json_t * config);
 static json_t * getTuneUrls();
+static int checkQamConnection(unsigned int tunersCount, json_t **pJsonInOut);
 
 static bool startTuneSessions(void * instanceHandle,
         TuneSession_t * sessions,
@@ -298,6 +301,82 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
      // assume that there are no tuners to be tested.
      return 0;
  }
+
+static int checkQamConnection(unsigned int tunersCount, json_t **pJsonInOut)
+{
+    char oid[BUFFER_LEN];
+    float avg_ChPwr = 0.0;
+
+    WA_ENTER("Enter func=%s line=%d tunersCount = %d\n", __FUNCTION__, __LINE__, tunersCount);
+
+    for (int tunerIndex = 0; tunerIndex < tunersCount; tunerIndex++)
+    {
+        if(WA_OSA_TaskCheckQuit())
+        {
+            WA_DBG("checkQamConnection(): test cancelled\n");
+            return WA_DIAG_ERRCODE_CANCELLED;
+        }
+
+        /* Get QAM tuner state */
+        int k = snprintf(oid, sizeof(oid), "%s.%i", OID_TUNER_STATE, tunerIndex + 1);
+        if ((k >= sizeof(oid)) || (k < 0))
+        {
+            WA_ERROR("checkQamConnection(): Unable to generate OID for QAM tuner.\n");
+            return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+        }
+
+        WA_UTILS_SNMP_Resp_t tunerResp;
+        tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+        tunerResp.data.l = 0;
+        if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ESTB, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
+        {
+            WA_ERROR("checkQamConnection(): Tuner %i failed to get QAM status\n", (int)tunerIndex);
+            return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+        }
+
+        WA_INFO("checkQamConnection(): Tuner %i QAM state %i\n", (int)tunerIndex, (int)tunerResp.data.l);
+
+        if(tunerResp.data.l == TUNER_LOCKED) // if one tuner is locked, we assume that tuners are fine and returning success
+        {
+           WA_INFO("checkQamConnection(): Tuners locked\n");
+           *pJsonInOut = json_string("Tuners good.");
+           return WA_DIAG_ERRCODE_SUCCESS;
+        }
+
+       /* Get QAM Down Stream Signal */
+       k = snprintf(oid, sizeof(oid), "%s.%i", OID_TUNER_POWER, tunerIndex + 1);
+       if ((k >= sizeof(oid)) || (k < 0))
+       {
+           WA_ERROR("checkQamConnection(): Unable to generate OID for QAM tuner.\n");
+           return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+       }
+
+       tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+       tunerResp.data.l = 0;
+       if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ESTB, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
+       {
+           WA_ERROR("checkQamConnection(): Tuner %i failed to get QAM Down Stream Signal\n", (int )tunerIndex);
+           return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+       }
+
+       WA_INFO("checkQamConnection(): Tuner %i QAM_ChPwr %i\n", (int)tunerIndex, (int)tunerResp.data.l);
+       avg_ChPwr = avg_ChPwr + (float) tunerResp.data.l;
+   }
+
+   avg_ChPwr = avg_ChPwr / tunersCount;
+   avg_ChPwr = avg_ChPwr / 10; //TenthdBmV
+   WA_DBG("func=%s line=%d, avg_ChPwr = %f\n", __FUNCTION__, __LINE__, avg_ChPwr);
+
+   if (avg_ChPwr == QAM_CH_PWR_ZERO || avg_ChPwr < QAM_CH_PWR_ERROR)
+   {
+       WA_DBG("func=%s line=%d, Tuners not locked. Check cable; avg_ChPwr = %f\n", __FUNCTION__, __LINE__, avg_ChPwr);
+       *pJsonInOut = json_string("No tuners locked. Check cable");
+       return WA_DIAG_ERRCODE_TUNER_NO_LOCK;
+   }
+
+    WA_RETURN(" Exit func=%s line=%d\n", __FUNCTION__, __LINE__);
+    return WA_DIAG_ERRCODE_FAILURE;
+}
 
 #ifdef USE_RMF
 /* About:
@@ -457,7 +536,6 @@ static uint32_t FindNonexistentIf(uint32_t lastIP);
      }
      return true;
  }
-
 
 #if !WA_DEBUG
 #define dump(x, y)
@@ -1342,7 +1420,7 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
 
      config = ((WA_DIAG_proceduresConfig_t*)initHandle)->config;
 
-     const unsigned int tunersCount = getNumberOfTuners(config);
+     unsigned int tunersCount = getNumberOfTuners(config);
 
      if (tunersCount <= 0)
      {
@@ -1351,7 +1429,17 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
          return WA_DIAG_ERRCODE_NOT_APPLICABLE;
      }
 
+     /* To check if the cable is connected and if the tuners are locked */
+     result = checkQamConnection(tunersCount, pJsonInOut);
+     if (result != WA_DIAG_ERRCODE_FAILURE)
+     {
+         return result;
+     }
+
+     tunersCount = 1; // Testing only one tuner is enough for tuner diagnostics
      tuneUrls = getTuneUrls();
+
+     WA_DBG("WA_DIAG_TUNER_status(): Tuning to url (tuner count: %i)\n", (int)tunersCount);
 
      if(WA_OSA_TaskCheckQuit())
      {

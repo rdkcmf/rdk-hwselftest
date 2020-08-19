@@ -318,7 +318,11 @@ function readPreviousResults(data) {
         return;
     }
     var endTimeVal = Object.values(data)[index];
-    document.getElementById('timestamp').innerHTML = endTimeVal + " UTC";
+    var formatEndTime = endTimeVal.replace(/-/g, "/") + " UTC";
+    var t_msec = Date.parse(formatEndTime);
+    var local_time = new Date(t_msec);
+    var dtime = timeStampUI(local_time);
+    document.getElementById('timestamp').innerHTML = dtime + " " + timeZone() ;
     //dbgWrite("readPreviousResults: end_time index = " + index + ", value = " + endTimeVal);
 
     buildOperationGroup(diagGroups);
@@ -450,6 +454,9 @@ function tableCreateInit(data) {
 
     data["Model"] = data["Vendor"] + " " + data["Model"];
 
+    var dataSerial = data["Serial"];
+    data["Serial"] = data["Serial"] + "\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0 MAC \xa0\xa0" + data["MAC"];
+
     for (var i = 0; i < Object.keys(data).length; i++) {
         switch(Object.keys(data)[i]) {
         case "Model":
@@ -480,6 +487,8 @@ function tableCreateInit(data) {
     }
     tbl.appendChild(tbdy);
     store.appendChild(tbl);
+
+    data["Serial"] = dataSerial;
 }
 
 function tableCreateSystemInfo(data) {
@@ -1235,6 +1244,22 @@ function timeStamp() {
            ("0" + d.getUTCSeconds()).slice(-2);
 }
 
+function timeZone() {
+    var d = new Date();
+    var dt = d.toString();
+    var zone = (dt.substring(dt.lastIndexOf("(") + 1, dt.lastIndexOf(")")));
+    return zone;
+}
+
+function timeStampUI(d) {
+    return d.getFullYear() + "-" +
+           ("0" + (d.getMonth() + 1)).slice(-2) + "-" +
+           ("0" + d.getDate()).slice(-2) + " " +
+           ("0" + d.getHours()).slice(-2) + ":" +
+           ("0" + d.getMinutes()).slice(-2) + ":" +
+           ("0" + d.getSeconds()).slice(-2) ;
+}
+
 function setFinal(showPrevious) {
     var result = results.passed;
     var textResult = "PASSED";
@@ -1258,7 +1283,9 @@ function setFinal(showPrevious) {
             ds.notify("LOG", { message: "Previous results overall status:" + textResult});
         } else {
             var timestamp = timeStamp();
-            document.getElementById('timestamp').innerHTML = timestamp + " UTC";
+            var dt = new Date();
+            var timestampUI = timeStampUI(dt);
+            document.getElementById('timestamp').innerHTML = timestampUI + " " + timeZone();
             ds.notify("LOG", { rawmessage: "HWST_LOG |" + timestamp + " Test execution completed:" + textResult});
             ds.notify("TESTRUN", { state: "finish" } );
             telemetryLog();

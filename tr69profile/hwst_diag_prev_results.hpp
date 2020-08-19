@@ -37,6 +37,7 @@ public:
 
 private:
     std::string getPresentationName() const override;
+    bool localTimeZone() const;
 };
 
 } // namespace hwst

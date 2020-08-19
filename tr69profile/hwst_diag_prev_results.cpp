@@ -20,6 +20,7 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <string.h>
 
 #include "hwst_diag_prev_results.hpp"
 #include "hwst_comm.hpp"
@@ -29,6 +30,11 @@
 #include "hwst_scenario_all.hpp"
 
 #include "jansson.h"
+#include "sysMgr.h"
+#include "xdiscovery.h"
+#include "libIBus.h"
+#include "libIARMCore.h"
+#include "hostIf_tr69ReqHandler.h"
 
 //#define HWST_DEBUG 1
 #ifdef HWST_DEBUG
@@ -38,6 +44,10 @@
 #define HWST_DBG(str, ...) ((void)0)
 #endif
 #define DEFAULT_RESULT_VALUE -200
+#define BUFFER_LENGTH      512
+#define MESSAGE_LENGTH     8192 * 4 /* On reference from xdiscovery.log which shows data length can be more than 5000 */ /* Increased the value 4 times because of DELIA-38611 */
+
+std::string timeZoneInfo;
 
 namespace hwst {
 
@@ -94,7 +104,16 @@ std::string DiagPrevResults::getStrStatus() const
             goto end;
         }
 
-        results = start_time;
+        if (localTimeZone())
+        {
+            results = timeZoneInfo + "\n";
+        }
+        else
+        {
+            results = std::string("Timezone: NA") + "\n";
+        }
+
+        results += start_time;
         results += " Test execution start, " + std::string(client) + "\n";
 
         if (!json_unpack(jroot, "{s:o}", "results", &jresults) && jresults)
@@ -140,6 +159,150 @@ end:
         HWST_DBG("json: root unpack error");
 
     return (status? results : "");
+}
+
+bool DiagPrevResults::localTimeZone() const
+{
+    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
+    int is_connected = 0;
+
+    IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t *param = NULL;
+    char upnpResults[MESSAGE_LENGTH+1];
+    json_error_t jerror;
+    json_t *json = NULL;
+    char param_TZ[BUFFER_LENGTH];
+
+    iarm_result = IARM_Bus_IsConnected(_IARM_XUPNP_NAME, &is_connected);
+    if (iarm_result != IARM_RESULT_SUCCESS)
+    {
+        HWST_DBG("localTimeZone(): IARM_Bus_IsConnected('%s') failed\n", _IARM_XUPNP_NAME);
+        return false;
+    }
+
+    if (!is_connected)
+    {
+        HWST_DBG("localTimeZone(): XUPNP not available\n");
+        return false;
+    }
+
+    iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t) + MESSAGE_LENGTH + 1, (void**)&param);
+    if (iarm_result != IARM_RESULT_SUCCESS)
+    {
+        HWST_DBG("localTimeZone(): IARM_Malloc() failed\n");
+        return false;
+    }
+
+    if (param)
+    {
+        memset(param, 0, sizeof(*param));
+        param->bufLength = MESSAGE_LENGTH;
+
+        iarm_result = IARM_Bus_Call(_IARM_XUPNP_NAME, IARM_BUS_XUPNP_API_GetXUPNPDeviceInfo, (void *)param, sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t) + MESSAGE_LENGTH + 1);
+
+        if (iarm_result != IARM_RESULT_SUCCESS)
+        {
+            HWST_DBG("localTimeZone(): IARM_Bus_Call() returned %i\n", iarm_result);
+            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+            return false;
+        }
+
+        HWST_DBG("localTimeZone(): IARM_RESULT_SUCCESS\n");
+        memcpy(upnpResults, ((char *)param + sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t)), param->bufLength);
+        upnpResults[param->bufLength] = '\0';
+
+        json = json_loadb(upnpResults, MESSAGE_LENGTH, JSON_DISABLE_EOF_CHECK, &jerror);
+        if (!json)
+        {
+            HWST_DBG("localTimeZone(): json_loads() error\n");
+            json_decref(json);
+            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+            return false;
+        }
+
+        json_t *jarr = json_object_get(json, "xmediagateways");
+        if (!jarr)
+        {
+            HWST_DBG("localTimeZone(): Couldn't get the array of xmediagateways\n");
+            json_decref(jarr);
+            json_decref(json);
+            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+            return false;
+        }
+
+        for (size_t i = 0; i < json_array_size(jarr) && !strcmp(param_TZ,""); i++)
+        {
+            json_t *jval = json_array_get(jarr, i);
+            if (!jval)
+            {
+                HWST_DBG("localTimeZone(): Not a json object in array for %i element\n", i);
+                json_decref(jval);
+                json_decref(jarr);
+                json_decref(json);
+                IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+                return false;
+            }
+
+            json_t *jparam_timezone = json_object_get(jval, "timezone");
+
+            /* If timezone is not empty */
+            if (jparam_timezone)
+            {
+                json_t *jparam_rawoffset = json_object_get(jval, "rawoffset");
+
+                /* If rawoffset is not empty */
+                if (jparam_rawoffset)
+                {
+                    long rawOffset = 0;
+                    long dstOffset = 0;
+                    rawOffset = atoi(json_string_value(jparam_rawoffset));
+                    json_t *jparam_dstNeed = json_object_get(jval, "usesdaylighttime");
+
+                    /* If DST is applicable */
+                    if (jparam_dstNeed)
+                    {
+                        if (!strcmp(json_string_value(jparam_dstNeed), "yes"));
+                        {
+                            json_t *jparam_dstOffset = json_object_get(jval, "dstsavings");
+                            /* If DST offset is not empty */
+                            if (jparam_dstOffset)
+                            {
+                                dstOffset = atoi(json_string_value(jparam_dstOffset));
+                            }
+
+                            json_decref(jparam_dstOffset);
+                        }
+                    }
+
+                    json_decref(jparam_dstNeed);
+
+                    long offset_millisec = rawOffset + dstOffset;
+                    /* 3600000 milliseconds in an hour */
+                    long offset_hr = offset_millisec / 3600000;
+                    offset_millisec = offset_millisec - (3600000 * offset_hr);
+                    /* 60000 milliseconds in a minute */
+                    long offset_min = offset_millisec / 60000;
+
+                    if (offset_min != 0)
+                        sprintf(param_TZ, "%i:%i", offset_hr, offset_min);
+                    else
+                        sprintf(param_TZ, "%i", offset_hr);
+
+                    HWST_DBG("localTimeZone(): param_TZ = %s\n", param_TZ);
+                }
+
+                json_decref(jparam_rawoffset);
+            }
+
+            json_decref(jparam_timezone);
+        }
+    }
+
+    timeZoneInfo = "Timezone: UTC " + std::string(param_TZ);
+    HWST_DBG("localTimeZone(): timeZoneInfo = %s\n", timeZoneInfo);
+
+    IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+
+    return true;
 }
 
 } // namespace hwst

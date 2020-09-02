@@ -65,10 +65,13 @@
 #define EMMC_DEFAULT_MOUNT_PATH_STR     "/media/tsb"
 #define EMMC_DEFAULT_TEST_FILE_STR      "diagsys-test-file"
 #define EMMC_DEFAULT_TEST_FILE_SIZE     (512*1024)
-
+#ifdef HAVE_DIAG_FLASH_XIONE
+#define EMMC_SLC1_PARTITION             "/dev/mmcblk0p4"
+#else
+#define EMMC_SLC1_PARTITION             "/dev/mmcblk0gp"
+#endif
 #define TR69_EMMC_LIFE_ELAPSED_B        "Device.Services.STBService.1.Components.X_RDKCENTRAL-COM_eMMCFlash.LifeElapsedB"
 #define TR69_EMMC_LIFE_ELAPSED_A        "Device.Services.STBService.1.Components.X_RDKCENTRAL-COM_eMMCFlash.LifeElapsedA"
-#define EMMC_SLC1_PARTITION             "/dev/mmcblk0gp"
 #define EMMC_PATTERN_STR                "TSB_MOUNT_PATH="
 #define EMMC_MAX_DEVICE_LIFETIME        0x0A /* 90% - 100% device life time used */
 #define EMMC_ZERO_DEVICE_LIFETIME       0x0

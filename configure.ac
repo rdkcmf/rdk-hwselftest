@@ -176,6 +176,12 @@ AC_ARG_WITH([diag-flash-xi6],
         [echo "FLASH Xi6 test support is disabled"])
 AM_CONDITIONAL([HAVE_DIAG_FLASH_XI6], [test x$DIAG_FLASH_XI6_ENABLE = xtrue])
 
+AC_ARG_WITH([diag-flash-xione],
+        AS_HELP_STRING([--with-diag-flash-xione],[enable FLASH Xione test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_FLASH_XIONE" DIAG_FLASH_XIONE_ENABLE=true]),
+        [echo "FLASH Xione test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_FLASH_XIONE], [test x$DIAG_FLASH_XIONE_ENABLE = xtrue])
+
 AC_ARG_WITH([diag-hdmiout],
         AS_HELP_STRING([--with-diag-hdmiout],[enable HDMIOUT test (default is no)]),
         AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_HDMIOUT" DIAG_HDMIOUT_ENABLE=true]),

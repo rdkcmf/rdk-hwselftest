@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fstream>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -72,10 +73,10 @@ const char *HWSELFTEST_RUNNER_SERVICE = "hwselftest-runner.service";
 
 const int EXECUTION_TIMEOUT = 180; // sec - should be less than MIN_PERIODIC_FREQUENCY
 const int MIN_PERIODIC_FREQUENCY = 1; // minutes
-const int DEFAULT_PERIODIC_FREQUENCY = 240; // minutes
+const int DEFAULT_PERIODIC_FREQUENCY = 400; // minutes
 const char *HWST_PERIODIC_FREQ_NAME = "HWST_PERIODIC_FREQ";
 
-const int DEFAULT_CPU_THRESHOLD = 75; // percent
+const int DEFAULT_CPU_THRESHOLD = 80; // percent
 const char *HWST_CPU_THRESHOLD_NAME = "HWST_CPU_THRESHOLD";
 
 const int DEFAULT_DRAM_THRESHOLD = 50; // MB
@@ -83,6 +84,10 @@ const char *HWST_DRAM_THRESHOLD_NAME = "HWST_DRAM_THRESHOLD";
 
 const char *HWSELFTEST_TUNE_TYPE_FILE = "/tmp/.hwselftest_tunetype";
 const char *HWSELFTEST_TUNE_RESULTS_FILE = "/opt/logs/hwselftest.tuneresults";
+
+const int BOOT_WAIT_MINUTES = 30; // minutes
+const int BOOT_WAIT_TIME = 1800; // seconds i.e 30 minutes
+const char *UPTIME_FILE = "/proc/uptime";
 
 } // local namespeace
 
@@ -105,10 +110,10 @@ wa_wsclient::wa_wsclient():
     if (_settings.get(HWST_PERIODIC_FREQ_NAME).empty() || (std::stoi(_settings.get(HWST_PERIODIC_FREQ_NAME)) < MIN_PERIODIC_FREQUENCY))
         _settings.set(HWST_PERIODIC_FREQ_NAME, DEFAULT_PERIODIC_FREQUENCY);
 
-    if (_settings.get(HWST_CPU_THRESHOLD_NAME).empty() || (std::stoi(_settings.get(HWST_CPU_THRESHOLD_NAME)) > 100))
+    if (_settings.get(HWST_CPU_THRESHOLD_NAME).empty() || (std::stoi(_settings.get(HWST_CPU_THRESHOLD_NAME)) > 100) || (std::stoi(_settings.get(HWST_CPU_THRESHOLD_NAME)) <= 0))
         _settings.set(HWST_CPU_THRESHOLD_NAME, DEFAULT_CPU_THRESHOLD);
 
-    if (_settings.get(HWST_DRAM_THRESHOLD_NAME).empty())
+    if (_settings.get(HWST_DRAM_THRESHOLD_NAME).empty() || (std::stoi(_settings.get(HWST_DRAM_THRESHOLD_NAME)) <= 0))
         _settings.set(HWST_DRAM_THRESHOLD_NAME, DEFAULT_DRAM_THRESHOLD);
 
     WA_DBG("wa_wsclient::wa_wsclient(): cpu threshold: %s%%\n", _settings.get(HWST_CPU_THRESHOLD_NAME).c_str());
@@ -374,8 +379,10 @@ bool wa_wsclient::enable_periodic(bool enable, bool destroy, bool quiet)
 
         if (_runner_timer.exists() != 0)
         {
-            _runner_timer.set_on_unit_active_sec(DEFAULT_PERIODIC_FREQUENCY);
-            _settings.set(HWST_PERIODIC_FREQ_NAME, DEFAULT_PERIODIC_FREQUENCY);
+            _runner_timer.set_on_boot_sec(BOOT_WAIT_MINUTES);
+            if (_settings.get(HWST_PERIODIC_FREQ_NAME).empty() || (std::stoi(_settings.get(HWST_PERIODIC_FREQ_NAME)) < MIN_PERIODIC_FREQUENCY))
+                _settings.set(HWST_PERIODIC_FREQ_NAME, DEFAULT_PERIODIC_FREQUENCY);
+            _runner_timer.set_on_unit_active_sec(std::stoi(_settings.get(HWST_PERIODIC_FREQ_NAME)));
 
             status = _runner_timer.create();
             if (status != 0)
@@ -386,24 +393,46 @@ bool wa_wsclient::enable_periodic(bool enable, bool destroy, bool quiet)
         {
             if (_runner_timer.start() == 0)
             {
-                if (_runner_service.start() == 0)
+                if (!quiet)
                 {
-                    WA_DBG("wa_wsclient::enable_periodic(): periodic run enabled\n");
+                    log("Periodic run frequency is " + _settings.get(HWST_PERIODIC_FREQ_NAME) + " min.\n");
+                    log("Periodic run CPU threshold is " + _settings.get(HWST_CPU_THRESHOLD_NAME) + " %.\n");
+                    log("Periodic run DRAM threshold is " + _settings.get(HWST_DRAM_THRESHOLD_NAME) + " MB.\n");
+                }
 
+                uint32_t uptime;
+                std::string tmp;
+                std::ifstream us(UPTIME_FILE);
+                getline(us, tmp);
+                uptime = atoi(tmp.c_str());
+
+                if (uptime < BOOT_WAIT_TIME)
+                {
                     if (!quiet)
                     {
-                        log("Periodic run enabled.\n");
-                        log("Periodic run frequency is " + _settings.get(HWST_PERIODIC_FREQ_NAME) + " min.\n");
-                        log("Periodic run CPU threshold is " + _settings.get(HWST_CPU_THRESHOLD_NAME) + " %.\n");
-                        log("Periodic run DRAM threshold is " + _settings.get(HWST_DRAM_THRESHOLD_NAME) + " MB.\n");
+                        log("Test execution Delayed, will run after 30 mins of Boot-up time.\n");
                     }
 
                     retval = true;
                 }
                 else
                 {
-                    _runner_timer.stop();
-                    WA_DBG("wa_wsclient::enable_periodic(): can't start runner service\n");
+                    if (_runner_service.start() == 0)
+                    {
+                        WA_DBG("wa_wsclient::enable_periodic(): periodic run enabled\n");
+
+                        if (!quiet)
+                        {
+                            log("Periodic run enabled.\n");
+                        }
+
+                        retval = true;
+                    }
+                    else
+                    {
+                        _runner_timer.stop();
+                        WA_DBG("wa_wsclient::enable_periodic(): can't start runner service\n");
+                    }
                 }
             }
             else
@@ -436,11 +465,12 @@ bool wa_wsclient::set_periodic_frequency(bool *invalidParam, unsigned int freque
 {
     int retval = false;
 
-    if (frequency == 0)
+    if (frequency <= 0)
         frequency = DEFAULT_PERIODIC_FREQUENCY;
 
     if (frequency >= MIN_PERIODIC_FREQUENCY)
     {
+        _runner_timer.set_on_boot_sec(BOOT_WAIT_MINUTES);
         _runner_timer.set_on_unit_active_sec(frequency);
         _settings.set(HWST_PERIODIC_FREQ_NAME, frequency);
 
@@ -482,6 +512,9 @@ bool wa_wsclient::set_periodic_cpu_threshold(bool *invalidParam, unsigned int th
 {
     int retval = false;
 
+    if (threshold <= 0)
+        threshold = DEFAULT_CPU_THRESHOLD;
+
     if (threshold <= 100)
     {
         retval = _settings.set(HWST_CPU_THRESHOLD_NAME, threshold);
@@ -511,6 +544,9 @@ bool wa_wsclient::set_periodic_cpu_threshold(bool *invalidParam, unsigned int th
 bool wa_wsclient::set_periodic_dram_threshold(unsigned int threshold)
 {
     int retval = false;
+
+    if (threshold <= 0)
+        threshold = DEFAULT_DRAM_THRESHOLD;
 
     retval = _settings.set(HWST_DRAM_THRESHOLD_NAME, threshold);
     if (retval)

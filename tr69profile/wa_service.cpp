@@ -52,6 +52,9 @@ int wa_service::create() const
         {
             fprintf(f, "\n[Timer]\n");
 
+            if (_on_boot_sec != -1)
+                fprintf(f, "OnBootSec=%im\n", _on_boot_sec);
+
             if (_on_active_sec != -1)
                 fprintf(f, "OnActiveSec=%im\n", _on_active_sec);
 

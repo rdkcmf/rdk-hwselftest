@@ -21,7 +21,7 @@
 # Divide by number of cores to get avg per cpu load (normalize to 100%)
 #
 CPU_POWER_CONSUMED=0
-CPU_POWER_CONSUMED_MAX=75
+CPU_POWER_CONSUMED_MAX=80
 
 . /usr/bin/hwst_log.sh
 

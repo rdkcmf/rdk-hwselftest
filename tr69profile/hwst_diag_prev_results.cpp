@@ -170,7 +170,7 @@ bool DiagPrevResults::localTimeZone() const
     char upnpResults[MESSAGE_LENGTH+1];
     json_error_t jerror;
     json_t *json = NULL;
-    char param_TZ[BUFFER_LENGTH];
+    char param_TZ[BUFFER_LENGTH] = {'\0'};
 
     iarm_result = IARM_Bus_IsConnected(_IARM_XUPNP_NAME, &is_connected);
     if (iarm_result != IARM_RESULT_SUCCESS)
@@ -283,9 +283,9 @@ bool DiagPrevResults::localTimeZone() const
                     long offset_min = offset_millisec / 60000;
 
                     if (offset_min != 0)
-                        sprintf(param_TZ, "%i:%i", offset_hr, offset_min);
+                        snprintf(param_TZ, BUFFER_LENGTH, "%i:%i", offset_hr, offset_min);
                     else
-                        sprintf(param_TZ, "%i", offset_hr);
+                        snprintf(param_TZ, BUFFER_LENGTH, "%i", offset_hr);
 
                     HWST_DBG("localTimeZone(): param_TZ = %s\n", param_TZ);
                 }
@@ -296,6 +296,9 @@ bool DiagPrevResults::localTimeZone() const
             json_decref(jparam_timezone);
         }
     }
+
+    if (!strcmp(param_TZ, ""))
+        return false;
 
     timeZoneInfo = "Timezone: UTC " + std::string(param_TZ);
     HWST_DBG("localTimeZone(): timeZoneInfo = %s\n", timeZoneInfo);

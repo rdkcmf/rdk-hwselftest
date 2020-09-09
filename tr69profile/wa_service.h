@@ -35,6 +35,7 @@ class wa_service final {
 public:
     wa_service(const std::string& path, const std::string& name)
         : _name(name),
+          _on_boot_sec(-1),
           _on_active_sec(-1),
           _on_unit_active_sec(-1),
           _on_unit_inactive_sec(-1),
@@ -46,6 +47,7 @@ public:
 
     void set_description(const std::string &description) { _description = description; }
     void set_unit(const std::string &unit) { _unit = unit; }
+    void set_on_boot_sec(int minutes) { _on_boot_sec = minutes; }
     void set_on_active_sec(int minutes) { _on_active_sec = minutes; }
     void set_on_unit_active_sec(int minutes) { _on_unit_active_sec = minutes; }
     void set_on_unit_inactive_sec(int minutes) { _on_unit_inactive_sec = minutes; }
@@ -64,6 +66,7 @@ private:
     std::string _name;
     std::string _unit;
     std::string _description;
+    int _on_boot_sec;
     int _on_active_sec;
     int _on_unit_active_sec;
     int _on_unit_inactive_sec;

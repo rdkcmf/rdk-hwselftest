@@ -64,15 +64,16 @@ using namespace hwselftest;
  * LOCAL FUNCTION PROTOTYPES
  *****************************************************************************/
 static bool selftest_execute(wa_wsclient *pInst);
+static bool selftest_enable_ptr(wa_wsclient *pInst, const char* freq, const char* cpu, const char* dram);
 #if WA_DEBUG
 static bool selftest_results(wa_wsclient *pInst, char **out_results);
 static bool selftest_capabilities(wa_wsclient *pInst, char **out_capabilities);
+#endif /* WA_DEBUG */
 static bool selftest_enable(wa_wsclient *pInst, bool do_enable);
 static bool selftest_periodic_enable(wa_wsclient *pInst, bool do_enable);
 static bool selftest_periodic_frequency(wa_wsclient *pInst, const char *frequency);
 static bool selftest_periodic_cpu_threshold(wa_wsclient *pInst, const char *threshold);
 static bool selftest_periodic_dram_threshold(wa_wsclient *pInst, const char *threshold);
-#endif /* WA_DEBUG */
 
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
@@ -87,7 +88,8 @@ int main(int argc, char * const argv[])
 {
     enum {
         CMD_NONE,
-        CMD_EXECUTE
+        CMD_EXECUTE,
+        CMD_ENABLE_PTR // DELIA-42670: Added for a separate argument to not to club PTR set operations with existing code and leave existing logic untouched
 #if WA_DEBUG
         ,
         CMD_ENABLE,
@@ -107,6 +109,9 @@ int main(int argc, char * const argv[])
     bool status = true;
     void *wal_handle;
     void *rdkloggers_handle;
+    const char *freq = NULL;
+    const char *cpu = NULL;
+    const char *dram = NULL;
 
 /* Invoke the Breakpad exception handler registration interface */
     breakpad_ExceptionHandler();
@@ -154,6 +159,17 @@ int main(int argc, char * const argv[])
 
         else if (!strcasecmp(argv[i], "execute"))
             cmd = CMD_EXECUTE;
+
+        /* DELIA-42670: 'enable-ptr' is called from hwst_init.sh with other required arguments for PTR set operation */
+        /* Works correctly only with the same order and number of arguments passed */
+        /* Usage: '/usr/bin/hwselftestcli enable-ptr <FREQ> <CPU> <DRAM>' */
+        else if (!strcasecmp(argv[i], "enable-ptr"))
+        {
+            cmd = CMD_ENABLE_PTR;
+            freq = argv[++i];
+            cpu = argv[++i];
+            dram = argv[++i];
+        }
 
 #if WA_DEBUG
         else if (!strcasecmp(argv[i], "enable"))
@@ -214,6 +230,10 @@ int main(int argc, char * const argv[])
     {
     case CMD_EXECUTE:
         status = selftest_execute(pInst);
+        break;
+
+    case CMD_ENABLE_PTR:
+        status = selftest_enable_ptr(pInst, freq, cpu, dram);
         break;
 
 #if WA_DEBUG
@@ -305,6 +325,27 @@ static bool selftest_execute(wa_wsclient *pInst)
     return status;
 }
 
+static bool selftest_enable_ptr(wa_wsclient *pInst, const char* freq, const char* cpu, const char* dram)
+{
+    if (!selftest_enable(pInst, true))
+    {
+        return false;
+    }
+
+    selftest_periodic_frequency(pInst, freq);
+    selftest_periodic_cpu_threshold(pInst, cpu);
+    selftest_periodic_dram_threshold(pInst, dram);
+
+    if (!selftest_periodic_enable(pInst, true))
+    {
+        return false;
+    }
+
+    cliprintf("Enabled PTR with freq=%s, cpu=%s, dram=%s\n", freq, cpu, dram);
+
+    return true;
+}
+
 #if WA_DEBUG
 static bool selftest_results(wa_wsclient *pInst, char **out_results)
 {
@@ -374,6 +415,7 @@ static bool selftest_capabilities(wa_wsclient *pInst, char **out_caps)
     }
     return status;
 }
+#endif /* WA_DEBUG */
 
 static bool selftest_enable(wa_wsclient *pInst, bool do_enable)
 {
@@ -485,7 +527,6 @@ static bool selftest_periodic_dram_threshold(wa_wsclient *pInst, const char *thr
     }
     return status;
 }
-#endif /* WA_DEBUG */
 
 /* End of doxygen group */
 /*! @} */

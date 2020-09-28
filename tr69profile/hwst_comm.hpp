@@ -25,7 +25,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
-
+#include <functional>
 #include "jansson.h"
 
 namespace hwst {

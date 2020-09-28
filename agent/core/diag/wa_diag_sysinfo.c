@@ -80,6 +80,7 @@
 #define BUFFER_LENGTH      512
 #define MESSAGE_LENGTH     8192 * 4 /* On reference from xdiscovery.log which shows data length can be more than 5000 */ /* Increased the value 4 times because of DELIA-38611 */
 #define DEVNAME_LENGTH     15
+#define MAC_LENGTH         32
 #define ESTB_MAC           "estb_mac="
 #ifndef MEDIA_CLIENT
 #define STB_IP             "estb_ip="
@@ -475,7 +476,7 @@ static bool getUpnpResults()
     char upnpResults[MESSAGE_LENGTH+1];
     json_error_t jerror;
     json_t *json = NULL;
-    char tmp[BUFFER_LENGTH] = {'\0'};
+    char tmp[BUFFER_LENGTH - DEVNAME_LENGTH] = {'\0'};
 
     iarm_result = IARM_Bus_IsConnected(_IARM_XUPNP_NAME, &is_connected);
     if (iarm_result != IARM_RESULT_SUCCESS)
@@ -547,8 +548,8 @@ static bool getUpnpResults()
                 return false;
             }
 
-            char param_Sno[BUFFER_LENGTH];
-            char param_devName[BUFFER_LENGTH];
+            char param_Sno[MAC_LENGTH];
+            char param_devName[DEVNAME_LENGTH + 1];
             json_t *jparam_devName = json_object_get(jval, "deviceName");
 
             /* If deviceName is not empty */

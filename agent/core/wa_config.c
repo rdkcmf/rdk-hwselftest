@@ -324,10 +324,7 @@ static char *findConfigFile()
 
         if (bufSize >= newSize)
         {
-            strncpy(buf, dir, dirNameSize);
-            buf[dirNameSize] = '/';
-            strncpy(buf + dirNameSize + 1, CONFIG_FILE_NAME, baseNameSize);
-            buf[dirNameSize + 1 + baseNameSize] = 0;
+            snprintf(buf, bufSize, "%s/%s", dir,CONFIG_FILE_NAME);
         }
 
         printf("HWST_DBG |Looking for %s... ", buf);

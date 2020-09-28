@@ -158,7 +158,7 @@
 #define LOCK_LOOP_TIME 200 /* in [ms] but less than 1s */
 #define LOCK_LOOP_COUNT 15 /* gives 3s */
 #endif
-
+#define TMP_DATA_LEN 128
 /*****************************************************************************
  * LOCAL TYPES
  *****************************************************************************/
@@ -1168,8 +1168,8 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
     float QAM_ChPwr[numTuners], min_ChPwr = 0.0, avg_ChPwr = 0.0, max_ChPwr = 0.0;
     float QAM_SNR[numTuners], min_SNR = 0.0, avg_SNR = 0.0, max_SNR = 0.0;
 
-    char tempPWR[BUFFER_LEN] = {'\0'};
-    char tempSNR[BUFFER_LEN] = {'\0'};
+    char tempPWR[TMP_DATA_LEN] = {'\0'};
+    char tempSNR[TMP_DATA_LEN] = {'\0'};
 
     for (size_t tunerIndex = 0; tunerIndex < numTuners; tunerIndex++)
     {

@@ -33,7 +33,8 @@ class DiagRf4ce: public Diag
     enum {
         RF4CE_NO_RESPONSE = -112,
         NON_RF4CE_INPUT   = -117,
-        RF4CE_CTRLM_NO_RESPONSE  = -120
+        RF4CE_CTRLM_NO_RESPONSE  = -120,
+        RF4CE_CHIP_DISCONNECTED = -122
     };
 public:
     DiagRf4ce(const std::string &params_ = "");

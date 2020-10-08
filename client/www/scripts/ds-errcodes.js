@@ -55,6 +55,8 @@ var DIAG_ERRCODE = {
         RF4CE_CTRLM_NO_RESPONSE:        -120,
         HDD_MARGINAL_ATTRIBUTES_FOUND:  -121,
 
+        RF4CE_CHIP_DISCONNECTED:        -122, /* RF4CE Chip Failure code */
+
         /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
         DEFAULT_RESULT_VALUE:           -200
 };

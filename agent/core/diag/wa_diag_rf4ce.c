@@ -91,6 +91,7 @@ static int rf4ce_supported(void);
 static int checkRf4ceStatusViaRf4ceMgr();
 #endif
 #if defined(USE_CTRLMGR)
+static int checkRf4ceChipStatus();
 static int checkRf4ceStatusViaCtrlMgr();
 #endif
 #if defined(USE_RF4CEMGR) || defined(USE_CTRLMGR)
@@ -431,6 +432,96 @@ static int checkRf4ceStatusViaCtrlMgr()
 
     return result;
 }
+
+/* Return - 0 Connected, <0 - errors */
+static int checkRf4ceChipStatus()
+{
+    WA_ENTER("checkRf4ceChipStatus()\n");
+
+    int is_connected = 0;
+    int result = -1;
+    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
+
+    iarm_result = IARM_Bus_IsConnected(CTRLM_MAIN_IARM_BUS_NAME, &is_connected);
+    if (iarm_result != IARM_RESULT_SUCCESS || !is_connected)
+    {
+        if (checkOnlyPairing == 1)
+            WA_DBG("checkRf4ceChipStatus(): IARM_Bus_IsConnected('%s') failed. CtrlMgr not available.\n", CTRLM_MAIN_IARM_BUS_NAME);  
+        else
+            WA_ERROR("checkRf4ceChipStatus(): IARM_Bus_IsConnected('%s') failed. CtrlMgr not available.\n", CTRLM_MAIN_IARM_BUS_NAME);
+
+        return WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE;
+    }
+
+    /* Get Chip connection status */
+    ctrlm_main_iarm_call_chip_status_t rf4ce_chip_status;
+
+    memset((void*)&rf4ce_chip_status, 0, sizeof(rf4ce_chip_status));
+    rf4ce_chip_status.api_revision = CTRLM_MAIN_IARM_BUS_API_REVISION;
+    rf4ce_chip_status.network_id = 1;
+
+    WA_DBG("checkRf4ceChipStatus(): IARM_Bus_Call('%s', '%s', ...)\n", CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_CHIP_STATUS_GET);
+    iarm_result = IARM_Bus_Call(CTRLM_MAIN_IARM_BUS_NAME, CTRLM_MAIN_IARM_CALL_CHIP_STATUS_GET, (void*)&rf4ce_chip_status, sizeof(rf4ce_chip_status));
+
+    if (iarm_result == IARM_RESULT_SUCCESS)
+    {
+        if (rf4ce_chip_status.result == CTRLM_IARM_CALL_RESULT_SUCCESS)
+        {
+            unsigned char connection_status = rf4ce_chip_status.chip_connected;
+            WA_DBG("checkRf4ceChipStatus(): RF4CE chip connection status is(int) : %u\n", (unsigned int)connection_status);
+            if ((unsigned int)connection_status == 0) /* If disconnected */
+            {
+                if (checkOnlyPairing == 1)
+                    WA_DBG("checkRf4ceChipStatus(): RF4CE Chip is not connected\n");
+                else
+                    WA_ERROR("checkRf4ceChipStatus(): RF4CE Chip is not connected\n");
+
+                result = WA_DIAG_ERRCODE_RF4CE_CHIP_DISCONNECTED;
+            }
+            else
+            {
+                WA_DBG("checkRf4ceChipStatus(): RF4CE Chip is connected\n");
+                result = 0; /* Continue to next step if status is connected */
+            }
+        }
+        else if (rf4ce_chip_status.result == CTRLM_IARM_CALL_RESULT_ERROR_NOT_SUPPORTED)
+        {
+            WA_DBG("checkRf4ceChipStatus(): RF4CE Chip Connectivity is not supported on this platform\n");
+            result = 0; /* Continue to next step if status is not supported (Samsung XG2V2 and CiscoXID) */
+        }
+        else
+        {
+            if (checkOnlyPairing == 1)
+                WA_DBG("checkRf4ceChipStatus() CtrlMgr CHIP_STATUS_GET failed with result %d", (int)rf4ce_chip_status.result);
+            else
+                WA_ERROR("checkRf4ceChipStatus() CtrlMgr CHIP_STATUS_GET failed with result %d", (int)rf4ce_chip_status.result);
+
+            result = WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE;
+        }
+    }
+    else
+    {
+#if (defined(DEVICE_CISCOXID) || defined(DEVICE_SAMSUNGXG2V2))
+
+       WA_DBG("checkRf4ceChipStatus(): IARM_Bus_Call() failed with result %i\n", iarm_result);
+       result = 0;
+
+#else
+
+        if (checkOnlyPairing == 1)
+            WA_DBG("checkRf4ceChipStatus(): IARM_Bus_Call() failed with result %i, reported as RF4CE Chip Failed\n", iarm_result);
+        else
+            WA_ERROR("checkRf4ceChipStatus(): IARM_Bus_Call() failed with result %i, reported as RF4CE Chip Failed\n", iarm_result);
+
+        result = WA_DIAG_ERRCODE_RF4CE_CHIP_DISCONNECTED;
+
+#endif
+    }
+
+    WA_RETURN("checkRf4ceChipStatus(): return code: %d\n", result);
+
+    return result;
+}
 #endif /* defined(USE_CTRLMGR) */
 
 static int checkRf4ceStatus(void)
@@ -446,7 +537,11 @@ static int checkRf4ceStatus(void)
 #if defined(USE_CTRLMGR)
     /* Try CtrlMgr if Rf4ceMgr was not accessible */
     if (result == -1)
-        result = checkRf4ceStatusViaCtrlMgr();
+    {
+        result = checkRf4ceChipStatus();
+        if (result == 0)
+            result = checkRf4ceStatusViaCtrlMgr();
+    }
 #endif
 
     WA_RETURN("checkRf4ceStatus(): return code: %d\n", result);
@@ -494,6 +589,10 @@ static int setReturnData(int status, json_t **param)
 
     case WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE:
         *param = json_string("RF controller issue.");
+        break;
+
+    case WA_DIAG_ERRCODE_RF4CE_CHIP_DISCONNECTED:
+        *param = json_string("RF4CE chip failed.");
         break;
 
     default:

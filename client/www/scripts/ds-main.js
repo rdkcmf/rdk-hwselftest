@@ -1056,6 +1056,9 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.HDD_MARGINAL_ATTRIBUTES_FOUND:
         info = "Marginal HDD Values";
         break;
+    case DIAG_ERRCODE.RF4CE_CHIP_DISCONNECTED:
+        info = "RF4CE Chip Fail";
+        break;
     case DIAG_ERRCODE.INTERNAL_TEST_ERROR:
         info = "Test Internal Error. Please Rerun Test";
         break;
@@ -1184,6 +1187,7 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.FAILURE:
     case DIAG_ERRCODE.EMMC_MAX_LIFE_EXCEED_FAILURE:
     case DIAG_ERRCODE.EMMC_ZERO_LIFETIME_FAILURE:
+    case DIAG_ERRCODE.RF4CE_CHIP_DISCONNECTED:
         elem.result = results.error;
         break;
     case DIAG_ERRCODE.SUCCESS:

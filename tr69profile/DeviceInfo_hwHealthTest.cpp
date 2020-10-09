@@ -42,7 +42,7 @@
 #define TUNE_TYPE_VCN          "VCN"
 #define TUNE_TYPE_FREQ_PROG    "FREQ_PROG"
 #define TUNE_RESULTS_FILE      "/opt/logs/hwselftest.tuneresults"
-#define MAX_LEN 256
+#define MAX_LEN                TR69HOSTIFMGR_MAX_PARAM_LEN
 
 /*****************************************************************************
  * EXPORTED FUNCTIONS

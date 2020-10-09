@@ -130,8 +130,14 @@
 #else
 #define HWSELFTEST_TUNERESULTS_FILE "/opt/logs/hwselftest.tuneresults" /* NGAN */
 #define PROCFS_STATUS_FILE "/proc/brcm/frontend"
-#define LINE_LEN 256
 #endif
+
+#define LINE_LEN 256
+
+#define VIDEO_DECODER_STATUS_FILE "/proc/brcm/video_decoder"
+#define TRANSPORT_STATUS_FILE     "/proc/brcm/transport"
+
+#define DATA_NOT_AVAILABLE_STRING "DATA_NOT_AVAILABLE"
 
 #define TUNE_RESPONSE_TIMEOUT 14000 /* in [ms] */
 #define REQUEST_PATTERN "/vldms/tuner?ocap_locator=ocap://tune://frequency=%u_modulation=%u_pgmno=%u"
@@ -184,8 +190,11 @@ static json_t * getTuneUrls(char* tuneData, int *frequency);
 static int checkQamConnection(unsigned int tunersCount, json_t **pJsonInOut);
 static int getTuneData(json_t *pJson, char *tuneData, size_t size);
 static int verifyStandbyState();
-static int saveTuneResults(int frontend, char *freq, char *lockStatus, char *SNR, char *fecCorrected, char *fecUncorrected);
+static int saveDecoderTuneResults(VideoDecoder_t* hvd, int num_hvd, ParserBand_t* parserBand, int num_parser, PIDChannel_t* pidChannel, int num_pid, Frontend_t* frontendStatus);
+static int saveTuneResults(Frontend_t* frontendStatus);
 static int saveTuneFailureMsg(const char *errString);
+static bool getBER(char* ber, size_t size, int frontend);
+static void freeDecoderTransportData(VideoDecoder_t* hvd, ParserBand_t* parserBand, PIDChannel_t* pidChannel);
 
 static bool startTuneSessions(void * instanceHandle,
         TuneSession_t * sessions,
@@ -419,12 +428,19 @@ static int getTuneData(json_t *pJson, char *tuneData, size_t size)
         }
         else if (!json_unpack(pJson, "{ss}", "FREQ_PROG", &tuneValue))
         {
-            freq = strtok(tuneValue, ",");
-            if (strcmp(freq, ""))
+            if (strchr(tuneValue, ',') == NULL)
             {
-                prog = strtok(NULL, ",");
+                snprintf(tuneData, size, "Freq[%s]", tuneValue);
             }
-            snprintf(tuneData, size, "Freq[%s]-Mode[0016]-Prog[%s]", freq, prog);
+            else
+            {
+                freq = strtok(tuneValue, ",");
+                if (strcmp(freq, ""))
+                {
+                    prog = strtok(NULL, ",");
+                }
+                snprintf(tuneData, size, "Freq[%s]-Mode[0016]-Prog[%s]", freq, prog);
+            }
             WA_DIAG_SetWriteTestResult(false);
         }
     }
@@ -757,7 +773,7 @@ static int getTuneData(json_t *pJson, char *tuneData, size_t size)
          gettimeofday(&timeOfDay, NULL);
          timeout = (TUNE_RESPONSE_TIMEOUT*sessionCount) - (timeOfDay.tv_sec - timeOfDayStart.tv_sec)*1000;
 
-         WA_DIAG_TUNER_GetTunerStatuses(statuses, sessionCount, &numLocked, &freqLocked, "");
+         WA_DIAG_TUNER_GetTunerStatuses(statuses, sessionCount, &numLocked, &freqLocked, "", NULL);
      }while((status > 0) && (timeout > 0));
 
      end:
@@ -1311,7 +1327,257 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
     return true;
 }
 
- bool WA_DIAG_TUNER_GetTunerStatuses(WA_DIAG_TUNER_TunerStatus_t * statuses, size_t statusCount, int * pNumLocked, bool* freqLocked, char* freq)
+bool WA_DIAG_TUNER_GetVideoDecoderData(VideoDecoder_t* hvd, int* num_hvd)
+{
+    FILE* fd;
+    int hvd_index = 0;
+    char buf[LINE_LEN];
+    char format[LINE_LEN];
+    char result[LINE_LEN];
+
+    typedef enum
+    {
+        parseHVD = 0,
+        parseIdx,
+        parseStarted,
+        parseTSM,
+        parseDecode,
+        parseDisplay
+    } parseMode_t;
+
+    parseMode_t parseMode = parseHVD;
+
+    if ((fd = fopen(VIDEO_DECODER_STATUS_FILE, "r")) == NULL)
+    {
+        WA_ERROR("GetVideoDecoderData(): Cannot read the file %s\n", VIDEO_DECODER_STATUS_FILE);
+        return false;
+    }
+
+    while(hvd_index < NUM_DECODERS && fgets(buf, LINE_LEN, fd))
+    {
+        switch (parseMode)
+        {
+        case parseHVD:
+            /* HVD0: (84709000) general: 2MB secure: 7MB picture: 25MB watchdog:0 */
+            /* HVD1: (cac7c800) general: 3MB secure: 8MB picture:  0MB watchdog:0 */
+            snprintf(format, LINE_LEN, "HVD%%%ds", LINE_LEN);
+            if (sscanf(buf, format, result) == 1)
+            {
+                WA_DBG("GetVideoDecoderData(): Found HVD%c\n", result[0]);
+                parseMode = parseIdx;
+            }
+            break;
+        case parseIdx:
+            /* idx0(82cf8000): videoInput=8a2aaedc max=1920x1080p60 10 bit, MFD0 */
+            /* This case is to ensure if expected data is available for the HVD found */
+            snprintf(format, LINE_LEN, " idx%%%ds", LINE_LEN);
+            if (sscanf(buf, format, result) == 1)
+            {
+                WA_DBG("GetVideoDecoderData(): Found idx%c\n", result[0]);
+                parseMode = parseStarted;
+            }
+            else
+            {
+                snprintf(format, LINE_LEN, "HVD%%%ds", LINE_LEN);
+                if (sscanf(buf, format, result) == 1)
+                {
+                    WA_DBG("GetVideoDecoderData(): Found immediate HVD%c\n", result[0]); // Negative case when HVD0 has no data and HVD1 is found
+                }
+                else
+                {
+                    WA_ERROR("GetVideoDecoderData(): Unrecognized data format in %s\n", VIDEO_DECODER_STATUS_FILE);
+                    parseMode = -1; // Invalid data format is identified in the file
+                }
+            }
+            break;
+        case parseStarted:
+            /* started=y: codec=5, pid=0x1983, pidCh=8fe98f80, stcCh=8727c400 */
+            /* started=n */
+            snprintf(format, LINE_LEN, " started=%%%ds", LINE_LEN);
+            if (hvd && (sscanf(buf, format, result) == 1))
+            {
+                WA_DBG("GetVideoDecoderData(): Found started=%c\n", result[0]);
+                if (result[0] == 'y')
+                {
+                    hvd[hvd_index].started = true;
+                    parseMode = parseTSM;
+                }
+                else
+                {
+                    hvd[hvd_index].started = false;
+                    parseMode = parseHVD; // Moving to next HVD
+                    hvd_index++;
+                }
+            }
+            break;
+        case parseTSM:
+            /* TSM: enabled pts=0x8c2269e7 pts_stc_diff=64 pts_offset=0x4366 errors=0 */
+            if (hvd && (strstr(buf, "TSM") != NULL))
+            {
+                if (sscanf(buf, " TSM: enabled pts=%s pts_stc_diff=%s pts_offset=%s errors=%s",
+                            hvd[hvd_index].tsm_data[0],
+                            hvd[hvd_index].tsm_data[1],
+                            hvd[hvd_index].tsm_data[2],
+                            hvd[hvd_index].tsm_data[3]) != NUM_HVD_DATA)
+                {
+                    WA_ERROR("GetVideoDecoderData(), parseTSM: Failed to parse %s\n", buf);
+                }
+                parseMode = parseDecode;
+            }
+            break;
+        case parseDecode:
+            /* Decode: decoded=1288 drops=0 errors=0 overflows=0 */
+            if (hvd && (strstr(buf, "Decode") != NULL))
+            {
+                if (sscanf(buf, " Decode: decoded=%i drops=%i errors=%i overflows=%i",
+                            &(hvd[hvd_index].decode_data[0]),
+                            &(hvd[hvd_index].decode_data[1]),
+                            &(hvd[hvd_index].decode_data[2]),
+                            &(hvd[hvd_index].decode_data[3])) != NUM_HVD_DATA)
+                {
+                    WA_ERROR("GetVideoDecoderData(), parseDecode: Failed to parse %s\n", buf);
+                }
+                parseMode = parseDisplay;
+            }
+            break;
+        case parseDisplay:
+            /* Display: displayed=1286 drops=0 errors=0 underflows=0 */
+            if (hvd && (strstr(buf, "Display") != NULL))
+            {
+                if (sscanf(buf, " Display: displayed=%i drops=%i errors=%i underflows=%i",
+                            &(hvd[hvd_index].display_data[0]),
+                            &(hvd[hvd_index].display_data[1]),
+                            &(hvd[hvd_index].display_data[2]),
+                            &(hvd[hvd_index].display_data[3])) != NUM_HVD_DATA)
+                {
+                    WA_ERROR("GetVideoDecoderData(), parseDisplay: Failed to parse %s\n", buf);
+                }
+                parseMode = parseHVD;
+                hvd_index++;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    fclose(fd);
+
+    *num_hvd = hvd_index;
+
+    for (int index = 0; index < hvd_index; index++)
+    {
+        if (hvd[index].started == true)
+        {
+            WA_INFO("GetVideoDecoderData(): %s parsed successfully\n", VIDEO_DECODER_STATUS_FILE);
+            return true;
+        }
+    }
+
+    WA_DBG("GetVideoDecoderData(): Decoders not started\n");
+    return false;
+}
+
+bool WA_DIAG_TUNER_GetTransportData(ParserBand_t* parserBand, int* num_parser, PIDChannel_t* pidChannel, int* num_pid)
+{
+    FILE* fd;
+    int parser_index = 0;
+    int pid_index = 0;
+    char buf[LINE_LEN];
+
+    typedef enum
+    {
+        parseParserBand = 0,
+        parsePidChannel
+    } parseMode_t;
+
+    parseMode_t parseMode = parseParserBand;
+
+    if ((fd = fopen(TRANSPORT_STATUS_FILE, "r")) == NULL)
+    {
+        WA_ERROR("GetTransportData(): Cannot read the file %s\n", TRANSPORT_STATUS_FILE);
+        return false;
+    }
+
+    while(fgets(buf, LINE_LEN, fd))
+    {
+        switch (parseMode)
+        {
+        case parseParserBand:
+            /* parser band 0: source MTSIF 0x846a8400, enabled -, pid channels 8, cc errors 0, tei errors 0, length errors 0, RS overflows 0
+             * parser band 1: source MTSIF 0x8479c900, enabled -, pid channels 5, cc errors 0, tei errors 0, length errors 0, RS overflows 0
+             * . . .
+             */
+            if (parserBand && (strstr(buf, "parser band ") != NULL))
+            {
+                if (sscanf(buf, "%*[^,], %*[^,], %*[^,], cc errors %i, tei errors %i, length errors %i",
+                            &(parserBand[parser_index].parser_band[0]),
+                            &(parserBand[parser_index].parser_band[1]),
+                            &(parserBand[parser_index].parser_band[2])) != NUM_PARSER_DATA)
+                {
+                    WA_ERROR("GetTransportData(), parserBand: Failed to parse %s\n", buf);
+                }
+                parser_index++;
+
+                if (parser_index == NUM_PARSER_BANDS) // Maximum expected parser bands for which the malloc is done
+                {
+                    WA_DBG("GetTransportData(), parserBand: Max limit. Total elements: %i\n", parser_index);
+                    parseMode = parsePidChannel;
+                }
+            }
+            else
+            {
+                if (parser_index > 0)
+                {
+                    WA_DBG("GetTransportData(), parserBand: End of parsing. Total elements: %i\n", parser_index);
+                    parseMode = parsePidChannel;
+                }
+            }
+            break;
+        case parsePidChannel:
+            /* pidchannel 82fdf500: ch 86, parser 0, pid 0x0, 0 cc errors, 0 XC overflows */
+            if (pidChannel && sscanf(buf, "pidchannel %s %*[^,], %*[^,], %*[^,], %i cc errors",
+                    pidChannel[pid_index].pid_channel,
+                    &(pidChannel[pid_index].cc_errors)) == NUM_PID_DATA)
+            {
+                int len = strlen(pidChannel[pid_index].pid_channel);
+                pidChannel[pid_index].pid_channel[len-1] = '\0'; // To remove the extra ':' in the string
+                pid_index++;
+
+                if (pid_index == NUM_PID_CHANNELS) // Maximum expected pid channels for which the malloc is done
+                {
+                    WA_DBG("GetTransportData(), pidchannel: Max limit. Total elements: %i\n", pid_index);
+                    parseMode = -1; // End of parsing
+                }
+            }
+            else
+            {
+                if (pid_index > 0)
+                {
+                    WA_DBG("GetTransportData(), pidChannel: End of parsing. Total elements: %i\n", pid_index);
+                    parseMode = -1; // End of parsing
+                }
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    fclose(fd);
+
+    *num_parser = parser_index;
+    *num_pid = pid_index;
+
+    if (*num_parser == 0 && *num_pid == 0)
+    {
+        WA_ERROR("GetTransportData(): No data collected from %s\n", TRANSPORT_STATUS_FILE);
+        return false;
+    }
+
+    WA_INFO("GetTransportData(): %s parsed successfully\n", TRANSPORT_STATUS_FILE);
+    return true;
+}
+
+ bool WA_DIAG_TUNER_GetTunerStatuses(WA_DIAG_TUNER_TunerStatus_t * statuses, size_t statusCount, int * pNumLocked, bool* freqLocked, char* freq, Frontend_t* frontendStatus)
  {
 #ifndef USE_FRONTEND_PROCFS
      char oid[256];
@@ -1442,7 +1708,19 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
                     {
                         lockStatus[strlen(lockStatus)-1] = 0;
                         fecCorrected[strlen(fecCorrected)-1] = 0;
-                        saveTuneResults(frontend, freq, lockStatus, SNR, fecCorrected, fecUncorrected);
+                        if (frontendStatus)
+                        {
+                            frontendStatus->frontend = frontend;
+                            strncpy(frontendStatus->lock_status, lockStatus, sizeof(frontendStatus->lock_status));
+                            strncpy(frontendStatus->snr, SNR, sizeof(frontendStatus->snr));
+                            strncpy(frontendStatus->corrected, fecCorrected, sizeof(frontendStatus->corrected));
+                            strncpy(frontendStatus->uncorrected, fecUncorrected, sizeof(frontendStatus->uncorrected));
+                            getBER(frontendStatus->ber, sizeof(frontendStatus->ber), frontend);
+                        }
+                        else
+                        {
+                            WA_ERROR("GetTunerStatusses(): Error in storing frontend data\n");
+                        }
                     }
                     else
                     {
@@ -1512,11 +1790,20 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
      json_t * tuneUrls;
      char tuneData[128];
      char freq[64];
+     int numLocked = 0;
      int frequency = 0;
      int retCode = 0;
      int numTestTuner = 0;
+     int num_parser = 0;
+     int num_pid = 0;
+     int num_hvd = 0;
      bool standAloneTest = false;
+     bool decoderData = false;
      bool freqLocked = false;
+     VideoDecoder_t* hvdStatus = NULL;
+     ParserBand_t* parserBand = NULL;
+     PIDChannel_t* pidChannel = NULL;
+     Frontend_t* frontendStatus = NULL;
 #ifdef USE_SEVERAL_LOCK_PROBES
      int i;
      struct timespec sTime = {.tv_nsec=(LOCK_LOOP_TIME * 1000000), .tv_sec=0};
@@ -1532,14 +1819,66 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
      json_decref(*pJsonInOut);
      *pJsonInOut = NULL;
 
-     if (standAloneTest)
+     if (standAloneTest) // NGAN feature
      {
          result = verifyStandbyState();
          if (result != WA_DIAG_ERRCODE_SUCCESS) // If result is success, continue to ngan tune test
          {
              *pJsonInOut = json_string("Device state not received.");
+             CLIENT_LOG("HwTestTuneResult_telemetry: WARNING_DEVICE_NOT_IN_LIGHTSLEEP\n");
              WA_RETURN("WA_DIAG_TUNER_status(): NGAN test returns after power state check with result : %d\n", result); // Related Telemetry and Tuneresults are handled in verifyStandbyState()
              return result;
+         }
+
+         /* Get all the required video decoder information */
+         /* These data structures are not utilized during normal hwselftest run */
+         /* Memory allocation is done dynamically during standalone/NGAN test */
+         hvdStatus = (VideoDecoder_t*) malloc(sizeof(VideoDecoder_t) * NUM_DECODERS); // Handle deallocations
+
+         if (!hvdStatus)
+         {
+             WA_ERROR("WA_DIAG_TUNER_status(): Memory allocation failed for Video_decoder data");
+             CLIENT_LOG("HwTestTuneResult_telemetry: WARNING_INTERNAL_TEST_ERROR\n");
+             saveTuneFailureMsg("INTERNAL_TEST_ERROR");
+             return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+         }
+
+         if (WA_DIAG_TUNER_GetVideoDecoderData(hvdStatus, &num_hvd))
+         {
+             decoderData = true;
+             parserBand = (ParserBand_t*) malloc(sizeof(ParserBand_t) * NUM_PARSER_BANDS); // Handle deallocations
+             pidChannel = (PIDChannel_t*) malloc(sizeof(PIDChannel_t) * NUM_PID_CHANNELS); // Handle deallocations
+
+             if (!parserBand || !pidChannel)
+             {
+                 WA_ERROR("WA_DIAG_TUNER_status(): Memory allocation failed for Transport data");
+                 CLIENT_LOG("HwTestTuneResult_telemetry: WARNING_INTERNAL_TEST_ERROR\n");
+                 freeDecoderTransportData(hvdStatus, parserBand, pidChannel); // Deallocating hvdStatus, parserBand, pidChannel
+                 saveTuneFailureMsg("INTERNAL_TEST_ERROR");
+                 return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+             }
+
+             WA_DIAG_TUNER_GetTransportData(parserBand, &num_parser, pidChannel, &num_pid);
+
+             if (num_parser == 0 && parserBand)
+             {
+                 free(parserBand);
+                 parserBand = NULL;
+             }
+
+             if (num_pid == 0 && pidChannel)
+             {
+                 free(pidChannel);
+                 pidChannel = NULL;
+             }
+         }
+
+         if (!decoderData && hvdStatus)
+         {
+             // If code reaches here, it means NGAN phase 1 will be executed and the result will not contain decoder and transport information
+             WA_INFO("WA_DIAG_TUNER_status(): Decoders are not running so the result will contain only frontend data if tune is successful\n");
+             free(hvdStatus);
+             hvdStatus = NULL;
          }
      }
 
@@ -1560,24 +1899,24 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
          return WA_DIAG_ERRCODE_NOT_APPLICABLE;
      }
 
-     /* To check if the cable is connected and if the tuners are locked */
-     result = checkQamConnection(tunersCount, pJsonInOut);
-
-     if (standAloneTest && (result == WA_DIAG_ERRCODE_TUNER_NO_LOCK))
+     if (!decoderData) // The decoderData will be true only during NGAN test and when decoder values are fetched
      {
-         CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_NOT_AVAILABLE\n");
-         saveTuneFailureMsg("TUNER_NOT_AVAILABLE");
-         return result;
+         /* To check if the cable is connected and if the tuners are locked */
+         result = checkQamConnection(tunersCount, pJsonInOut);
+
+         if (standAloneTest && (result == WA_DIAG_ERRCODE_TUNER_NO_LOCK))
+         {
+             CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_NOT_AVAILABLE\n");
+             saveTuneFailureMsg("TUNER_NOT_AVAILABLE");
+             return result;
+         }
+
+         if (!standAloneTest && (result != WA_DIAG_ERRCODE_FAILURE))
+             return result;
      }
 
-     if (!standAloneTest && (result != WA_DIAG_ERRCODE_FAILURE))
-         return result;
-
-     numTestTuner = 1; // Testing only one tuner is enough for tuner diagnostics with only one session
      tuneUrls = getTuneUrls(tuneData, &frequency);
      snprintf(freq, sizeof(freq),"%i", frequency);
-
-     WA_DBG("WA_DIAG_TUNER_status(): Tuning to url (tuner count: %i, tuners to test: %i, frequency: %s)\n", (int)tunersCount, numTestTuner, freq);
 
      if(WA_OSA_TaskCheckQuit())
      {
@@ -1600,15 +1939,54 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
          return WA_DIAG_ERRCODE_SI_CACHE_MISSING;
      }
 
+     numTestTuner = 1; // Testing only one tuner is enough for tuner diagnostics with only one session
      TuneSession_t sessions[numTestTuner];
      memset(sessions, 0, sizeof(sessions));
 
      WA_DIAG_TUNER_TunerStatus_t statuses[tunersCount];
      memset(statuses, 0, sizeof(statuses));
+     frontendStatus = (Frontend_t*) malloc(sizeof(Frontend_t)); // Needs deallocation
+
+     if (decoderData) // NGAN Phase-2
+     {
+         if (!frontendStatus)
+         {
+             WA_ERROR("WA_DIAG_TUNER_status(): Memory allocation failed for Frontend data");
+             CLIENT_LOG("HwTestTuneResult_telemetry: WARNING_INTERNAL_TEST_ERROR\n");
+             saveTuneFailureMsg("INTERNAL_TEST_ERROR");
+             freeDecoderTransportData(hvdStatus, parserBand, pidChannel); // Deallocating hvdStatus, parserBand, pidChannel
+             return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+         }
+
+#ifndef USE_SEVERAL_LOCK_PROBES
+         retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, freq, frontendStatus);
+#else
+         for (i = 0; i < LOCK_LOOP_COUNT && !freqLocked; i++)
+         {
+             retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, freq, frontendStatus);
+             if (retCode && !freqLocked)
+             {
+                 WA_DBG("WA_DIAG_TUNER_status(): retrying status check for standalone tuner test (%i)...\n", i);
+                 nanosleep(&sTime, NULL);
+             }
+         }
+#endif /* USE_SEVERAL_LOCK_PROBES */
+         if (!freqLocked && frontendStatus)
+         {
+             free(frontendStatus);
+             frontendStatus = NULL;
+         }
+         retCode = saveDecoderTuneResults(hvdStatus, num_hvd, parserBand, num_parser, pidChannel, num_pid, frontendStatus);
+         result = (retCode == 1) ? WA_DIAG_ERRCODE_FAILURE : WA_DIAG_ERRCODE_SUCCESS;
+         freeDecoderTransportData(hvdStatus, parserBand, pidChannel);
+         goto end;
+     }
+
+     WA_DBG("WA_DIAG_TUNER_status(): Tuning to url (tuner count: %i, tuners to test: %i, frequency: %s)\n", (int)tunersCount, numTestTuner, freq);
 
      for (size_t urlIndex = 0; (urlIndex < urlCount); ++urlIndex)
      {
-         int numLocked = 0;
+         numLocked = 0;
 
          if(WA_OSA_TaskCheckQuit())
          {
@@ -1617,7 +1995,7 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
              break;
          }
 
-        retCode = !standAloneTest ? WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, "") : 0;
+        retCode = !standAloneTest ? WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, "", NULL) : 0;
         if(retCode && (numLocked == tunersCount))
         {
             WA_INFO("WA_DIAG_TUNER_status(): All tuners initially locked.\n");
@@ -1653,18 +2031,19 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
          {
              WA_ERROR("WA_DIAG_TUNER_status(): Could not start tune sessions for URL: %s\n", url);
          }
+
 #ifndef USE_SEVERAL_LOCK_PROBES
-         retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, freq);
+         retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, freq, frontendStatus);
 #else
          for(i=0, retCode=true, numLocked=0;
              retCode && (i<LOCK_LOOP_COUNT) && (numLocked < tunersCount) && !WA_OSA_TaskCheckQuit() && !freqLocked; ++i)
          {
-             retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, freq);
+             retCode = WA_DIAG_TUNER_GetTunerStatuses(statuses, tunersCount, &numLocked, &freqLocked, freq, frontendStatus);
 
 #if defined(USE_FRONTEND_PROCFS) && defined(USE_UNRELIABLE_PROCFS_WORKAROUND)
              if(retCode && (numLocked == 0))
 #else
-             if(!standAloneTest && retCode && (numLocked < tunersCount))
+             if(retCode && (numLocked < tunersCount))
 #endif
              {
                  WA_DBG("WA_DIAG_TUNER_status(): retrying status check (%i)...\n", i);
@@ -1692,6 +2071,7 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
          if ((standAloneTest && freqLocked) || (!standAloneTest && (numLocked >= tunersCount)))
          {
              WA_INFO("WA_DIAG_TUNER_status(): All tuners locked.\n");
+             saveTuneResults(frontendStatus);
              result = WA_DIAG_ERRCODE_SUCCESS;
          }
          else
@@ -1699,8 +2079,8 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
              WA_WARN("WA_DIAG_TUNER_status(): Not all tuners locked, url: %s\n", (char*)url);
              if (standAloneTest)
              {
-                 CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_NOT_AVAILABLE\n");
-                 saveTuneFailureMsg("TUNER_NOT_AVAILABLE");
+                 CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_FAILED\n");
+                 saveTuneFailureMsg("TUNE_FAILED");
              }
 
              result = WA_DIAG_ERRCODE_TUNER_NO_LOCK;
@@ -1715,6 +2095,12 @@ bool WA_DIAG_TUNER_GetQamParams(WA_DIAG_TUNER_QamParams_t * params)
          }
 
          WA_DBG("WA_DIAG_TUNER_status(): URL[%d]: result=%d\n", urlIndex, result);
+     }
+end:
+     if (frontendStatus)
+     {
+         free(frontendStatus);
+         frontendStatus = NULL;
      }
 
      switch(result)
@@ -1800,14 +2186,15 @@ int verifyStandbyState()
     {
         switch (param.curState)
         {
-            case IARM_BUS_PWRMGR_POWERSTATE_STANDBY_LIGHT_SLEEP:
-                WA_DBG ("verifyStandbyState() Current power state is LIGHTSLEEP\n");
-                state = WA_DIAG_ERRCODE_SUCCESS;
-                break;
-            default:
-                WA_ERROR ("verifyStandbyState() Current power state is not in LIGHTSLEEP\n");
-                state = WA_DIAG_ERRCODE_CANCELLED_NOT_STANDBY;
-                break;
+        case IARM_BUS_PWRMGR_POWERSTATE_STANDBY:
+        case IARM_BUS_PWRMGR_POWERSTATE_STANDBY_LIGHT_SLEEP:
+            WA_DBG ("verifyStandbyState() Current power state is LIGHTSLEEP\n");
+            state = WA_DIAG_ERRCODE_SUCCESS;
+            break;
+        default:
+            WA_ERROR ("verifyStandbyState() Current power state is not in LIGHTSLEEP\n");
+            state = WA_DIAG_ERRCODE_CANCELLED_NOT_STANDBY;
+            break;
         }
     }
     else
@@ -1837,24 +2224,14 @@ end:
     return state;
 }
 
-
-/*Return 0 - All data is good and written to log file and results file
-        -1 - Unable to get data
-*/
-int saveTuneResults(int frontend, char *freq, char *lockStatus, char *SNR, char *fecCorrected, char *fecUncorrected)
+bool getBER(char* ber, size_t size, int frontend)
 {
-    char BER[LINE_LEN];
-    json_t *json = NULL;
-
-    WA_ENTER("saveTuneResults() Enter\n");
-
-    /* SNMP BER */
     char oid[BUFFER_LEN];
     int k = snprintf(oid, sizeof(oid), "%s.%i", OID_TUNER_BER, frontend + 1);
     if ((k >= sizeof(oid)) || (k < 0))
     {
-        WA_ERROR("saveTuneResults(): Unable to generate OID for QAM tuner.\n");
-        goto end;
+        WA_ERROR("getBER(): Unable to generate OID for QAM tuner.\n");
+        return false;
     }
 
     WA_UTILS_SNMP_Resp_t tunerResp;
@@ -1863,20 +2240,158 @@ int saveTuneResults(int frontend, char *freq, char *lockStatus, char *SNR, char 
 
     if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ESTB, oid, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_GET))
     {
-        WA_ERROR("saveTuneResults(): Tuner %i failed to get QAM BER\n", frontend);
-        goto end;
+        WA_ERROR("getBER(): Tuner %i failed to get QAM BER\n", frontend);
+        return false;
     }
 
-    WA_DBG("saveTuneResults(): Tuner %i QAM_BER = %i\n", frontend, (int)tunerResp.data.l);
-    snprintf(BER, sizeof(BER), "%i", (int) tunerResp.data.l);
+    WA_DBG("getBER(): Tuner %i QAM_BER = %i\n", frontend, (int)tunerResp.data.l);
+    snprintf(ber, size, "%i", (int) tunerResp.data.l);
+
+    return true;
+}
+
+int saveDecoderTuneResults(VideoDecoder_t* hvd, int num_hvd, ParserBand_t* parserBand, int num_parser, PIDChannel_t* pidChannel, int num_pid, Frontend_t* frontendStatus)
+{
+    int ret = -1;
+    char buf[NUM_BYTES];
+    json_t *json_frontend = NULL;
+    json_t *json_array = NULL;
+    json_t *json_parserBand = json_object();
+    json_t *json_pidChannel = json_object();
+    json_t *json_transport = json_object();
+    json_t *json_hvd = json_object();
+    json_t *json_decoder = json_object();
+    json_t *json = NULL;
+
+    WA_ENTER("saveDecoderTuneResults() Enter\n");
+
+    if (frontendStatus)
+    {
+        json_frontend = json_pack("[sssss]", frontendStatus->snr, frontendStatus->corrected, frontendStatus->uncorrected, frontendStatus->lock_status, frontendStatus->ber);
+    }
+    else
+    {
+        json_frontend = json_pack("[s]", DATA_NOT_AVAILABLE_STRING);
+        WA_ERROR("saveDecoderTuneResults(): frontend information not available\n");
+    }
+
+    if (parserBand)
+    {
+        for (int index = 0; index < num_parser; index++)
+        {
+            snprintf(buf, sizeof(buf), "%i", index);
+            json_array = json_pack("[iii]", parserBand[index].parser_band[0], parserBand[index].parser_band[1], parserBand[index].parser_band[2]);
+            json_object_set_new(json_parserBand, buf, json_array);
+        }
+        json_object_set_new(json_transport, "parserband", json_parserBand);
+    }
+    else
+    {
+        json_object_set_new(json_transport, "parserband", json_string(DATA_NOT_AVAILABLE_STRING));
+        WA_ERROR("saveDecoderTuneResults(): parserband information not available\n");
+    }
+
+    if (pidChannel)
+    {
+        for (int index = 0; index < num_pid; index++)
+        {
+            json_object_set_new(json_pidChannel, pidChannel[index].pid_channel, json_integer(pidChannel[index].cc_errors));
+        }
+        json_object_set_new(json_transport, "pidchannel", json_pidChannel);
+    }
+    else
+    {
+        json_object_set_new(json_transport, "pidchannel", json_string(DATA_NOT_AVAILABLE_STRING));
+        WA_ERROR("saveDecoderTuneResults(): pidchannel information not available\n");
+    }
+
+    if (hvd)
+    {
+        for (int index = 0; index < num_hvd; index++)
+        {
+            snprintf(buf, sizeof(buf), "HVD%i", index);
+
+            json_array = json_pack("[ssss]", hvd[index].tsm_data[0], hvd[index].tsm_data[1], hvd[index].tsm_data[2], hvd[index].tsm_data[3]);
+            json_object_set_new(json_hvd, "TSM", json_array);
+
+            json_array = json_pack("[iiii]", hvd[index].decode_data[0], hvd[index].decode_data[1], hvd[index].decode_data[2], hvd[index].decode_data[3]);
+            json_object_set_new(json_hvd, "Decode", json_array);
+
+            json_array = json_pack("[iiii]", hvd[index].display_data[0], hvd[index].display_data[1], hvd[index].display_data[2], hvd[index].display_data[3]);
+            json_object_set_new(json_hvd, "Display", json_array);
+
+            json_object_set_new(json_decoder, buf, json_hvd);
+        }
+    }
+    else
+    {
+        // Just to handle negative cases for future, at present code will never reach here
+        json_object_set_new(json_decoder, "HVD", json_string(DATA_NOT_AVAILABLE_STRING));
+        WA_ERROR("saveDecoderTuneResults(): video_deoder information not available\n");
+    }
+
+    json = json_pack("{s:o,s:o,s:o}", "Frontend", json_frontend, "Transport", json_transport, "VideoDecoder", json_decoder);
+
+    /* Write result into tuneresults file */
+    FILE *f = fopen(HWSELFTEST_TUNERESULTS_FILE, "wb+");
+    if (f)
+    {
+        if (!json_dumpf(json, f, 0))
+        {
+            ret = 0;
+            fsync(fileno(f));
+            WA_INFO("saveDecoderTuneResults(): json saved to file successfully\n");
+        }
+        else
+            WA_ERROR("saveDecoderTuneResults(): json_dump_file() failed\n");
+
+        fclose(f);
+    }
+    else
+        WA_ERROR("saveDecoderTuneResults(): failed to create file\n");
+
+    json_decref(json_parserBand);
+    json_decref(json_pidChannel);
+    json_decref(json_transport);
+    json_decref(json_hvd);
+    json_decref(json_decoder);
+
+    if (!frontendStatus)
+    {
+        CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_TUNER_FAILED\n");
+        return 1;
+    }
+
+    if (ret == 0)
+    {
+        /* Print result in log file if writing to results file is success */
+        CLIENT_LOG("HwTestTuneResultHeader: SNR,fecCorrected,fecUncorrected,BER,lockStatus,decoderState");
+        CLIENT_LOG("HwTestTuneResult_telemetry: %s,%s,%s,%s,%s,true", frontendStatus->snr, frontendStatus->corrected, frontendStatus->uncorrected, frontendStatus->ber, frontendStatus->lock_status);
+    }
+    else
+    {
+        CLIENT_LOG("HwTestTuneResult_telemetry: FAILED_RESULTS_NOT_AVAILABLE\n");
+    }
+
+    return ret;
+}
+
+/*Return 0 - All data is good and written to log file and results file
+        -1 - Unable to get data
+*/
+int saveTuneResults(Frontend_t* frontendStatus)
+{
+    json_t *json = NULL;
+
+    WA_ENTER("saveTuneResults() Enter\n");
 
     /* Create json string to write into tuneresults file */
     json = json_pack("{s:s,s:s,s:s,s:s,s:s}",
-       "SNR", SNR,
-       "Corrected", fecCorrected,
-       "Uncorrected", fecUncorrected,
-       "BER", BER,
-       "RXLock", lockStatus);
+       "SNR", frontendStatus->snr,
+       "Corrected", frontendStatus->corrected,
+       "Uncorrected", frontendStatus->uncorrected,
+       "BER", frontendStatus->ber,
+       "RXLock", frontendStatus->lock_status);
 
     /* Write result into tuneresults file */
     FILE *f = fopen(HWSELFTEST_TUNERESULTS_FILE, "wb+");
@@ -1887,8 +2402,8 @@ int saveTuneResults(int frontend, char *freq, char *lockStatus, char *SNR, char 
             fsync(fileno(f));
 
             /* Print result in log file if writing to results file is success */
-            CLIENT_LOG("HwTestTuneResultHeader: SNR,fecCorrected,fecUncorrected,BER,lockStatus");
-            CLIENT_LOG("HwTestTuneResult_telemetry: %d,%d,%d,%d,%s", atoi(SNR), atoi(fecCorrected), atoi(fecUncorrected), atoi(BER), lockStatus);
+            CLIENT_LOG("HwTestTuneResultHeader: SNR,fecCorrected,fecUncorrected,BER,lockStatus,decoderState");
+            CLIENT_LOG("HwTestTuneResult_telemetry: %s,%s,%s,%s,%s,false", frontendStatus->snr, frontendStatus->corrected, frontendStatus->uncorrected, frontendStatus->ber, frontendStatus->lock_status);
 
             WA_INFO("saveTuneResults(): json saved to file successfully\n");
         }
@@ -1939,5 +2454,27 @@ static int saveTuneFailureMsg(const char *errString)
 
     return 0;
 }
+
+static void freeDecoderTransportData(VideoDecoder_t* hvd, ParserBand_t* parserBand, PIDChannel_t* pidChannel)
+{
+    if (hvd)
+    {
+        free(hvd);
+        hvd = NULL;
+    }
+
+    if (parserBand)
+    {
+        free(parserBand);
+        parserBand = NULL;
+    }
+
+    if (pidChannel)
+    {
+        free(pidChannel);
+        pidChannel = NULL;
+    }
+}
+
  /* End of doxygen group */
  /*! @} */

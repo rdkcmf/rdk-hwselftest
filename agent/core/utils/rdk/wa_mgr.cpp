@@ -41,6 +41,7 @@
 #include "manager.hpp"
 #include "dsMgr.h"
 #include "wa_mgr.h"
+#include "wa_debug.h"
 
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
@@ -72,12 +73,22 @@
 
 void WA_UTILS_MGR_Init(void)
 {
-    device::Manager::Initialize();
+    try {
+        device::Manager::Initialize();
+    }
+    catch (...){
+        WA_ERROR("Exception Caught during [device::Manager::Initialize]\r\n");
+    }
 }
 
 void WA_UTILS_MGR_Term(void)
 {
-    device::Manager::DeInitialize();
+    try {
+        device::Manager::DeInitialize();
+    }
+    catch (...){
+        WA_ERROR("Exception Caught during [device::Manager::Deinitialize]\r\n");
+    }
 }
 
 /* End of doxygen group */

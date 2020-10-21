@@ -60,7 +60,8 @@ var telemetry_order = {
     'Video Tuner': ['QAMTuner', 'N'],
     'Cable Modem': ['CableModem', 'N'],
     'Bluetooth': ['BTLE', 'N'],
-    'WiFi':['WiFi', 'N']
+    'WiFi': ['WiFi', 'N'],
+    'WAN': ['WAN', 'N']
 };
 
 /*
@@ -83,7 +84,8 @@ var diagGroupsAll = {
     'Video Tuner': {'tuner_status': []},
     'Cable Modem': {'modem_status': []},
     'Bluetooth': {'bluetooth_status': []},
-    'WiFi': {'wifi_status': []}
+    'WiFi': {'wifi_status': []},
+    'WAN': {'wan_status': []}
 };
 
 /* to be adjusted when reading capabilities */
@@ -93,7 +95,7 @@ var diagGroups = diagGroupsAll;
    So first diag name present in diagGroups gets id=1 and so on.
  */
 var diagOrder = {
-    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14],
+    0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15],
     10: [11] //first av then tuners
 };
 
@@ -1060,18 +1062,30 @@ function getInfo(elemName, status, data) {
         info = "RF4CE Chip Fail";
         break;
     case DIAG_ERRCODE.INTERNAL_TEST_ERROR:
-        info = "Test Internal Error. Please Rerun Test";
+        info = "Test Not Run";
         break;
     case DIAG_ERRCODE.CANCELLED:
-        info = "Test Cancelled. Please Rerun Test";
+        info = "Test Cancelled";
         break;
     case DIAG_ERRCODE.CANCELLED_NOT_STANDBY:
         info = "Test Cancelled. Device not in standby";
         break;
+    case DIAG_ERRCODE.NO_GATEWAY_CONNECTION:
+        info = "No X1 Gateway Connection";
+        break;
+    case DIAG_ERRCODE.NO_COMCAST_WAN_CONNECTION:
+        info = "No Comcast WAN Connection";
+        break;
+    case DIAG_ERRCODE.NO_PUBLIC_WAN_CONNECTION:
+        info = "No Public WAN Connection";
+        break;
+    case DIAG_ERRCODE.NO_WAN_CONNECTION:
+        info = "No WAN Connection. Check Connection";
+        break;
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
     default:
         if(status < 0) {
-            info = "Test Not Executed. Please Rerun Test"
+            info = "Test Not Executed"
         } else {
             info = "";
         }
@@ -1213,6 +1227,10 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.NON_RF4CE_INPUT:
     case DIAG_ERRCODE.RF4CE_CTRLM_NO_RESPONSE:
     case DIAG_ERRCODE.HDD_MARGINAL_ATTRIBUTES_FOUND:
+    case DIAG_ERRCODE.NO_GATEWAY_CONNECTION:
+    case DIAG_ERRCODE.NO_COMCAST_WAN_CONNECTION:
+    case DIAG_ERRCODE.NO_PUBLIC_WAN_CONNECTION:
+    case DIAG_ERRCODE.NO_WAN_CONNECTION:
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
         elem.result = results.warning;
         break;

@@ -237,6 +237,12 @@ AC_ARG_WITH([diag-wifi],
         [echo "WIFI test support is disabled"])
 AM_CONDITIONAL([HAVE_DIAG_WIFI], [test x$DIAG_WIFI_ENABLE = xtrue])
 
+AC_ARG_WITH([diag-wan],
+        AS_HELP_STRING([--with-diag-wan],[enable WAN test (default is no)]),
+        AS_IF([test "x$enableval" = xyes], [DIAG_ENABLE_FLAGS+=" -DHAVE_DIAG_WAN" DIAG_WAN_ENABLE=true]),
+        [echo "WAN test support is disabled"])
+AM_CONDITIONAL([HAVE_DIAG_WAN], [test x$DIAG_WAN_ENABLE = xtrue])
+
 AM_CONDITIONAL([HAVE_DIAG_FILE], [test x$DIAG_FLASH_ENABLE = xtrue -o x$DIAG_DRAM_ENABLE = xtrue -o x$DIAG_FLASH_XI6_ENABLE = xtrue])
 
 AC_SUBST([DIAG_ENABLE_FLAGS])

@@ -58,7 +58,7 @@ class Scenario
 public:
     Scenario();
     virtual ~Scenario();
-    virtual bool init(const std::vector<std::string>& diags = {}, const std::string& param = "") = 0;
+    virtual bool init(const std::string& client = "", const std::vector<std::string>& diags = {}, const std::string& param = "") = 0;
 
 protected:
     int getElement(const std::string& elem_name);

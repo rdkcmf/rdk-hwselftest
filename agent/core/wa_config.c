@@ -96,6 +96,9 @@
 #ifdef HAVE_DIAG_WIFI
 #include "wa_diag_wifi.h"
 #endif
+#ifdef HAVE_DIAG_WAN
+#include "wa_diag_wan.h"
+#endif
 
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
@@ -181,6 +184,9 @@ static WA_DIAG_proceduresConfig_t diags[] =
 #endif
 #ifdef HAVE_DIAG_WIFI
     {"wifi_status", NULL, NULL, WA_DIAG_WIFI_status, NULL, NULL, NULL },
+#endif
+#ifdef HAVE_DIAG_WAN
+    {"wan_status", NULL, NULL, WA_DIAG_WAN_status, NULL, NULL, NULL },
 #endif
 
     {"previous_results", NULL, NULL, WA_DIAG_PREV_RESULTS_Info, NULL, NULL, NULL },

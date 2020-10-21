@@ -42,11 +42,18 @@ ScenarioAll::~ScenarioAll()
     HWST_DBG("~ScenarioAll");
 }
 
-bool ScenarioAll::init(const std::vector<std::string>& diags, const std::string& param)
+bool ScenarioAll::init(const std::string& client, const std::vector<std::string>& diags, const std::string& param)
 {
-    return ScenarioSet::init({"avdecoder_qam_status", "tuner_status", "dram_status", "flash_status",
+    if (client.find("periodic") != std::string::npos) /* wan_status is disbaled for PTR as per RDK-27003 */
+    {
+        return ScenarioSet::init("", {"avdecoder_qam_status", "tuner_status", "dram_status", "flash_status",
                               "hdd_status", "hdmiout_status", "ir_status", "mcard_status", "moca_status",
-                              "modem_status", "bluetooth_status", "rf4ce_status", "wifi_status", "sdcard_status" }, param);
+                              "modem_status", "bluetooth_status", "rf4ce_status", "wifi_status", "sdcard_status"}, param);
+    }
+
+    return ScenarioSet::init("", {"avdecoder_qam_status", "tuner_status", "dram_status", "flash_status",
+                              "hdd_status", "hdmiout_status", "ir_status", "mcard_status", "moca_status",
+                              "modem_status", "bluetooth_status", "rf4ce_status", "wifi_status", "sdcard_status", "wan_status"}, param);
 }
 
 } // namespace hwst

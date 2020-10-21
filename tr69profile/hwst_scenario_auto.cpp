@@ -46,7 +46,7 @@ ScenarioAuto::~ScenarioAuto()
     HWST_DBG("~ScenarioAuto");
 }
 
-bool ScenarioAuto::init(const std::vector<std::string>& diags, const std::string& param)
+bool ScenarioAuto::init(const std::string& client, const std::vector<std::string>& diags, const std::string& param)
 {
     caps_elem = addElement(DiagFactory::create("capabilities_info", param));
     if (caps_elem >= 0)
@@ -55,7 +55,7 @@ bool ScenarioAuto::init(const std::vector<std::string>& diags, const std::string
         HWST_DBG("error adding capabilities_info");
 
     // init all diags disabled and make sure capabilities is executed first
-    if (ScenarioAll::init())
+    if (ScenarioAll::init(client))
     {
         for (size_t i = 0; i < elements.size(); i++)
         {

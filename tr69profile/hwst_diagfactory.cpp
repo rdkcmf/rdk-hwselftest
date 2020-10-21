@@ -37,6 +37,7 @@
 #include "hwst_diag_ir.hpp"
 #include "hwst_diag_rf4ce.hpp"
 #include "hwst_diag_wifi.hpp"
+#include "hwst_diag_wan.hpp"
 
 //#define HWST_DEBUG 1
 #ifdef HWST_DEBUG
@@ -67,7 +68,8 @@ std::map<std::string, DiagFactory::creator_t> DiagFactory::pool =
     {"modem_status", &creator<DiagModem>},
     {"flash_status", &creator<DiagFlash>},
     {"wifi_status", &creator<DiagWifi>},
-    {"dram_status", &creator<DiagDram>}
+    {"dram_status", &creator<DiagDram>},
+    {"wan_status", &creator<DiagWan>}
 };
 
 std::unique_ptr<Diag> DiagFactory::create(std::string diag, std::string params)

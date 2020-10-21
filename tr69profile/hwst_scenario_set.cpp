@@ -43,7 +43,7 @@ ScenarioSet::~ScenarioSet()
     HWST_DBG("~ScenarioSet");
 }
 
-bool ScenarioSet::init(const std::vector<std::string>& diags, const std::string& param)
+bool ScenarioSet::init(const std::string& client, const std::vector<std::string>& diags, const std::string& param)
 {
     /* create list of elements */
     for (auto diag : diags)

@@ -158,6 +158,18 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_CpuThreshold(const char *
  */
 bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_DramThreshold(const char *log_module, HOSTIF_MsgData_t *stMsgData);
 
+/**
+ * @brief set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTestWAN_WANEndPointURL
+ *
+ * This method is used to set the hardware health test WAN test case URL.
+ * with following TR-069 definition:
+ *   Parameter Name: Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.hwHealthTestWAN.WANTestEndPointURL
+ *   Data type: string - URL to set.
+ *
+ * @retval true if it is successful.
+ * @retval false if operation fails.
+ */
+bool set_Device_DeviceInfo_RFC_hwHealthTestWAN_WANEndPointURL(const char *log_module, HOSTIF_MsgData_t *stMsgData);
 } // namespace hwselftest
 
 #endif /* DEVICEINFO_HWHEALTHTEST_H_ */

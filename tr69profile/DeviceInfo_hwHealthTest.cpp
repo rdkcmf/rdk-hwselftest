@@ -573,4 +573,27 @@ bool set_Device_DeviceInfo_xOpsDeviceMgmt_hwHealthTest_DramThreshold(const char 
     return true;
 }
 
+bool set_Device_DeviceInfo_RFC_hwHealthTestWAN_WANEndPointURL(const char *log_module, HOSTIF_MsgData_t *stMsgData)
+{
+    bool ret = false;
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set WAN test URL for hwselftest...\n", FILE_CPP, __FUNCTION__);
+
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE_CPP, __FUNCTION__);
+        return ret;
+    }
+
+    char URL[256] = {'\0'};
+    strcpy(URL, stMsgData->paramValue);
+
+    create_emptyStrResponse(stMsgData);
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest WAN test case URL set to %s\n", FILE_CPP, __FUNCTION__, URL);
+    stMsgData->faultCode = fcNoFault;
+
+    return true;
+}
+
 } // namespace hwselftest

@@ -20,7 +20,7 @@
 var DIAG_ERRCODE = {
         FAILURE:                1,
         SUCCESS:                0,
-        
+
         /* generic codes */
         NOT_APPLICABLE:         -1,
         CANCELLED:              -2,
@@ -56,6 +56,10 @@ var DIAG_ERRCODE = {
         HDD_MARGINAL_ATTRIBUTES_FOUND:  -121,
 
         RF4CE_CHIP_DISCONNECTED:        -122, /* RF4CE Chip Failure code */
+        NO_GATEWAY_CONNECTION:          -123,
+        NO_COMCAST_WAN_CONNECTION:      -124,
+        NO_PUBLIC_WAN_CONNECTION:       -125,
+        NO_WAN_CONNECTION:              -126,
 
         /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
         DEFAULT_RESULT_VALUE:           -200

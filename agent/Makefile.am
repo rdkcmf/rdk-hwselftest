@@ -94,6 +94,9 @@ endif
 if HAVE_DIAG_WIFI
     hwselftest_SOURCES += core/diag/wa_diag_wifi.c
 endif
+if HAVE_DIAG_WAN
+    hwselftest_SOURCES += core/diag/wa_diag_wan.c
+endif
 
 WA_DEBUG ?= $(DEFAULT_WA_DEBUG)
 

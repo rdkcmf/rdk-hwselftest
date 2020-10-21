@@ -17,31 +17,33 @@
  * limitations under the License.
 */
 
-#ifndef _HWST_SCENARIO_AUTO_
-#define _HWST_SCENARIO_AUTO_
+#ifndef _HWST_DIAG_WAN_
+#define _HWST_DIAG_WAN_
 
-#include <string>
-#include <vector>
-
-#include "hwst_scenario_all.hpp"
+#include "hwst_diag.hpp"
 
 namespace hwst {
 
-class ScenarioAuto: public ScenarioAll
-{
-public:
-    ScenarioAuto();
-    ~ScenarioAuto();
-    virtual bool init(const std::string& client = "", const std::vector<std::string>& diags = {}, const std::string& param = "") override;
+class Comm;
 
-protected:
-    virtual int nextToRun(std::shared_ptr<Diag> &diag) override;
+class DiagWan: public Diag
+{
+    friend class hwst::Comm;
+
+    enum {
+        NO_GATEWAY_CONNECTION     = -123,
+        NO_COMCAST_WAN_CONNECTION = -124,
+        NO_PUBLIC_WAN_CONNECTION  = -125,
+        NO_WAN_CONNECTION         = -126
+    };
+public:
+    DiagWan(const std::string &params_ = "");
+    ~DiagWan() {}
 
 private:
-    int caps_elem;
-    bool caps_retrieved;
+    std::string getPresentationName() const override;
 };
 
 } // namespace hwst
 
-#endif // _HWST_SCENARIO_AUTO_
+#endif // _HWST_DIAG_WAN_

@@ -18,17 +18,18 @@
 */
 
 /**
- * @file
+ * @file wa_diag_wan.h
  *
- * @brief Unified error status codes.
+ * @brief Diagnostic functions for WAN - interface
  */
 
-/** @addtogroup WA_DIAG
+/** @addtogroup WA_DIAG_WAN
  *  @{
  */
 
-#ifndef WA_DIAG_ERRCODES_H
-#define WA_DIAG_ERRCODES_H
+#ifndef WA_DIAG_WAN_H
+#define WA_DIAG_WAN_H
+
 
 /*****************************************************************************
  * STANDARD INCLUDE FILES
@@ -37,6 +38,9 @@
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
+#include "wa_json.h"
+#include "hostIf_tr69ReqHandler.h"
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -45,45 +49,6 @@ extern "C"
 /*****************************************************************************
  * EXPORTED DEFINITIONS
  *****************************************************************************/
-#define WA_DIAG_ERRCODE_FAILURE 1
-
-#define WA_DIAG_ERRCODE_SUCCESS 0
-
-/* generic codes */
-#define WA_DIAG_ERRCODE_NOT_APPLICABLE      (-1)
-#define WA_DIAG_ERRCODE_CANCELLED           (-2)
-#define WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR (-3)
-#define WA_DIAG_ERRCODE_CANCELLED_NOT_STANDBY           (-4)
-
-/* specific codes */
-#define WA_DIAG_ERRCODE_HDD_STATUS_MISSING  (-100)
-#define WA_DIAG_ERRCODE_HDMI_NO_DISPLAY     (-101)
-#define WA_DIAG_ERRCODE_HDMI_NO_HDCP        (-102)
-#define WA_DIAG_ERRCODE_MOCA_NO_CLIENTS     (-103)
-#define WA_DIAG_ERRCODE_MOCA_DISABLED       (-104)
-#define WA_DIAG_ERRCODE_SI_CACHE_MISSING    (-105)
-#define WA_DIAG_ERRCODE_TUNER_NO_LOCK       (-106)
-#define WA_DIAG_ERRCODE_AV_NO_SIGNAL        (-107)
-#define WA_DIAG_ERRCODE_IR_NOT_DETECTED     (-108)
-#define WA_DIAG_ERRCODE_CM_NO_SIGNAL        (-109)
-#define WA_DIAG_ERRCODE_MCARD_CERT_INVALID  (WA_DIAG_ERRCODE_FAILURE)
-#define WA_DIAG_ERRCODE_TUNER_BUSY          (-111)
-#define WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE   (-112)
-#define WA_DIAG_ERRCODE_WIFI_NO_CONNECTION  (-113)
-#define WA_DIAG_ERRCODE_AV_URL_NOT_REACHABLE  (-114)
-
-#define WA_DIAG_ERRCODE_NON_RF4CE_INPUT                 (-117)
-#define WA_DIAG_ERRCODE_EMMC_MAX_LIFE_EXCEED_FAILURE    (-118)
-#define WA_DIAG_ERRCODE_EMMC_ZERO_LIFETIME_FAILURE      (-119)
-#define WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE         (-120)
-#define WA_DIAG_ERRCODE_HDD_MARGINAL_ATTRIBUTES_FOUND   (-121)
-#define WA_DIAG_ERRCODE_RF4CE_CHIP_DISCONNECTED         (-122) /* RF4CE Chip Failure code */
-#define WA_DIAG_ERRCODE_NO_GATEWAY_CONNECTION           (-123)
-#define WA_DIAG_ERRCODE_NO_COMCAST_WAN_CONNECTION       (-124)
-#define WA_DIAG_ERRCODE_NO_PUBLIC_WAN_CONNECTION        (-125)
-#define WA_DIAG_ERRCODE_NO_WAN_CONNECTION               (-126)
-
-#define WA_DIAG_ERRCODE_DEFAULT_RESULT_VALUE            (-200) /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
 
 /*****************************************************************************
  * EXPORTED TYPES
@@ -97,6 +62,10 @@ extern "C"
  * EXPORTED FUNCTIONS
  *****************************************************************************/
 
+/**
+ * WAN CONNECTION STATUS
+ */
+extern int WA_DIAG_WAN_status(void* instanceHandle, void *initHandle, json_t **params);
 /*****************************************************************************
  * LOCAL FUNCTIONS
  *****************************************************************************/
@@ -105,4 +74,9 @@ extern "C"
 }
 #endif
 
-#endif
+#endif /* WA_DIAG_WAN_H */
+
+/* End of doxygen group */
+/*! @} */
+
+/* EOF */

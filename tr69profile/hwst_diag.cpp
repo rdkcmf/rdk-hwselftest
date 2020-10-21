@@ -51,10 +51,10 @@ Diag::Diag(const std::string name_, const std::string &params_):
     presentationResult.insert(std::pair<int, const std::string>(DEFAULT_RESULT_VALUE, "WARNING"));
     presentationResult.insert(std::pair<int, const std::string>(CANCELLED_NOT_STANDBY, "WARNING"));
 
-    presentationComment.insert(std::pair<int, const std::string>(CANCELLED, "Test Cancelled. Please Rerun Test"));
-    presentationComment.insert(std::pair<int, const std::string>(INTERNAL_TEST_ERROR, "Test Internal Error. Please Rerun Test"));
+    presentationComment.insert(std::pair<int, const std::string>(CANCELLED, "Test Cancelled"));
+    presentationComment.insert(std::pair<int, const std::string>(INTERNAL_TEST_ERROR, "Test Not Run"));
     presentationComment.insert(std::pair<int, const std::string>(NOT_APPLICABLE, "Test Not Applicable"));
-    presentationComment.insert(std::pair<int, const std::string>(DEFAULT_RESULT_VALUE, "Test Not Executed. Please Rerun Test"));
+    presentationComment.insert(std::pair<int, const std::string>(DEFAULT_RESULT_VALUE, "Test Not Executed"));
     presentationComment.insert(std::pair<int, const std::string>(CANCELLED_NOT_STANDBY, "Test Cancelled. Device not in standby"));
 }
 

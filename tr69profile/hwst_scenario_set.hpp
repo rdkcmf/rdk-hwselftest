@@ -32,7 +32,7 @@ class ScenarioSet: public Scenario
 public:
     ScenarioSet();
     ~ScenarioSet();
-    virtual bool init(const std::vector<std::string>& diags = {}, const std::string& param = "") override;
+    virtual bool init(const std::string& client = "", const std::vector<std::string>& diags = {}, const std::string& param = "") override;
 };
 
 } // namespace hwst

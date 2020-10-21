@@ -64,7 +64,8 @@ std::map<std::string, int> diagPool =
     {"tuner_status", 10},
     {"modem_status", 11},
     {"bluetooth_status", 12},
-    {"wifi_status", 13}
+    {"wifi_status", 13},
+    {"wan_status", 14}
 };
 
 Sched::Sched(std::string host, std::string port, int timeout):
@@ -395,8 +396,16 @@ int Sched::issue(const std::vector<std::string>& jobs, const std::string& client
         else
             scenario = std::unique_ptr<Scenario>(new ScenarioSet());
 
-        if (!scenario->init(jobs, param))
-            break;
+        if (!jobs.size())
+        {
+            if (!scenario->init(client, jobs, param))
+                break;
+        }
+        else
+        {
+            if (!scenario->init("", jobs, param))
+                break;
+        }
 
         HWST_DBG("Scenario created");
 

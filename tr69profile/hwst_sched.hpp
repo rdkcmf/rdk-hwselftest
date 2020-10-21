@@ -28,7 +28,7 @@
 #include <vector>
 #include <map>
 
-#define NUM_ELEMENTS 14
+#define NUM_ELEMENTS 15
 #define BUFFERLEN 256
 
 namespace hwst {
@@ -66,7 +66,7 @@ private:
     bool update;
     bool connected;
     char telemetryResults[NUM_ELEMENTS][BUFFERLEN];
-    char telemetryNames[NUM_ELEMENTS][BUFFERLEN] = {"HDD", "Flash", "SDCard", "DRAM", "HDMI", "CableCard", "RFRemote", "IRremote", "MoCA", "AVDecoder", "QAMTuner", "CableModem", "BTLE", "WiFi"};
+    char telemetryNames[NUM_ELEMENTS][BUFFERLEN] = {"HDD", "Flash", "SDCard", "DRAM", "HDMI", "CableCard", "RFRemote", "IRremote", "MoCA", "AVDecoder", "QAMTuner", "CableModem", "BTLE", "WiFi", "WAN"};
     void cbConnected(void);
     void cbDisconnected(void);
     void cbUpdate(void);

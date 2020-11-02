@@ -32,7 +32,8 @@ class DiagHdd: public Diag
 
     enum {
         HDD_STATUS_MISSING = -100,
-        HDD_MARGINAL_ATTRIBUTES_FOUND = -121
+        HDD_MARGINAL_ATTRIBUTES_FOUND = -121,
+        HDD_DEVICE_NODE_NOT_FOUND = -127
     };
 public:
     DiagHdd(const std::string &params_ = "");

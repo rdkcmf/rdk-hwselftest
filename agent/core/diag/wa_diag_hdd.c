@@ -54,6 +54,7 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
+#define HDD_NODE                "/bin/mount | grep 'rtdev' | head -n1 | sed -e \"s|.*rtdev=||g\" -e \"s|,.*||g\""
 #define SMART_OPTION_STR        "SMART support is"
 #define SMART_ENABLED_STR       "Enabled"
 
@@ -64,15 +65,14 @@
 #define HDD_HEALTH_OK_STR       "PASSED"
 
 #define HDD_ATTRIBUTE_LIST_STR  "Vendor Specific SMART Attributes with Thresholds"
-#define HDD_END_FILE_PARSE_STR  "SMART Error Log Version"
 #define HDD_IN_THE_PAST_STR     "In_the_past"
 
 #define DEV_CONFIG_FILE_PATH    "/etc/device.properties"
-#define DISK_INFO_FILE_PATH     "/opt/logs/diskinfo.log"
-#define FILE_MODE "r"
+#define FILE_MODE               "r"
 
 #define SMART_RAW_VALUE_LIMIT   500
 #define LINE_LEN                256
+#define DATA_LEN                32        /* /dev/sda1 */
 
 /*****************************************************************************
  * LOCAL TYPES
@@ -83,10 +83,10 @@
  *****************************************************************************/
 
 static int disk_supported(void);
-static int smart_enabled(const char* logfile);
-static int disk_health_status(const char* logfile);
-static int get_line_position(FILE *file, const char* str, fpos_t *position);
-static int attribute_list_status(const char* logfile, const char *mode);
+static int get_device_name(char *deviceName);
+static int smart_enabled(const char* deviceName);
+static int disk_health_status(const char* deviceName);
+static int attribute_list_status(const char* deviceName);
 static int get_smart_id_raw_value(char* attr_str, int *raw_val);
 static int print_smart_data(smartAttributes_t *smart_data, int count);
 static int setReturnData(int status, json_t** param);
@@ -109,47 +109,50 @@ static int disk_supported(void)
     return WA_UTILS_FILEOPS_OptionSupported(DEV_CONFIG_FILE_PATH, FILE_MODE, HDD_OPTION_STR, HDD_AVAILABLE_STR);
 }
 
-static int smart_enabled(const char* logfile)
+static int get_device_name(char *deviceName)
 {
-    return WA_UTILS_FILEOPS_OptionSupported(logfile, FILE_MODE, SMART_OPTION_STR, SMART_ENABLED_STR);
-}
+    FILE *fp;
 
-static int disk_health_status(const char* logfile)
-{
-    return WA_UTILS_FILEOPS_OptionSupported(logfile, FILE_MODE, HDD_HEALTH_OPTION_STR, HDD_HEALTH_OK_STR);
-}
-
-static int get_line_position(FILE *file, const char* str, fpos_t *position)
-{
-    char str_out[LINE_LEN];
-    char *pos = NULL;
-    int ret = 0;
-    int line_number = 0;
-
-    while(fgets(str_out, LINE_LEN, file) != NULL && !WA_OSA_TaskCheckQuit())
+    fp = popen(HDD_NODE, FILE_MODE);
+    if (fp == NULL)
     {
-        line_number++;
-
-        pos = (char *) strcasestr(str_out, str);
-
-        if (pos != NULL)
-        {
-            fgetpos(file, position);
-            ret = 1;
-        }
+        WA_ERROR("HDD Test, get_device_name(): Failed to get the device name '%s'\n", HDD_NODE);
+        return -1;
     }
 
-    WA_DBG("HDD Test: attribute_list_status(): Processed %i number of lines for %s\n", line_number, str);
+    fscanf(fp, "%s", deviceName);
+    pclose(fp);
 
-    return ret;
+    WA_INFO("HDD Test, get_device_name(): %s\n", deviceName);
+
+    return 0;
 }
 
-static int attribute_list_status(const char* logfile, const char *mode)
+static int smart_enabled(const char* deviceName)
 {
-    FILE *fd;
-    fpos_t position;
+    char cmd[LINE_LEN];
+
+    snprintf(cmd, sizeof(cmd), "smartctl --info %s", deviceName);
+
+    return WA_UTILS_FILEOPS_CheckCommandResult(cmd, SMART_OPTION_STR, SMART_ENABLED_STR);
+}
+
+static int disk_health_status(const char* deviceName)
+{
+    char cmd[LINE_LEN];
+
+    snprintf(cmd, sizeof(cmd), "smartctl --health %s", deviceName);
+
+    return WA_UTILS_FILEOPS_CheckCommandResult(cmd, HDD_HEALTH_OPTION_STR, HDD_HEALTH_OK_STR);
+}
+
+static int attribute_list_status(const char* deviceName)
+{
+    FILE *fp;
+    bool begin_parsing = false;
+    char cmd[LINE_LEN];
     char str_out[LINE_LEN];
-    char attr_id[10];
+    char attr_id[DATA_LEN];
     char *id = NULL;
     char *tmp_string = NULL;
     int raw_value = 0;
@@ -161,57 +164,45 @@ static int attribute_list_status(const char* logfile, const char *mode)
 
     WA_ENTER("HDD Test: attribute_list_status()\n");
 
-    fd = fopen(logfile, mode);
-    if(fd == NULL)
+    snprintf(cmd, sizeof(cmd), "smartctl --attributes %s", deviceName);
+
+    fp = popen(cmd, FILE_MODE);
+    if(fp == NULL)
     {
-        WA_ERROR("HDD Test: attribute_list_status(): Failed to open log %s\n", logfile);
+        WA_ERROR("HDD Test: attribute_list_status(): Failed to execute the command '%s'\n", cmd);
         return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
 
-    ret = get_line_position(fd, HDD_HEALTH_OPTION_STR, &position);
-
-    if (ret == 0)
-    {
-        fclose(fd);
-        WA_DBG("HDD Test: attribute_list_status(): Failed to find line with %s in log %s\n", HDD_HEALTH_OPTION_STR, logfile);
-        return WA_DIAG_ERRCODE_HDD_STATUS_MISSING;
-    }
-
-    fsetpos(fd, &position);
-
-    ret = get_line_position(fd, HDD_ATTRIBUTE_LIST_STR, &position);
-
-    if (ret == 0)
-    {
-        fclose(fd);
-        WA_DBG("HDD Test: attribute_list_status(): Failed to find line with %s in log %s\n", HDD_ATTRIBUTE_LIST_STR, logfile);
-        return WA_DIAG_ERRCODE_HDD_STATUS_MISSING;
-    }
-
-    fsetpos(fd, &position);
-
     // Going through the list of SMART attributes
-    while (fgets(str_out, LINE_LEN, fd) != NULL && !WA_OSA_TaskCheckQuit())
+    while (fgets(str_out, LINE_LEN, fp) != NULL && !WA_OSA_TaskCheckQuit())
     {
-        if (strcasestr(str_out, HDD_END_FILE_PARSE_STR) != NULL)
-        {
-            break;
-        }
+        begin_parsing = (!begin_parsing && strcasestr(str_out, HDD_ATTRIBUTE_LIST_STR) != NULL) ? true : begin_parsing;
+        if (!begin_parsing)
+            continue;
 
         str_len = strlen(str_out);
-        if (str_len <= 1)
+        tmp_string = (char*)malloc(str_len + 1);
+        if (!tmp_string)
         {
-            continue;
+            pclose(fp);
+            WA_DBG("HDD Test: attribute_list_status(): Failed to allocate memory for temp_string\n");
+            return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
         }
 
-        tmp_string = (char*)malloc(str_len + 1);
         strncpy(tmp_string, str_out, str_len);
+        memset(attr_id, 0, sizeof(attr_id));
 
         id = strtok(tmp_string, " ");
-        sprintf(attr_id, id);
+        if (id)
+            snprintf(attr_id, sizeof(attr_id), "%s", id);
+        else
+            WA_DBG("HDD Test: attribute_list_status(): NULL value returned\n");
 
         free(tmp_string);
         tmp_string = NULL;
+
+        if (strcmp(attr_id, "Vendor") == 0 || strcmp(attr_id, "ID#") == 0 || strcmp(attr_id, "") == 0)
+            continue;
 
         WA_DBG("HDD Test: attribute_list_status(): attr_str_len: %i, attr_id: %s\n", str_len, attr_id);
 
@@ -227,9 +218,7 @@ static int attribute_list_status(const char* logfile, const char *mode)
             }
 
             if (ret == 0)
-            {
                 continue;
-            }
 
             smart_data[count].attr_id = smart_attr_ids[index];
             smart_data[count].raw_value = raw_value;
@@ -237,11 +226,17 @@ static int attribute_list_status(const char* logfile, const char *mode)
         }
     }
 
-    fclose(fd);
+    pclose(fp);
+
+    if (!begin_parsing)
+    {
+        WA_DBG("HDD Test: attribute_list_status(): Failed to find line with %s\n", HDD_ATTRIBUTE_LIST_STR);
+        return WA_DIAG_ERRCODE_HDD_STATUS_MISSING;
+    }
 
     if (count == 0)
     {
-        WA_DBG("HDD Test: attribute_list_status(): SMART Attributes are good from log %s\n", logfile);
+        WA_DBG("HDD Test: attribute_list_status(): SMART Attributes are good\n");
         return WA_DIAG_ERRCODE_SUCCESS;
     }
 
@@ -296,14 +291,11 @@ static int print_smart_data(smartAttributes_t *smart_data, int count)
 {
     char *msg;
     json_t *json = json_object();
-    //json_t *jsmart_data = json_object();
 
     for (int index = 0; index < count; index++)
     {
         json_object_set_new(json, smart_data[index].attr_id, json_integer(smart_data[index].raw_value));
     }
-
-    //json_object_set_new(jsmart_data, "HWHeathTestSMART", json);
 
     msg = json_dumps(json, JSON_ENCODE_ANY);
 
@@ -337,11 +329,15 @@ static int setReturnData(int status, json_t **param)
            break;
 
         case WA_DIAG_ERRCODE_HDD_STATUS_MISSING:
-            *param = json_string("S.M.A.R.T. health status unavailable.");
+            *param = json_string("HDD Test Not Run");
             break;
 
         case WA_DIAG_ERRCODE_HDD_MARGINAL_ATTRIBUTES_FOUND:
             *param = json_string("Marginal HDD Values");
+            break;
+
+        case WA_DIAG_ERRCODE_HDD_DEVICE_NODE_NOT_FOUND:
+            *param = json_string("HDD Device Node Not Found");
             break;
 
         case WA_DIAG_ERRCODE_NOT_APPLICABLE:
@@ -370,20 +366,13 @@ static int setReturnData(int status, json_t **param)
 int WA_DIAG_HDD_status(void *instanceHandle, void *initHandle, json_t **params)
 {
     int ret = -1;
-    json_t * jsonConfig = NULL;
-    const char * logfile = DISK_INFO_FILE_PATH;
+    char deviceName[DATA_LEN];
 
     json_decref(*params); //not used
     *params = NULL;
 
-    jsonConfig = ((WA_DIAG_proceduresConfig_t*)initHandle)->config;
-
-    /* Use log file name from config if present */
-    if (jsonConfig)
-        json_unpack(jsonConfig, "{ss}", "logfile", &logfile);
-
     ret = disk_supported();
-    if(ret < 0)
+    if (ret < 0)
     {
         if(WA_OSA_TaskCheckQuit())
         {
@@ -394,19 +383,28 @@ int WA_DIAG_HDD_status(void *instanceHandle, void *initHandle, json_t **params)
         WA_DBG("Device configuration unknown\n");
         return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
     }
-    else if(ret == 0)
+
+    if (ret == 0)
     {
         WA_DBG("Device does not have hdd\n");
         return setReturnData(WA_DIAG_ERRCODE_NOT_APPLICABLE, params);
     }
+
     WA_DBG("HDD supported.\n");
 
-    ret = smart_enabled(logfile);
+    memset(deviceName, 0, sizeof(deviceName));
+    if (get_device_name(deviceName))
+    {
+        WA_DBG("HDD_status: Device node cannot be retrieved\n");
+        return setReturnData(WA_DIAG_ERRCODE_HDD_DEVICE_NODE_NOT_FOUND, params);
+    }
+
+    ret = smart_enabled(deviceName);
     if(ret < 0 )
     {
         if(WA_OSA_TaskCheckQuit())
         {
-            WA_DBG("smart_enabled: test cancelled\n");
+            WA_DBG("smart_enabled: Test cancelled\n");
             return setReturnData(WA_DIAG_ERRCODE_CANCELLED, params);
         }
 
@@ -423,7 +421,7 @@ int WA_DIAG_HDD_status(void *instanceHandle, void *initHandle, json_t **params)
         WA_DBG("S.M.A.R.T. currently enabled\n");
     }
 
-    ret = disk_health_status(logfile);
+    ret = disk_health_status(deviceName);
     if(ret < 0)
     {
         if(WA_OSA_TaskCheckQuit())
@@ -443,7 +441,7 @@ int WA_DIAG_HDD_status(void *instanceHandle, void *initHandle, json_t **params)
 
     WA_DBG("Last S.M.A.R.T. health status good\n");
 
-    ret = attribute_list_status(logfile, FILE_MODE);
+    ret = attribute_list_status(deviceName);
 
     return setReturnData(ret, params);
 }

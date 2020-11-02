@@ -60,6 +60,7 @@ var DIAG_ERRCODE = {
         NO_COMCAST_WAN_CONNECTION:      -124,
         NO_PUBLIC_WAN_CONNECTION:       -125,
         NO_WAN_CONNECTION:              -126,
+        HDD_DEVICE_NODE_NOT_FOUND:      -127,
 
         /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
         DEFAULT_RESULT_VALUE:           -200

@@ -1005,7 +1005,7 @@ function getInfo(elemName, status, data) {
         info = "Test Not Applicable";
         break;
     case DIAG_ERRCODE.HDD_STATUS_MISSING:
-        info = "Health Status Unavailable";
+        info = "HDD Test Not Run";
         break;
     case DIAG_ERRCODE.HDMI_NO_DISPLAY:
         info = "No HDMI detected. Verify HDMI cable is connected on both ends or if TV is compatible";
@@ -1067,6 +1067,8 @@ function getInfo(elemName, status, data) {
         break;
     case DIAG_ERRCODE.RF4CE_CHIP_DISCONNECTED:
         info = "RF4CE Chip Fail";
+    case DIAG_ERRCODE.HDD_DEVICE_NODE_NOT_FOUND:
+        info = "HDD Device Node Not Found";
         break;
     case DIAG_ERRCODE.INTERNAL_TEST_ERROR:
         info = "Test Not Run";
@@ -1238,6 +1240,7 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.NO_COMCAST_WAN_CONNECTION:
     case DIAG_ERRCODE.NO_PUBLIC_WAN_CONNECTION:
     case DIAG_ERRCODE.NO_WAN_CONNECTION:
+    case DIAG_ERRCODE.HDD_DEVICE_NODE_NOT_FOUND:
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
         elem.result = results.warning;
         break;

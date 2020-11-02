@@ -64,6 +64,7 @@ int WA_UTILS_FILEOPS_OptionSupported(const char *file, const char *mode, const c
 char *WA_UTILS_FILEOPS_OptionFind(const char *fname, const char *pattern);
 char **WA_UTILS_FILEOPS_OptionFindMultiple(const char *fname, const char *pattern, int maxEntries);
 void WA_UTILS_FILEOPS_OptionFindMultipleFree(char **multiple);
+int WA_UTILS_FILEOPS_CheckCommandResult(const char *cmd, const char *searchString, const char *expValue);
 
 /*****************************************************************************
  * LOCAL FUNCTIONS

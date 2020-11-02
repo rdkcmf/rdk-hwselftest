@@ -285,6 +285,44 @@ void WA_UTILS_FILEOPS_OptionFindMultipleFree(char **multiple)
     free(multiple);
 }
 
+int WA_UTILS_FILEOPS_CheckCommandResult(const char *cmd, const char *searchString, const char *expValue)
+{
+    FILE *fp;
+    char *opt, *val;
+    char buff[LINE_LEN];
+
+    fp = popen(cmd, "r");
+    if (fp == NULL)
+    {
+        WA_ERROR("WA_UTILS_FILEOPS_CheckCmdResult(): Failed to execute the command '%s'\n", cmd);
+        return -1;
+    }
+
+    opt = get_last_line_with_str(fp, searchString, buff, LINE_LEN);
+    pclose(fp);
+
+    if(WA_OSA_TaskCheckQuit())
+    {
+        WA_DBG("WA_UTILS_FILEOPS_CheckCmdResult(): Test cancelled\n");
+        return -1;
+    }
+
+    if (opt)
+    {
+        val = strcasestr(buff, expValue);
+        if (val)
+        {
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
 /* End of doxygen group */
 /*! @} */
 

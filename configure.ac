@@ -53,6 +53,8 @@ AC_SUBST([MFRLIB], [$mfrlib])
 
 AM_CONDITIONAL([USE_MFRLIB], [test x$MFRLIB != x && test x$MFRVENDOR != x])
 
+AC_CHECK_LIB(nxclient, NxClient_Join, [enable_nx=yes], [enable_nx=no])
+AM_CONDITIONAL([USE_NEXUS], [test "x$enable_nx" = xyes])
 
 AC_ARG_ENABLE([agent-build],
         AS_HELP_STRING([--enable-agent-build],[enable agent build (default is no)]),

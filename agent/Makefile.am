@@ -116,6 +116,9 @@ hwselftest_CPPFLAGS = \
 
 hwselftest_LDFLAGS = -ljansson -pthread -lrt -lnetsnmp -lds -ldshalcli -lIARMBus -lwebsockets -lhnsource -lmediaplayersink -lrmfbase -lrmfosal -lglib-2.0 -lrdkloggers -lbreakpadwrapper -lrfcapi
 
+if USE_NEXUS
+    hwselftest_LDFLAGS += -lnxclient
+endif
 
 hwselftest_CFLAGS = \
         $(RF4CE_ENABLE_FLAG) \

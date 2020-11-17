@@ -49,6 +49,17 @@
 #include "wa_mgr.h"
 #include "wa_vport.h"
 
+#ifndef DEVICE_XIONE_RTK
+
+#define NEXUS_HAS_GPIO 1
+#include "nexus_platform.h"
+
+#ifdef RDK_USE_NXCLIENT
+#include <nxclient.h>
+#endif
+
+#endif /* DEVICE_XIONE_RTK */
+
 /* module interface */
 #include "wa_diag_hdmiout.h"
 
@@ -70,6 +81,9 @@
  *****************************************************************************/
 
 static int setReturnData(int status, json_t **param);
+#ifndef DEVICE_XIONE_RTK
+static int nexus_hdcpStatus();
+#endif
 
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
@@ -121,6 +135,52 @@ static int setReturnData(int status, json_t **param)
     return status;
 }
 
+#ifndef DEVICE_XIONE_RTK
+/* returns hdcp 0:enabled 1:hdmi disconnected  2:hdcp not enabled -1:nexus call failed */
+int nexus_hdcpStatus()
+{
+    WA_ENTER("nexus_hdcpStatus() Enter\n");
+
+    NxClient_JoinSettings joinSettings;
+    NxClient_GetDefaultJoinSettings(&joinSettings);
+    int rc = NxClient_Join(&joinSettings);
+
+    if (rc != 0)
+    {
+        WA_ERROR("nexus_hdcpStatus() NxClient_Join failed wirth result %d\n", rc);
+        return -1;
+    }
+
+    NxClient_DisplayStatus status;
+    rc = NxClient_GetDisplayStatus(&status);
+    if (rc != 0)
+    {
+        WA_ERROR("nexus_hdcpStatus() NxClient_GetDisplayStatus failed wirth result %d\n", rc);
+        return -1;
+    }
+
+    WA_DBG("nexus_hdcpStatus() NxClient_GetDisplayStatus HDMI connected : %s\n", status.hdmi.status.connected ? "true" : "false");
+    if (!status.hdmi.status.connected)
+    {
+        WA_DBG("nexus_hdcpStatus() NxClient_GetDisplayStatus HDMI is not connected\n");
+        return 1;
+    }
+
+    WA_DBG("nexus_hdcpStatus() NxClient_GetDisplayStatus hdcp state is %d\n", status.hdmi.hdcp.hdcpState);
+
+    if ((status.hdmi.hdcp.hdcpState == NEXUS_HdmiOutputHdcpState_eLinkAuthenticated) || (status.hdmi.hdcp.hdcpState == NEXUS_HdmiOutputHdcpState_eEncryptionEnabled))
+    {
+        WA_INFO("nexus_hdcpStatus() NxClient_GetDisplayStatus hdcp state is Enabled\n");
+        return 0;
+    }
+    else
+    {
+        WA_DBG("nexus_hdcpStatus() NxClient_GetDisplayStatus hdcp state is Not Enabled\n");
+        return 2;
+    }
+}
+#endif
+
 /*****************************************************************************
  * EXPORTED FUNCTIONS
  *****************************************************************************/
@@ -169,7 +229,12 @@ int WA_DIAG_HDMIOUT_status(void *instanceHandle, void *initHandle, json_t **para
                 break;
 
             case WA_UTILS_VPORT_HDCP_DISABLED:
-                ret = setReturnData(WA_DIAG_ERRCODE_HDMI_NO_HDCP, params);
+#ifndef DEVICE_XIONE_RTK
+                if (nexus_hdcpStatus() == 0)
+                    ret = setReturnData(WA_DIAG_ERRCODE_SUCCESS, params);
+                else
+#endif
+                    ret = setReturnData(WA_DIAG_ERRCODE_HDMI_NO_HDCP, params);
                 break;
 
             default:
@@ -179,7 +244,15 @@ int WA_DIAG_HDMIOUT_status(void *instanceHandle, void *initHandle, json_t **para
     }
     else
     {
-        ret = setReturnData(WA_DIAG_ERRCODE_HDMI_NO_DISPLAY, params);
+#ifndef DEVICE_XIONE_RTK
+        int hdmi_state = nexus_hdcpStatus();
+        if (hdmi_state == 0)
+            ret = setReturnData(WA_DIAG_ERRCODE_SUCCESS, params);
+        else if (hdmi_state == 2)
+            ret = setReturnData(WA_DIAG_ERRCODE_HDMI_NO_HDCP, params);
+        else
+#endif
+            ret = setReturnData(WA_DIAG_ERRCODE_HDMI_NO_DISPLAY, params);
     }
 
 end:

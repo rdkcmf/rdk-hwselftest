@@ -96,6 +96,7 @@ typedef struct WA_DIAG_TUNER_TunerStatus_tag
 
 typedef struct WA_DIAG_TUNER_DocsisParams_tag
 {
+    int  DOCSIS_BootState;
     char *DOCSIS_DwStreamChPwr;
     char *DOCSIS_UpStreamChPwr;
     char *DOCSIS_SNR;

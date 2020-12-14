@@ -103,6 +103,7 @@
 #define OID_TUNER_POWER "OC-STB-HOST-MIB::ocStbHostInBandTunerPower"
 #define OID_TUNER_SNR "OC-STB-HOST-MIB::ocStbHostInBandTunerSNRValue"
 
+#define OID_DOCSIS_BOOTSTATE "DOCS-CABLE-DEVICE-MIB::docsDevServerBootState"
 #define OID_DOCSIS_DOWNSTREAMPOWER "DOCS-IF-MIB::docsIfDownChannelPower"
 #define OID_DOCSIS_UPSTREAMPOWER "DOCS-IF-MIB::docsIfCmStatusTxPower"
 #define OID_DOCSIS_SNR "DOCS-IF-MIB::docsIfSigQSignalNoise"
@@ -1106,6 +1107,24 @@ bool WA_DIAG_TUNER_GetDocsisParams(WA_DIAG_TUNER_DocsisParams_t * params)
     }
 
     WA_UTILS_SNMP_Resp_t tunerResp;
+
+    /* Check if DOCSIS is in operational state */
+    tunerResp.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
+    tunerResp.data.l = 0;
+    if (!WA_UTILS_SNMP_GetNumber(SNMP_SERVER_ECM, OID_DOCSIS_BOOTSTATE, &tunerResp, WA_UTILS_SNMP_REQ_TYPE_WALK))
+    {
+        WA_ERROR("Error Tuner failed to get DOCSIS server boot state\n");
+        return false;
+    }
+
+    params->DOCSIS_BootState = (int)tunerResp.data.l;
+    WA_DBG("func=%s line=%d, DOCSIS_BootState=%ld\n", __FUNCTION__, __LINE__, tunerResp.data.l);
+
+    if (params->DOCSIS_BootState != 1) // INTEGER: operational(1)
+    {
+        WA_INFO("DOCSIS server is not in operational state.\n");
+        return false;
+    }
 
     /* Get DOCSIS Down Stream Signal */
     int k = snprintf(oid, sizeof(oid), "%s.%i", OID_DOCSIS_DOWNSTREAMPOWER, 3 /* As per generic/diagnostics/generic/QAM_device/www/htmldiag/system_docsis.html */);

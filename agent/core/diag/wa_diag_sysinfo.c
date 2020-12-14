@@ -90,6 +90,7 @@
 #define OID_RECEIVER_ID    "XcaliburClientMIB::xreReceiverId"
 #define SI_PATH            "/si_cache_parser_121 /opt/persistent/si"
 #define TMP_SI_PATH        "/si_cache_parser_121 /tmp/mnt/diska3/persistent/si"
+#define DOCSIS_CONNECTING  "DOCSIS is Connecting"
 #else
 #ifdef HAVE_DIAG_WIFI
 #define STB_IP             "boxIP="
@@ -355,12 +356,20 @@ static json_t *sysinfo_Get()
        "MoCA NC", ((moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_NETWORK_CONTROLLER].value),
        "MoCA Bitrate", ((moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_TRANSMIT_RATE].value),
        "MoCA SNR", ((moca_data[WA_MOCA_INFO_NODE_SNR].value[0] == '\0') ? "N/A" : moca_data[WA_MOCA_INFO_NODE_SNR].value),
-       "DOCSIS DwStrmPower", docsisParams.DOCSIS_DwStreamChPwr,
-       "DOCSIS UpStrmPower", docsisParams.DOCSIS_UpStreamChPwr,
-       "DOCSIS SNR", docsisParams.DOCSIS_SNR,
        "Video Tuner Locked", qamParams.numLocked,
        "Video Tuner Power", qamParams.QAM_ChPwr,
-       "Video Tuner SNR", qamParams.QAM_SNR);
+       "Video Tuner SNR", qamParams.QAM_SNR,
+       "DOCSIS DwStrmPower", docsisParams.DOCSIS_DwStreamChPwr,
+       "DOCSIS UpStrmPower", docsisParams.DOCSIS_UpStreamChPwr,
+       "DOCSIS SNR", docsisParams.DOCSIS_SNR);
+
+    if (docsisParams.DOCSIS_BootState != 1)
+    {
+        json_object_set_new(json, "DOCSIS State", json_string(DOCSIS_CONNECTING));
+        json_object_del(json, "DOCSIS DwStrmPower");
+        json_object_del(json, "DOCSIS UpStrmPower");
+        json_object_del(json, "DOCSIS SNR");
+    }
 
     // free tuner params mallocs
     if (docsisParams.DOCSIS_DwStreamChPwr != NULL)

@@ -606,6 +606,7 @@ function tableCreateTunerInfo(data) {
 
     for (var i = 0; i < Object.keys(data).length; i++) {
         switch(Object.keys(data)[i]) {
+        case "DOCSIS State":
         case "DOCSIS DwStrmPower":
         case "DOCSIS UpStrmPower":
         case "DOCSIS SNR":
@@ -626,6 +627,12 @@ function tableCreateTunerInfo(data) {
             td.style.textAlign = 'left';
             td.style.padding = '0 0 3px 8px';
             td.style.fontSize = 'smaller';
+            if (Object.keys(data)[i] == "DOCSIS State") {
+                var img = document.createElement("img");
+                img.src = "resources/icon-warning-18.png";
+                td.appendChild(img);
+                td.appendChild(document.createTextNode("\xa0\xa0\xa0\xa0"));
+            }
             td.appendChild(document.createTextNode(JSON.stringify(Object.values(data)[i]).replace(/"/g, '')));
             tr.appendChild(td);
             tbdy.appendChild(tr);

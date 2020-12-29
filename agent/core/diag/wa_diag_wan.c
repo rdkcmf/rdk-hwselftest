@@ -49,8 +49,9 @@
 #include "wa_json.h"
 #include "libIBus.h"
 #include "libIARMCore.h"
-#include "sysMgr.h"
-#include "xdiscovery.h"
+#if defined(DEVICE_ARRISXI6) || defined(DEVICE_TCHXI6) || defined(DEVICE_PACEXI5)
+#include "netsrvmgrIarm.h"
+#endif
 
 /* module interface */
 #include "wa_diag_wan.h"
@@ -65,13 +66,19 @@
 
 #define TR69_WAN_XRE_CONN_STATUS  "Device.X_COMCAST-COM_Xcalibur.Client.XRE.ConnectionTable.xreConnStatus"
 #define TR69_WAN_RFC_PUBLIC_URL   "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.hwHealthTestWAN.WANTestEndPointURL"
+#define TR69_WIFI_OPER_STATUS     "Device.WiFi.SSID.1.Status"
+#define HWST_DFLT_ROUTE_FILE      "/tmp/.hwselftest_dfltroute"
 
 #define STR_MAX              256
 #define MESSAGE_LENGTH       8192 * 4 /* On reference from xdiscovery.log which shows data length can be more than 5000 */ /* Increased the value 4 times because of DELIA-38611 */
 #define NUM_PINGS            10
 #define NUM_PINGS_SUCCESSFUL 8
-#define CONNECTION_SUCCESS   1
-#define CONNECTION_FAILED    0
+#define CONNECTION_SUCCESS     1
+#define CONNECTION_FAILED      0
+#define CONNECTION_FAILED_ETH  2
+#define CONNECTION_FAILED_MW   3
+#define CONNECTION_NO_GW_ETH   4
+#define CONNECTION_NO_GW_MW    5
 
 /*****************************************************************************
  * LOCAL TYPES
@@ -107,11 +114,27 @@ int setReturnData(int status, json_t **param)
     switch (status)
     {
         case WA_DIAG_ERRCODE_SUCCESS:
-            *param = json_string("Comcast and public network connections successful.");
+            *param = json_string("Gateway (If Xi device), comcast and public network connections successful.");
             break;
 
         case WA_DIAG_ERRCODE_NO_GATEWAY_CONNECTION:
-            *param = json_string("No X1 Gateway Connection.");
+            *param = json_string("No Local Gateway Connection");
+            break;
+
+        case WA_DIAG_ERRCODE_NO_ETH_GATEWAY_FOUND:
+            *param = json_string("No Gateway Discovered via Ethernet");
+            break;
+
+        case WA_DIAG_ERRCODE_NO_MW_GATEWAY_FOUND:
+            *param = json_string("No Local Gateway Discovered");
+            break;
+
+        case WA_DIAG_ERRCODE_NO_ETH_GATEWAY_CONNECTION:
+            *param = json_string("No Gateway Response via Ethernet");
+            break;
+
+        case WA_DIAG_ERRCODE_NO_MW_GATEWAY_CONNECTION:
+            *param = json_string("No Local Gateway Response.");
             break;
 
         case WA_DIAG_ERRCODE_NO_COMCAST_WAN_CONNECTION:
@@ -141,121 +164,122 @@ int setReturnData(int status, json_t **param)
     return status;
 }
 
-/* Return 1:good 0:failed -1:IARM errors */
+/* Return 1:good 0,2,3,4,5:warnings -1:IARM errors */
 int gatewayConnection()
 {
     WA_ENTER("gatewayConnection()\n");
 
     int result = -1;
+    bool eth_connected = false;
+
+#if defined(DEVICE_ARRISXI6) || defined(DEVICE_TCHXI6) || defined(DEVICE_PACEXI5)
+
+    /* Check ANI */
     IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
-    int is_connected = 0;
 
-    IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t *param = NULL;
-    char upnpResults[MESSAGE_LENGTH+1];
-    json_error_t jerror;
-    json_t *json = NULL;
+    IARM_BUS_NetSrvMgr_DefaultRoute_t netSrvMgrParam;
+    iarm_result = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface, (void*)&netSrvMgrParam, sizeof(netSrvMgrParam));
 
-    iarm_result = IARM_Bus_IsConnected(_IARM_XUPNP_NAME, &is_connected);
     if (iarm_result != IARM_RESULT_SUCCESS)
     {
-        WA_ERROR("gatewayConnection(): IARM_Bus_IsConnected('%s') failed\n", _IARM_XUPNP_NAME);
+        WA_ERROR("gatewayConnection(): IARM_Bus_Call('%s') failed\n", IARM_BUS_NM_SRV_MGR_NAME);
         return result;
     }
 
-    if (!is_connected)
-    {
-        WA_ERROR("gatewayConnection(): XUPNP not available\n");
-        return result;
-    }
+    char defaultInterface[16] = {'\0'};
+    strcpy(defaultInterface, netSrvMgrParam.interface);
+    WA_DBG("gatewayConnection(): Default interface is \"%s\" \n", defaultInterface);
 
-    iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t) + MESSAGE_LENGTH + 1, (void**)&param);
-    if (iarm_result != IARM_RESULT_SUCCESS)
+    if ((strstr(defaultInterface, "eth")) || (!strcmp(defaultInterface, ""))) /* ANI (Active Network Interface) is Ethernet or empty (DELIA-48754) */
     {
-        WA_ERROR("gatewayConnection(): IARM_Malloc() failed\n");
-        return result;
-    }
-
-    if (param)
-    {
-        memset(param, 0, sizeof(*param));
-        param->bufLength = MESSAGE_LENGTH;
-
-        iarm_result = IARM_Bus_Call(_IARM_XUPNP_NAME, IARM_BUS_XUPNP_API_GetXUPNPDeviceInfo, (void *)param, sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t) + MESSAGE_LENGTH + 1);
+        /* Check WiFi status */
+        HOSTIF_MsgData_t stMsgDataParam;
+        memset(&stMsgDataParam, 0, sizeof(stMsgDataParam));
+        snprintf(stMsgDataParam.paramName, TR69HOSTIFMGR_MAX_PARAM_LEN, "%s", TR69_WIFI_OPER_STATUS);
+        iarm_result = IARM_Bus_Call(IARM_BUS_TR69HOSTIFMGR_NAME, IARM_BUS_TR69HOSTIFMGR_API_GetParams, (void *)&stMsgDataParam, sizeof(stMsgDataParam));
 
         if (iarm_result != IARM_RESULT_SUCCESS)
         {
-            WA_ERROR("gatewayConnection(): IARM_Bus_Call() returned %i\n", iarm_result);
-            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+            WA_ERROR("gatewayConnection(): IARM_Bus_Call('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
             return result;
         }
 
-        WA_DBG("gatewayConnection(): IARM_RESULT_SUCCESS\n");
-        memcpy(upnpResults, ((char *)param + sizeof(IARM_Bus_SYSMGR_GetXUPNPDeviceInfo_Param_t)), param->bufLength);
-        upnpResults[param->bufLength] = '\0';
+        char wifiStatus[64] = {'\0'};
+        strcpy(wifiStatus, stMsgDataParam.paramValue);
+        WA_DBG ("gatewayConnection(): WiFi Status is \"%s\"\n", wifiStatus);
 
-        json = json_loadb(upnpResults, MESSAGE_LENGTH, JSON_DISABLE_EOF_CHECK, &jerror);
-        if (!json)
+        if (strcmp(wifiStatus, "UP")) /* WiFi Status is not UP */
         {
-            WA_ERROR("gatewayConnection(): json_loads() error\n");
-            json_decref(json);
-            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
-            return result;
-        }
-
-        json_t *jarr = json_object_get(json, "xmediagateways");
-        if (!jarr)
-        {
-            WA_ERROR("gatewayConnection(): Couldn't get the array of xmediagateways\n");
-            json_decref(jarr);
-            json_decref(json);
-            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
-            return result;
-        }
-
-        for (size_t i = 0; i < json_array_size(jarr); i++)
-        {
-            json_t *jval = json_array_get(jarr, i);
-            if (!jval)
+            /* Check if ethernet is connected */
+            char ether_state[64] = {'\0'};
+            char eth_operState[STR_MAX] = {'\0'};
+            snprintf(eth_operState, sizeof(eth_operState), "cat /sys/class/net/%s/operstate", defaultInterface);
+            FILE *fp = popen(eth_operState, "r");
+            fscanf(fp, "%s", ether_state);
+            WA_DBG("gatewayConnection(): Ethernet state is \"%s\"\n", ether_state);
+            if (!strcasecmp(ether_state, "up"))
             {
-                WA_ERROR("gatewayConnection(): Not a json object in xmediagateways array for %i element\n", i);
-                json_decref(jval);
-                json_decref(jarr);
-                json_decref(json);
-                IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
-                return result;
+                eth_connected = true;
             }
+            pclose(fp);
 
-            json_t *jparam_devType = json_object_get(jval, "DevType");
-            char device[STR_MAX] = {'\0'};
-            strcpy(device, json_string_value(jparam_devType));
-
-            if (strstr(device, "XG") || strstr(device, "XB"))
+            if (!eth_connected)
             {
-                json_t *jparam_IP = json_object_get(jval, "gatewayip");
-                if (jparam_IP)
-                {
-                    char gtw_ip[STR_MAX] = {'\0'};
-                    char buf[STR_MAX] = {'\0'};
-                    strcpy(gtw_ip, json_string_value(jparam_IP));
-                    snprintf(buf, var_size, "ping -c 1 -W 1 %s > /dev/null", gtw_ip);
-                    if (system(buf) == 0)
-                    {
-                        WA_DBG("gatewayConnection(): Ping to local gateway %s with IP %s is successful.\n", device, gtw_ip);
-                        result = CONNECTION_SUCCESS;
-                        break;
-                    }
-                }
+                WA_DBG("gatewayConnection(): Neither ethernet is connected nor wifi is active, declaring the gateway connection as not working\n");
+                return CONNECTION_FAILED;
             }
-        }
-
-        if (result != CONNECTION_SUCCESS)
-        {
-            WA_DBG("gatewayConnection(): Unable to ping any local gateway.\n");
-            result = CONNECTION_FAILED;
         }
     }
 
-    IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, param);
+#endif
+
+    FILE *dfltroute = fopen(HWST_DFLT_ROUTE_FILE, "r"); /* File containing IP's retreived through script in nlmon.cfg */
+
+    if (dfltroute != NULL)
+    {
+        WA_INFO("gatewayConnection(): %s file read is success\n", HWST_DFLT_ROUTE_FILE);
+        char gtw_ip[128] = {'\0'};
+
+        while (fgets(gtw_ip, sizeof(gtw_ip), dfltroute) != NULL)
+        {
+            gtw_ip[strlen(gtw_ip)-1] = '\0';
+            WA_DBG("gatewayConnection(): Checking ping status for IP \"%s\" ...\n", gtw_ip);
+
+            char buf[STR_MAX] = {'\0'};
+            snprintf(buf, var_size, "ping -c 1 -W 1 %s > /dev/null", gtw_ip);
+            if (system(buf) == 0)
+            {
+                WA_DBG("gatewayConnection(): Ping successful to IP \"%s\"\n", gtw_ip);
+                fclose(dfltroute);
+                return CONNECTION_SUCCESS;
+            }
+            else
+            {
+                WA_DBG("gatewayConnection(): Ping failed to IP \"%s\"\n", gtw_ip);
+                result = CONNECTION_FAILED;
+            }
+        }
+
+        fclose(dfltroute);
+    }
+    else
+        WA_DBG("gatewayConnection(): Unable to read %s file\n", HWST_DFLT_ROUTE_FILE);
+
+    if (result == CONNECTION_FAILED)
+    {
+        if (eth_connected)
+            result = CONNECTION_FAILED_ETH;
+        else
+            result = CONNECTION_FAILED_MW;
+    }
+    else if (result == -1)
+    {
+        if (eth_connected)
+            result = CONNECTION_NO_GW_ETH;
+        else
+            result = CONNECTION_NO_GW_MW;
+    }
+
     WA_RETURN("gatewayConnection(): Returns with result %d.\n", result);
 
     return result;
@@ -321,7 +345,7 @@ int publicNetwork()
     int is_connected = 0;
     int result = -1;
     char buf[STR_MAX] = {'\0'};
-    char host[STR_MAX] = {'\0'};
+    char host[128] = {'\0'};
 
     iarm_result = IARM_Bus_IsConnected(IARM_BUS_TR69HOSTIFMGR_NAME, &is_connected);
 
@@ -371,7 +395,7 @@ int publicNetwork()
 
     /* Get IPv6 for URL */
     char nslookup_command[STR_MAX] = {'\0'};
-    char IPv6[STR_MAX] = {'\0'};
+    char IPv6[128] = {'\0'};
     FILE *fp;
     snprintf(nslookup_command, var_size, "nslookup %s | grep 'Address' | sed -n '2 p' | awk '{print $3}'", host);
     fp = popen(nslookup_command, "r");
@@ -383,6 +407,7 @@ int publicNetwork()
 
     if ((fgets(IPv6, sizeof(IPv6), fp) != NULL) && (strcmp(IPv6, "") != 0))
     {
+        IPv6[strlen(IPv6)-1] = '\0';
         WA_DBG("publicNetwork(): IPv6 for given URL %s is %s\n", host, IPv6);
     }
     else
@@ -442,14 +467,40 @@ int WA_DIAG_WAN_status(void *instanceHandle, void *initHandle, json_t **params)
 
     if (gatewayStatus != CONNECTION_SUCCESS)
     {
-        if (gatewayStatus == CONNECTION_FAILED)
-        {
-            WA_ERROR("WA_DIAG_WAN_status(): Local Gateway connection failed\n");
-            WA_UTILS_IARM_Disconnect();
-            return setReturnData(WA_DIAG_ERRCODE_NO_GATEWAY_CONNECTION, params);
-        }
         WA_UTILS_IARM_Disconnect();
-        return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
+
+        switch(gatewayStatus)
+        {
+            case CONNECTION_FAILED:
+                WA_ERROR("WA_DIAG_WAN_status(): Ethernet is not connected and WiFi is not UP\n");
+                return setReturnData(WA_DIAG_ERRCODE_NO_GATEWAY_CONNECTION, params);
+                break;
+
+            case CONNECTION_NO_GW_ETH:
+                WA_ERROR("WA_DIAG_WAN_status(): Ethernet connected but gateway device not available in network\n");
+                return setReturnData(WA_DIAG_ERRCODE_NO_ETH_GATEWAY_FOUND, params);
+                break;
+
+            case CONNECTION_NO_GW_MW:
+                WA_ERROR("WA_DIAG_WAN_status(): Gateway device not available in network\n");
+                return setReturnData(WA_DIAG_ERRCODE_NO_MW_GATEWAY_FOUND, params);
+                break;
+
+            case CONNECTION_FAILED_ETH:
+                WA_ERROR("WA_DIAG_WAN_status(): Unable to ping any gateway via ethernet\n");
+                return setReturnData(WA_DIAG_ERRCODE_NO_ETH_GATEWAY_CONNECTION, params);
+                break;
+
+            case CONNECTION_FAILED_MW:
+                WA_ERROR("WA_DIAG_WAN_status(): Unable to ping any gateway\n");
+                return setReturnData(WA_DIAG_ERRCODE_NO_MW_GATEWAY_CONNECTION, params);
+                break;
+
+            default:
+                return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
+                break;
+        }
+
     }
 
     WA_DBG("WA_DIAG_WAN_status(): Local Gateway connection is success\n");

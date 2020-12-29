@@ -50,6 +50,8 @@
 #include "libIBus.h"
 #include "libIARMCore.h"
 #include "sysMgr.h"
+#include "xdiscovery.h"
+#include "netsrvmgrIarm.h"
 
 /* module interface */
 #include "wa_diag_wifi.h"
@@ -182,7 +184,6 @@ int getWifiParam_IARM(char *param, char **value)
         }
 
         IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, stMsgDataParam);
-
         return 0;
     }
 
@@ -200,6 +201,23 @@ static int setReturnData(int status, json_t **param)
         case WA_DIAG_ERRCODE_SUCCESS:
            *param = json_string("WiFi interface is able to transmit and receive network traffic.");;
            break;
+
+        case WA_DIAG_ERRCODE_FAILURE:
+            *param = json_string("Couldn't fetch WiFi values.");
+            break;
+
+        case WA_DIAG_ERRCODE_WIFI_NO_CONNECTION:
+            *param = json_string("WiFi connection is not established.");
+            break;
+
+        case WA_DIAG_ERRCODE_CANCELLED:
+            *param = json_string("Test cancelled.");
+            break;
+
+        case WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR:
+            *param = json_string("Internal test error.");
+            break;
+
         default:
             break;
     }
@@ -317,6 +335,61 @@ int getWifiSignalStrength_IARM(int *result)
     ret = getWifiParam_IARM(TR69_WIFI_SIGNAL_STRENGTH, &data);
     *result = *(int*)data;
     return ret;
+}
+
+/* Return -1:skip wifi test 1:execute  */
+int isWiFiConfigured()
+{
+    WA_ENTER("isWiFiConfigured()\n");
+
+    int result = -1;
+
+    if (WA_UTILS_IARM_Connect())
+    {
+        WA_ERROR("isWiFiConfigured(): WA_UTILS_IARM_Connect() Failed \n");
+        return result;
+    }
+
+    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
+    IARM_BUS_NetSrvMgr_DefaultRoute_t param;
+    iarm_result = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface, (void*)&param, sizeof(param));
+
+    if (iarm_result != IARM_RESULT_SUCCESS)
+    {
+        WA_ERROR("isWiFiConfigured(): IARM_Bus_Call('%s') failed\n", IARM_BUS_NM_SRV_MGR_NAME);
+        return result;
+    }
+
+    char defaultInterface[16];
+    strcpy(defaultInterface, param.interface);
+    WA_DBG("isWiFiConfigured(): Default interface is \"%s\" \n", defaultInterface);
+
+    if (strstr(defaultInterface, "eth")) /* ANI (Active Network Interface) is Ethernet */
+    {
+        char *wifiStatus;
+        if (getWifiOperStatus_IARM(&wifiStatus) == 0)
+        {
+            WA_DBG ("isWiFiConfigured(): WiFi Status is \"%s\"\n", wifiStatus);;
+
+            if(!strcmp(wifiStatus, "UP"))
+            {
+                result = 1;
+                WA_DBG("isWiFiConfigured(): Perform WiFi test, as WiFi Status is UP though ANI (Active Network Interface) is Ethernet\n");
+            }
+            else
+                WA_DBG("isWiFiConfigured(): Skip WiFi test, as ANI (Active Network Interface) is ethernet and WiFi Status is %s\n", wifiStatus);
+        }
+    }
+    else
+    {
+        result = 1;
+        WA_DBG("isWiFiConfigured(): Perform WiFi test, as ANI (Active Network Interface) is not ethernet\n");
+    }
+
+    WA_UTILS_IARM_Disconnect();
+    WA_RETURN("isWiFiConfigured(): Returns result %d\n", result);
+
+    return result;
 }
 
 /* End of doxygen group */

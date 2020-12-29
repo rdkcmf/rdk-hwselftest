@@ -67,6 +67,7 @@ char wifiIARM[TR69HOSTIFMGR_MAX_PARAM_LEN];
  * WIFI SSID STATUS
  */
 extern int WA_DIAG_WIFI_status(void* instanceHandle, void *initHandle, json_t **params);
+extern int isWiFiConfigured();
 int getWifiSSID_IARM(char **result);
 int getWifiMacAddress_IARM(char **result);
 int getWifiOperFrequency_IARM(char **result);

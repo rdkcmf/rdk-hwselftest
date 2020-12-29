@@ -61,6 +61,10 @@ var DIAG_ERRCODE = {
         NO_PUBLIC_WAN_CONNECTION:       -125,
         NO_WAN_CONNECTION:              -126,
         HDD_DEVICE_NODE_NOT_FOUND:      -127,
+        NO_ETH_GATEWAY_FOUND:           -128,
+        NO_MW_GATEWAY_FOUND:            -129,
+        NO_ETH_GATEWAY_CONNECTION:      -130,
+        NO_MW_GATEWAY_CONNECTION:       -131,
 
         /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
         DEFAULT_RESULT_VALUE:           -200

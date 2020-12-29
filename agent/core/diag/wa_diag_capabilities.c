@@ -40,6 +40,9 @@
 #include "wa_json.h"
 #include "wa_config.h"
 #include "wa_diag_rf4ce.h"
+#ifdef HAVE_DIAG_WIFI
+#include "wa_diag_wifi.h"
+#endif
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
@@ -55,6 +58,7 @@ int WA_DIAG_CAPABILITIES_Info(void *instanceHandle, void *initHandle, json_t **p
 
     int status = 1;
     int rf4ce = 1;
+    int wifi = 1;
 
     json_decref(*params); //not used
 
@@ -63,6 +67,12 @@ int WA_DIAG_CAPABILITIES_Info(void *instanceHandle, void *initHandle, json_t **p
     if (isRF4CEPaired() == -1)
     {
         rf4ce = 0;
+    }
+#endif
+#ifdef HAVE_DIAG_WIFI
+    if (isWiFiConfigured() == -1)
+    {
+        wifi = 0;
     }
 #endif
     if (diags)
@@ -78,6 +88,10 @@ int WA_DIAG_CAPABILITIES_Info(void *instanceHandle, void *initHandle, json_t **p
                     if (strstr(diag->name, "_status")) // list only tests
                     {
                         if ((rf4ce && !strcmp(diag->name, "ir_status")) || (!rf4ce && !strcmp(diag->name, "rf4ce_status")))
+                        {
+                            continue;
+                        }
+                        else if ((!strcmp(diag->name, "wifi_status")) && (wifi == 0))
                         {
                             continue;
                         }

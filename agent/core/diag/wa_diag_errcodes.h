@@ -84,6 +84,10 @@ extern "C"
 #define WA_DIAG_ERRCODE_NO_WAN_CONNECTION               (-126)
 
 #define WA_DIAG_ERRCODE_HDD_DEVICE_NODE_NOT_FOUND       (-127)
+#define WA_DIAG_ERRCODE_NO_ETH_GATEWAY_FOUND            (-128)
+#define WA_DIAG_ERRCODE_NO_MW_GATEWAY_FOUND             (-129)
+#define WA_DIAG_ERRCODE_NO_ETH_GATEWAY_CONNECTION       (-130)
+#define WA_DIAG_ERRCODE_NO_MW_GATEWAY_CONNECTION        (-131)
 
 #define WA_DIAG_ERRCODE_DEFAULT_RESULT_VALUE            (-200) /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
 

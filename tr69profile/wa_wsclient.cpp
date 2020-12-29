@@ -401,6 +401,7 @@ bool wa_wsclient::enable_periodic(bool enable, bool destroy, bool quiet)
             {
                 if (!quiet)
                 {
+                    log("Periodic run enabled.\n");
                     log("Periodic run frequency is " + _settings.get(HWST_PERIODIC_FREQ_NAME) + " min.\n");
                     log("Periodic run CPU threshold is " + _settings.get(HWST_CPU_THRESHOLD_NAME) + " %.\n");
                     log("Periodic run DRAM threshold is " + _settings.get(HWST_DRAM_THRESHOLD_NAME) + " MB.\n");
@@ -426,18 +427,12 @@ bool wa_wsclient::enable_periodic(bool enable, bool destroy, bool quiet)
                     if (_runner_service.start() == 0)
                     {
                         WA_DBG("wa_wsclient::enable_periodic(): periodic run enabled\n");
-
-                        if (!quiet)
-                        {
-                            log("Periodic run enabled.\n");
-                        }
-
                         retval = true;
                     }
                     else
                     {
                         _runner_timer.stop();
-                        WA_DBG("wa_wsclient::enable_periodic(): can't start runner service\n");
+                        log("wa_wsclient::enable_periodic(): can't start runner service\n");
                     }
                 }
             }

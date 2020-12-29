@@ -1067,6 +1067,7 @@ function getInfo(elemName, status, data) {
         break;
     case DIAG_ERRCODE.RF4CE_CHIP_DISCONNECTED:
         info = "RF4CE Chip Fail";
+        break;
     case DIAG_ERRCODE.HDD_DEVICE_NODE_NOT_FOUND:
         info = "HDD Device Node Not Found";
         break;
@@ -1080,7 +1081,7 @@ function getInfo(elemName, status, data) {
         info = "Test Cancelled. Device not in standby";
         break;
     case DIAG_ERRCODE.NO_GATEWAY_CONNECTION:
-        info = "No X1 Gateway Connection";
+        info = "No Local Gateway Connection";
         break;
     case DIAG_ERRCODE.NO_COMCAST_WAN_CONNECTION:
         info = "No Comcast WAN Connection";
@@ -1090,6 +1091,18 @@ function getInfo(elemName, status, data) {
         break;
     case DIAG_ERRCODE.NO_WAN_CONNECTION:
         info = "No WAN Connection. Check Connection";
+        break;
+    case DIAG_ERRCODE.NO_ETH_GATEWAY_FOUND:
+        info = "No Gateway Discovered via Ethernet";
+        break;
+    case DIAG_ERRCODE.NO_MW_GATEWAY_FOUND:
+        info = "No Local Gateway Discovered";
+        break;
+    case DIAG_ERRCODE.NO_ETH_GATEWAY_CONNECTION:
+        info = "No Gateway Response via Ethernet";
+        break;
+    case DIAG_ERRCODE.NO_MW_GATEWAY_CONNECTION:
+        info = "No Local Gateway Response";
         break;
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
     default:
@@ -1241,6 +1254,10 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.NO_PUBLIC_WAN_CONNECTION:
     case DIAG_ERRCODE.NO_WAN_CONNECTION:
     case DIAG_ERRCODE.HDD_DEVICE_NODE_NOT_FOUND:
+    case DIAG_ERRCODE.NO_ETH_GATEWAY_FOUND:
+    case DIAG_ERRCODE.NO_MW_GATEWAY_FOUND:
+    case DIAG_ERRCODE.NO_ETH_GATEWAY_CONNECTION:
+    case DIAG_ERRCODE.NO_MW_GATEWAY_CONNECTION:
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
         elem.result = results.warning;
         break;

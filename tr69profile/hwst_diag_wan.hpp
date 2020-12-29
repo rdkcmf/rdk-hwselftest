@@ -34,7 +34,11 @@ class DiagWan: public Diag
         NO_GATEWAY_CONNECTION     = -123,
         NO_COMCAST_WAN_CONNECTION = -124,
         NO_PUBLIC_WAN_CONNECTION  = -125,
-        NO_WAN_CONNECTION         = -126
+        NO_WAN_CONNECTION         = -126,
+        NO_ETH_GATEWAY_FOUND      = -128,
+        NO_MW_GATEWAY_FOUND       = -129,
+        NO_ETH_GATEWAY_CONNECTION = -130,
+        NO_MW_GATEWAY_CONNECTION  = -131
     };
 public:
     DiagWan(const std::string &params_ = "");

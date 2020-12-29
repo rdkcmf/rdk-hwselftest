@@ -36,11 +36,19 @@ DiagWan::DiagWan(const std::string &params_):
     presentationResult.insert(std::pair<int, const std::string>(NO_COMCAST_WAN_CONNECTION, "WARNING"));
     presentationResult.insert(std::pair<int, const std::string>(NO_PUBLIC_WAN_CONNECTION, "WARNING"));
     presentationResult.insert(std::pair<int, const std::string>(NO_WAN_CONNECTION, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(NO_ETH_GATEWAY_FOUND, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(NO_MW_GATEWAY_FOUND, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(NO_ETH_GATEWAY_CONNECTION, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(NO_MW_GATEWAY_CONNECTION, "WARNING"));
 
-    presentationComment.insert(std::pair<int, const std::string>(NO_GATEWAY_CONNECTION, "No X1 Gateway Connection"));
+    presentationComment.insert(std::pair<int, const std::string>(NO_GATEWAY_CONNECTION, "No Local Gateway Connection"));
     presentationComment.insert(std::pair<int, const std::string>(NO_COMCAST_WAN_CONNECTION, "No Comcast WAN Connection"));
     presentationComment.insert(std::pair<int, const std::string>(NO_PUBLIC_WAN_CONNECTION, "No Public WAN Connection"));
     presentationComment.insert(std::pair<int, const std::string>(NO_WAN_CONNECTION, "No WAN Connection. Check Connection"));
+    presentationComment.insert(std::pair<int, const std::string>(NO_ETH_GATEWAY_FOUND, "No Gateway Discovered via Ethernet"));
+    presentationComment.insert(std::pair<int, const std::string>(NO_MW_GATEWAY_FOUND, "No Local Gateway Discovered"));
+    presentationComment.insert(std::pair<int, const std::string>(NO_ETH_GATEWAY_CONNECTION, "No Gateway Response via Ethernet"));
+    presentationComment.insert(std::pair<int, const std::string>(NO_MW_GATEWAY_CONNECTION, "No Local Gateway Response"));
 }
 
 std::string DiagWan::getPresentationName() const

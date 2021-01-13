@@ -391,6 +391,12 @@ bool wa_wsclient::enable_periodic(bool enable, bool destroy, bool quiet)
 
         if (status == 0)
         {
+            /* PACXG1V3-6337: Explicitly enabling the runner timer due to timer start failure observed in Dunfell builds */
+            if (_runner_timer.enable() == -1)
+            {
+                log("wa_wsclient::enable_periodic(): Error in enabling runner timer explicitly\n");
+            }
+
             if (_runner_timer.start() == 0)
             {
                 if (!quiet)

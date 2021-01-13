@@ -86,6 +86,12 @@ int wa_service::exists() const
     return !!stat(_path_name.c_str(), &buffer);
 }
 
+int wa_service::enable() const
+{
+    std::string cmd = _systemctl + " enable " + _name;
+    return system(cmd.c_str());
+}
+
 int wa_service::start() const
 {
     std::string cmd = _systemctl + " start " + _name;

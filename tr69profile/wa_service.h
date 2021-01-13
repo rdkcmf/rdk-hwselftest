@@ -56,6 +56,7 @@ public:
     int destroy() const;
     int exists() const;
 
+    int enable() const;
     int start() const;
     int stop() const;
     int status() const;

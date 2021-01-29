@@ -343,6 +343,12 @@ int WA_OSA_TaskJoin(void *tHandle, void **retval)
         goto end;
     }
 
+    if (!pThd)
+    {
+        WA_ERROR("WA_OSA_TaskJoin(): pThd: %p\n", pThd);
+        goto end;
+    }
+
     status = pthread_join((pthread_t)(pThd->tid), retval);
     if(status != 0)
     {
@@ -367,7 +373,10 @@ int WA_OSA_TaskDestroy(void *tHandle)
         goto end;
     }
 
-    free(tHandle);
+    if (tHandle)
+    {
+        free(tHandle);
+    }
     status = 0;
 
     end:
@@ -434,7 +443,15 @@ int WA_OSA_TaskSignalQuit(void *tHandle)
     status = pthread_kill((pthread_t)(pThd->tid), WA_OSA_TASK_QUIT_SIGNAL);
     if(status != 0)
     {
-        WA_ERROR("WA_OSA_TaskSignalQuit() pthread_cancel(): %d\n", status);
+        if(status == 3)  /* DELIA-47944 : Process does not exist, hence ignoring the error */
+        {
+            status = 0;
+            WA_DBG("WA_OSA_TaskSignalQuit() pthread_cancel(): %d\n", status);
+        }
+        else
+        {
+            WA_ERROR("WA_OSA_TaskSignalQuit() pthread_cancel(): %d\n", status);
+        }
         goto end;
     }
     end:

@@ -810,6 +810,25 @@ static void *InstancesCollectorTask(void *p)
         if(status == 0)
             break;
 
+        if (!pInstance)
+        {
+              WA_ERROR("InstancesCollectorTask(): WA_OSA_QReceive() for WA_OSA_TaskJoin(): pInstance: %p\n", pInstance);
+              continue;
+        }
+        else
+        {
+            char *msg;
+            msg = json_dumps(pInstance->json, JSON_PRESERVE_ORDER | JSON_ENCODE_ANY);
+            WA_DBG("InstancesCollectorTask(): WA_OSA_QReceive(): pInstance: %p\n", pInstance);
+            WA_DBG("InstancesCollectorTask(): WA_OSA_QReceive(): id: %d\n", pInstance->id);
+            WA_DBG("InstancesCollectorTask(): WA_OSA_QReceive(): diag: %s\n", pInstance->pContext->pConfig->name);
+            if (msg)
+            {
+                WA_DBG("InstancesCollectorTask(): WA_OSA_QReceive(): json: %s\n", msg);
+                free(msg);
+            }
+        }
+
         WA_INFO("InstancesCollectorTask(): WA_OSA_QReceive(): %p\n", pInstance);
 
         status = WA_OSA_TaskJoin(pInstance->taskHandle, NULL);
@@ -819,11 +838,23 @@ static void *InstancesCollectorTask(void *p)
             status = -1;
         }
 
+        if (!pInstance)
+        {
+            WA_ERROR("InstancesCollectorTask(): WA_OSA_QReceive() for WA_OSA_TaskDestroy(): pInstance: %p\n", pInstance);
+            continue;
+        }
+
         status = WA_OSA_TaskDestroy(pInstance->taskHandle);
         if(status != 0)
         {
             WA_ERROR("InstancesCollectorTask(): WA_OSA_TaskDestroy(InstanceTask): error\n");
             status = -1;
+        }
+
+        if (!pInstance)
+        {
+            WA_ERROR("InstancesCollectorTask(): WA_OSA_QReceive() for CleanupInstance(): pInstance: %p\n", pInstance);
+            continue;
         }
 
         status = CleanupInstance(pInstance);

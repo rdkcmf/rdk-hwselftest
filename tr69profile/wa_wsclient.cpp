@@ -675,7 +675,7 @@ bool wa_wsclient::execute(const std::string& diag, std::string& result)
             // wait for the results to arrive...
             int count = (PREV_RESULTS_FETCH_TIMEOUT / 100);
             do {
-                usleep(100 * 1000);
+                usleep(200 * 1000); /* Increased from (100 * 1000) to (200 * 1000) for Dunfell (TCHXI6-1355) */
                 status = _hwst_scheduler->get(result);
                 count--;
             } while ((status != 1) && count);

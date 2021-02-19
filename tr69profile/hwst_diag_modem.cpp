@@ -35,6 +35,7 @@ DiagModem::DiagModem(const std::string &params_):
     presentationResult.insert(std::pair<int, const std::string>(CM_NO_SIGNAL, "WARNING"));
 
     presentationComment.insert(std::pair<int, const std::string>(CM_NO_SIGNAL, "Lock Failed - Check Cable"));
+    presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Gateway IP Not Reachable"));
 }
 
 std::string DiagModem::getPresentationName() const

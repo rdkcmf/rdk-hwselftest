@@ -29,6 +29,11 @@ class Comm;
 class DiagDram: public Diag
 {
     friend class hwst::Comm;
+
+    enum {
+        FILE_WRITE_OPERATION_FAILURE = -212,
+        FILE_READ_OPERATION_FAILURE  = -213
+    };
 public:
     DiagDram(const std::string &params_ = "");
     ~DiagDram() {}

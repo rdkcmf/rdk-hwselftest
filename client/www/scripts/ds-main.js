@@ -998,6 +998,38 @@ function getInfo(elemName, status, data) {
     var info = "";
     switch(status) {
     case DIAG_ERRCODE.FAILURE:
+        switch(elemName) {
+        case "hdd_status":
+            info = "Disk Health Status Error";
+            break;
+        case "mcard_status":
+            info = "Invalid Card Certification";
+            break;
+        case "rf4ce_status":
+            info = "Paired RCU Count Exceeded Max Value";
+            break;
+        case "avdecoder_qam_status":
+            info = "Play Status Error";
+            break;
+        case "tuner_status":
+            info = "Read Status File Error";
+            break;
+        case "modem_status":
+            info = "Gateway IP Not Reachable";
+            break;
+        case "bluetooth_status":
+            info = "Bluetooth Not Operational";
+            break;
+        case "sdcard_status":
+        case "flash_status":
+        case "dram_status":
+            info = "Memory Verify Error";
+            break;
+        default:
+            info = "";
+            break;
+        }
+        break;
     case DIAG_ERRCODE.SUCCESS:
         info = "";
         break;
@@ -1034,10 +1066,6 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.IR_NOT_DETECTED:
         info = "IR Not Detected";
         break;
-/* currently mapped to DIAG_ERRCODE.FAILURE in wa_diag_errcodes.h
-    case DIAG_ERRCODE.MCARD_CERT_INVALID:
-        info = "";
-        break; */
     case DIAG_ERRCODE.CM_NO_SIGNAL:
         info = "Lock Failed - Check Cable";
         break;
@@ -1049,12 +1077,6 @@ function getInfo(elemName, status, data) {
         break;
     case DIAG_ERRCODE.AV_URL_NOT_REACHABLE:
         info = "No AV. URL Not Reachable Or Check Cable";
-        break;
-    case DIAG_ERRCODE.EMMC_MAX_LIFE_EXCEED_FAILURE:
-        info = "Device Exceeded Max Life";
-        break;
-    case DIAG_ERRCODE.EMMC_ZERO_LIFETIME_FAILURE:
-        info = "Device Returned Invalid Response";
         break;
     case DIAG_ERRCODE.NON_RF4CE_INPUT:
         info = "RF Paired But No RF Input";
@@ -1103,6 +1125,35 @@ function getInfo(elemName, status, data) {
         break;
     case DIAG_ERRCODE.NO_MW_GATEWAY_CONNECTION:
         info = "No Local Gateway Response";
+    case DIAG_ERRCODE.BLUETOOTH_INTERFACE_FAILURE:
+        info = "Bluetooth Interfaces Not Found";
+        break;
+    case DIAG_ERRCODE.FILE_WRITE_OPERATION_FAILURE:
+        info = "File Write Operation Error";
+        break;
+    case DIAG_ERRCODE.FILE_READ_OPERATION_FAILURE:
+        info = "File Read Operation Error";
+        break;
+    case DIAG_ERRCODE.EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE:
+        info = "Device TypeA Exceeded Max Life";
+        break;
+    case DIAG_ERRCODE.EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE:
+        info = "Device TypeB Exceeded Max Life";
+        break;
+    case DIAG_ERRCODE.EMMC_TYPEA_ZERO_LIFETIME_FAILURE:
+        info = "Device TypeA Returned Invalid Response";
+        break;
+    case DIAG_ERRCODE.EMMC_TYPEB_ZERO_LIFETIME_FAILURE:
+        info = "Device TypeB Returned Invalid Response";
+        break;
+    case DIAG_ERRCODE.MCARD_AUTH_KEY_REQUEST_FAILURE:
+        info = "Card Auth Key Not Ready";
+        break;
+    case DIAG_ERRCODE.MCARD_HOSTID_RETRIEVE_FAILURE:
+        info = "Unable To Retrieve Card ID";
+        break;
+    case DIAG_ERRCODE.MCARD_CERT_AVAILABILITY_FAILURE:
+        info = "Card Certification Not Available";
         break;
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
     default:
@@ -1221,9 +1272,17 @@ function setElemResult(elem, status, data) {
     elem.data = data;
     switch(status) {
     case DIAG_ERRCODE.FAILURE:
-    case DIAG_ERRCODE.EMMC_MAX_LIFE_EXCEED_FAILURE:
-    case DIAG_ERRCODE.EMMC_ZERO_LIFETIME_FAILURE:
     case DIAG_ERRCODE.RF4CE_CHIP_DISCONNECTED:
+    case DIAG_ERRCODE.BLUETOOTH_INTERFACE_FAILURE:
+    case DIAG_ERRCODE.FILE_WRITE_OPERATION_FAILURE:
+    case DIAG_ERRCODE.FILE_READ_OPERATION_FAILURE:
+    case DIAG_ERRCODE.EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE:
+    case DIAG_ERRCODE.EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE:
+    case DIAG_ERRCODE.EMMC_TYPEA_ZERO_LIFETIME_FAILURE:
+    case DIAG_ERRCODE.EMMC_TYPEB_ZERO_LIFETIME_FAILURE:
+    case DIAG_ERRCODE.MCARD_AUTH_KEY_REQUEST_FAILURE:
+    case DIAG_ERRCODE.MCARD_HOSTID_RETRIEVE_FAILURE:
+    case DIAG_ERRCODE.MCARD_CERT_AVAILABILITY_FAILURE:
         elem.result = results.error;
         break;
     case DIAG_ERRCODE.SUCCESS:

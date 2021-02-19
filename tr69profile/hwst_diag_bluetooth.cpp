@@ -32,6 +32,10 @@ namespace hwst {
 DiagBluetooth::DiagBluetooth(const std::string &params_):
     Diag("bluetooth_status", params_)
 {
+    presentationResult.insert(std::pair<int, const std::string>(BLUETOOTH_INTERFACE_FAILURE, "FAILED"));
+
+    presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Bluetooth Not Operational"));
+    presentationComment.insert(std::pair<int, const std::string>(BLUETOOTH_INTERFACE_FAILURE, "Bluetooth Interfaces Not Found"));
 }
 
 std::string DiagBluetooth::getPresentationName() const

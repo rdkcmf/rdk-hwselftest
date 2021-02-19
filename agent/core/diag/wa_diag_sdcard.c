@@ -108,6 +108,14 @@ static int setReturnData(int status, json_t **param)
             *param = json_string("Internal test error.");
             break;
 
+        case WA_DIAG_ERRCODE_FILE_WRITE_OPERATION_FAILURE:
+            *param = json_string("File Write Operation Error.");
+            break;
+
+        case WA_DIAG_ERRCODE_FILE_READ_OPERATION_FAILURE:
+            *param = json_string("File Read Operation Error.");
+            break;
+
         default:
             break;
     }

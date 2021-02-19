@@ -32,6 +32,12 @@ namespace hwst {
 DiagDram::DiagDram(const std::string &params_):
     Diag("dram_status", params_)
 {
+    presentationResult.insert(std::pair<int, const std::string>(FILE_WRITE_OPERATION_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(FILE_READ_OPERATION_FAILURE, "FAILED"));
+
+    presentationComment.insert(std::pair<int, const std::string>(FILE_WRITE_OPERATION_FAILURE, "File Write Operation Error"));
+    presentationComment.insert(std::pair<int, const std::string>(FILE_READ_OPERATION_FAILURE, "File Read Operation Error"));
+    presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Memory Verify Error"));
 }
 
 std::string DiagDram::getPresentationName() const

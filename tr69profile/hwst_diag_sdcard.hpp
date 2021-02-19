@@ -29,6 +29,11 @@ class Comm;
 class DiagSdcard: public Diag
 {
     friend class hwst::Comm;
+
+    enum {
+        FILE_WRITE_OPERATION_FAILURE = -212,
+        FILE_READ_OPERATION_FAILURE  = -213
+    };
 public:
     DiagSdcard(const std::string &params_ = "");
     ~DiagSdcard() {}

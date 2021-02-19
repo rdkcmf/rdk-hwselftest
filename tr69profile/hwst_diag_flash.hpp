@@ -31,8 +31,12 @@ class DiagFlash: public Diag
     friend class hwst::Comm;
 
     enum {
-        EMMC_MAX_LIFE_EXCEED_FAILURE = -118,
-        EMMC_ZERO_LIFETIME_FAILURE   = -119
+        FILE_WRITE_OPERATION_FAILURE = -212,
+        FILE_READ_OPERATION_FAILURE  = -213,
+        EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE = -214,
+        EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE = -215,
+        EMMC_TYPEA_ZERO_LIFETIME_FAILURE   = -216,
+        EMMC_TYPEB_ZERO_LIFETIME_FAILURE   = -217
     };
 public:
     DiagFlash(const std::string &params_ = "");

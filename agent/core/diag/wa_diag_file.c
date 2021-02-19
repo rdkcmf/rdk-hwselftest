@@ -66,10 +66,10 @@
  * LOCAL FUNCTION PROTOTYPES
  *****************************************************************************/
 
-static bool verifyPattern(const char * filename, char * buffer, char * compare, size_t totalSize, char * pattern, size_t patternSize);
+static int verifyPattern(const char * filename, char * buffer, char * compare, size_t totalSize, char * pattern, size_t patternSize);
 static void setupBuffer(char * buffer, size_t totalSize, const char * pattern, size_t patternSize);
-static bool storeBuffer(const char * filename, char * buffer, size_t totalSize);
-static bool loadBuffer(const char * filename, char * buffer, size_t totalSize);
+static int storeBuffer(const char * filename, char * buffer, size_t totalSize);
+static int loadBuffer(const char * filename, char * buffer, size_t totalSize);
 
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
@@ -87,7 +87,7 @@ int WA_DIAG_FileTest(const char * defaultFileName, size_t defaultTotalSize, json
 {
     static const char constantPatterns[] = {0x55, 0xAA};
 
-    int result = WA_DIAG_ERRCODE_FAILURE;
+    int result = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     char pattern[256];
     int totalSize = 0;
     const char * filename = NULL;
@@ -110,7 +110,7 @@ int WA_DIAG_FileTest(const char * defaultFileName, size_t defaultTotalSize, json
             WA_ERROR("Invalid arguments\n");
             *pJsonOut = json_string("Internal test error.");
         }
-        return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+        return result;
     }
 
     char * compare = (char *)malloc(totalSize);
@@ -133,14 +133,13 @@ int WA_DIAG_FileTest(const char * defaultFileName, size_t defaultTotalSize, json
             }
 
             memset(pattern, constantPatterns[i], sizeof(pattern));
-            if (!verifyPattern(filename, buffer, compare, totalSize, pattern, sizeof(pattern)))
+            result = verifyPattern(filename, buffer, compare, totalSize, pattern, sizeof(pattern));
+            if (result != WA_DIAG_ERRCODE_SUCCESS)
             {
                 goto free_exit;
             }
         }
     }
-
-    result = WA_DIAG_ERRCODE_SUCCESS;
 
 free_exit:
     free(compare);
@@ -164,8 +163,20 @@ free_exit:
                 *pJsonOut = json_string("Test cancelled.");
                 break;
 
-            default:
+            case WA_DIAG_ERRCODE_FILE_WRITE_OPERATION_FAILURE:
+                *pJsonOut = json_string("Unable to create a file for write or write operation failed.");
+                break;
+
+            case WA_DIAG_ERRCODE_FILE_READ_OPERATION_FAILURE:
+                *pJsonOut = json_string("Unable to open a file for read or read operation failed.");
+                break;
+
+            case WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR:
                 *pJsonOut = json_string("Internal test error.");
+                break;
+
+            default:
+                *pJsonOut = json_string("Unexpected Test error.");
                 break;
         }
     }
@@ -178,54 +189,59 @@ free_exit:
  * LOCAL FUNCTIONS
  *****************************************************************************/
 
-static bool verifyPattern(const char * filename, char * buffer, char * compare, size_t totalSize, char * pattern, size_t patternSize)
+/* Return 0:success others:warning */
+static int verifyPattern(const char * filename, char * buffer, char * compare, size_t totalSize, char * pattern, size_t patternSize)
 {
     if(WA_OSA_TaskCheckQuit())
     {
-        return false;
+        return WA_DIAG_ERRCODE_CANCELLED;
     }
 
     setupBuffer(buffer, totalSize, pattern, patternSize);
 
     if(WA_OSA_TaskCheckQuit())
     {
-        return false;
+        return WA_DIAG_ERRCODE_CANCELLED;
     }
 
-    if (!storeBuffer(filename, buffer, totalSize))
-    {
-        WA_DBG("Unable to write file\n");
-        return false;
-    }
+    int result = storeBuffer(filename, buffer, totalSize);
 
-    if(WA_OSA_TaskCheckQuit())
+    if (result != WA_DIAG_ERRCODE_SUCCESS)
     {
-        return false;
-    }
-
-    if (!loadBuffer(filename, compare, totalSize))
-    {
-        WA_DBG("Unable to read file\n");
-        return false;
+        WA_DBG("verifyPattern(): Unable to write file\n");
+        return result;
     }
 
     if(WA_OSA_TaskCheckQuit())
     {
-        return false;
+        return WA_DIAG_ERRCODE_CANCELLED;
+    }
+
+    result = loadBuffer(filename, compare, totalSize);
+
+    if (result != WA_DIAG_ERRCODE_SUCCESS)
+    {
+        WA_DBG("verifyPattern(): Unable to read file\n");
+        return result;
+    }
+
+    if(WA_OSA_TaskCheckQuit())
+    {
+        return WA_DIAG_ERRCODE_CANCELLED;
     }
 
     if (memcmp(buffer, compare, totalSize) != 0)
     {
-        WA_DBG("Content mismatch\n");
-        return false;
+        WA_ERROR("Read-Write content mismatch for %s\n", filename);
+        return WA_DIAG_ERRCODE_FAILURE;
     }
 
     if(WA_OSA_TaskCheckQuit())
     {
-        return false;
+        return WA_DIAG_ERRCODE_CANCELLED;
     }
 
-    return true;
+    return WA_DIAG_ERRCODE_SUCCESS;
 }
 
 static void setupBuffer(char * buffer, size_t totalSize, const char * pattern, size_t patternSize)
@@ -246,13 +262,14 @@ static void setupBuffer(char * buffer, size_t totalSize, const char * pattern, s
     }
 }
 
-static bool storeBuffer(const char * filename, char * buffer, size_t totalSize)
+/* Return 0:success others:warning */
+static int storeBuffer(const char * filename, char * buffer, size_t totalSize)
 {
     int f = open(filename, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR);
     if (f == -1)
     {
-        WA_DBG("Unable to create file: %i (%s)\n", errno, strerror(errno));
-        return false;
+        WA_ERROR("Unable to create file %s : %i (%s)\n", filename, errno, strerror(errno));
+        return WA_DIAG_ERRCODE_FILE_WRITE_OPERATION_FAILURE;
     }
 
     size_t processed = 0;
@@ -261,15 +278,15 @@ static bool storeBuffer(const char * filename, char * buffer, size_t totalSize)
         if(WA_OSA_TaskCheckQuit())
         {
             close(f);
-            return false;
+            return WA_DIAG_ERRCODE_CANCELLED;
         }
 
         int rc = write(f, buffer + processed, totalSize - processed);
         if (rc <= 0)
         {
-            WA_DBG("Unable to write: %i (%s)\n", errno, strerror(errno));
+            WA_ERROR("Unable to write to %s : %i (%s)\n", filename, errno, strerror(errno));
             close(f);
-            return false;
+            return WA_DIAG_ERRCODE_FILE_WRITE_OPERATION_FAILURE;
         }
         processed += rc;
     }
@@ -277,16 +294,17 @@ static bool storeBuffer(const char * filename, char * buffer, size_t totalSize)
     fsync(f);
     posix_fadvise(f, 0, 0, POSIX_FADV_DONTNEED);
     close(f);
-    return true;
+    return WA_DIAG_ERRCODE_SUCCESS;
 }
 
-static bool loadBuffer(const char * filename, char * buffer, size_t totalSize)
+/* Return 0:success others:warning */
+static int loadBuffer(const char * filename, char * buffer, size_t totalSize)
 {
     int f = open(filename, O_RDONLY);
     if (f == -1)
     {
-        WA_DBG("Unable to open file: %i (%s)\n", errno, strerror(errno));
-        return false;
+        WA_ERROR("Unable to open file %s : %i (%s)\n", filename, errno, strerror(errno));
+        return WA_DIAG_ERRCODE_FILE_READ_OPERATION_FAILURE;
     }
 
     size_t processed = 0;
@@ -295,27 +313,27 @@ static bool loadBuffer(const char * filename, char * buffer, size_t totalSize)
         if(WA_OSA_TaskCheckQuit())
         {
             close(f);
-            return false;
+            return WA_DIAG_ERRCODE_CANCELLED;
         }
 
         int rc = read(f, buffer + processed, totalSize - processed);
         if (rc == -1)
         {
-            WA_DBG("Unable to write: %i (%s)\n", errno, strerror(errno));
+            WA_ERROR("Unable to read %s : %i (%s)\n", filename, errno, strerror(errno));
             close(f);
-            return false;
+            return WA_DIAG_ERRCODE_FILE_READ_OPERATION_FAILURE;
         }
         else if (rc == 0)
         {
-            WA_DBG("Unexpected end of input: %i (%s)\n", errno, strerror(errno));
+            WA_ERROR("Unexpected end of input in %s : %i (%s)\n", filename, errno, strerror(errno));
             close(f);
-            return false;
+            return WA_DIAG_ERRCODE_FILE_READ_OPERATION_FAILURE;
         }
         processed += rc;
     }
 
     close(f);
-    return true;
+    return WA_DIAG_ERRCODE_SUCCESS;
 }
 
 

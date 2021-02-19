@@ -39,6 +39,7 @@ DiagAv::DiagAv(const std::string &params_):
     presentationComment.insert(std::pair<int, const std::string>(SI_CACHE_MISSING, "Missing Channel Map"));
     presentationComment.insert(std::pair<int, const std::string>(AV_NO_SIGNAL, "No stream data. Check cable and verify STB is provisioned correctly"));
     presentationComment.insert(std::pair<int, const std::string>(AV_URL_NOT_REACHABLE, "No AV. URL Not Reachable Or Check Cable"));
+    presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Play Status Error"));
 }
 
 std::string DiagAv::getPresentationName() const

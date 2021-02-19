@@ -140,6 +140,7 @@ int WA_DIAG_MODEM_status(void* instanceHandle, void *initHandle, json_t **params
         if(system(buf) != 0)
         {
             *params = json_string("HW not accessible.");
+            WA_ERROR("modem_status: ping failed to gateway ip %s\n", modem_ip);
             status = WA_DIAG_ERRCODE_FAILURE;
             goto end;
         }
@@ -266,7 +267,7 @@ static int is_modem_operational(const char *snmp_server)
     oper.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
     if(!WA_UTILS_SNMP_GetNumber(snmp_server, OID_MODEM_STATUS, &oper, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
-        return WA_DIAG_ERRCODE_FAILURE;
+        return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
 
     if(WA_OSA_TaskCheckQuit())
@@ -278,7 +279,7 @@ static int is_modem_operational(const char *snmp_server)
     width.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
     if(!WA_UTILS_SNMP_GetNumber(snmp_server, OID_DOWN_WIDTH, &width, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
-        return WA_DIAG_ERRCODE_FAILURE;
+        return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
 
     if(WA_OSA_TaskCheckQuit())
@@ -290,7 +291,7 @@ static int is_modem_operational(const char *snmp_server)
     mod.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
     if(!WA_UTILS_SNMP_GetNumber(snmp_server, OID_DOWN_MODULATION, &mod, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
-        return WA_DIAG_ERRCODE_FAILURE;
+        return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
 
     if(WA_OSA_TaskCheckQuit())
@@ -302,7 +303,7 @@ static int is_modem_operational(const char *snmp_server)
     interleave.type = WA_UTILS_SNMP_RESP_TYPE_LONG;
     if(!WA_UTILS_SNMP_GetNumber(snmp_server, OID_DOWN_INTERLEAVE, &interleave, WA_UTILS_SNMP_REQ_TYPE_WALK))
     {
-        return WA_DIAG_ERRCODE_FAILURE;
+        return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
 
     if(WA_OSA_TaskCheckQuit())

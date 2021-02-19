@@ -233,10 +233,6 @@ static int setReturnData(int status, json_t **param)
            *param = json_string("MoCA good.");
            break;
 
-        case WA_DIAG_ERRCODE_FAILURE:
-           *param = json_string("MoCA bad.");
-           break;
-
         case WA_DIAG_ERRCODE_MOCA_DISABLED:
            *param = json_string("MoCA disabled.");
            break;
@@ -466,8 +462,7 @@ static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
                     break;
 
                 default:
-                    /* MoCA HW not accessible */
-                    ret = -2;
+                    ret = -1;
                     break;
             }
             break;
@@ -740,10 +735,8 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
             case 0:
                 return setReturnData(WA_DIAG_ERRCODE_MOCA_DISABLED, params);
             case -1:
-                return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
-            case -2:
             default:
-                return setReturnData(WA_DIAG_ERRCODE_FAILURE, params);
+                return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
         }
     }
 

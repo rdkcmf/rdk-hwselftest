@@ -215,15 +215,22 @@ static int setReturnData(int status, json_t **param)
            *param = json_string("MCard good.");
            break;
 
-        case WA_DIAG_ERRCODE_FAILURE:
-           *param = json_string("MCard bad.");
+        case WA_DIAG_ERRCODE_MCARD_AUTH_KEY_REQUEST_FAILURE:
+           *param = json_string("MCard Authentication key not ready.");
            break;
 
-/* mapped to WA_DIAG_ERRCODE_FAILURE
+        case WA_DIAG_ERRCODE_MCARD_HOSTID_RETRIEVE_FAILURE:
+           *param = json_string("MCard Host Id not available.");
+           break;
+
+        case WA_DIAG_ERRCODE_MCARD_CERT_AVAILABILITY_FAILURE:
+           *param = json_string("MCard certificate not available.");
+           break;
+
+        /* mapped to WA_DIAG_ERRCODE_FAILURE */
         case WA_DIAG_ERRCODE_MCARD_CERT_INVALID:
-            *param = json_string("MCard certificate not valid.");
-            break;
-*/
+           *param = json_string("MCard certificate not valid.");
+           break;
 
         case WA_DIAG_ERRCODE_NOT_APPLICABLE:
             *param = json_string("Not applicable.");
@@ -259,6 +266,11 @@ int isCardInserted()
     else
     {
       status = (ready.data.l == SNMP_MCARD_AUTH_KEY_READY);
+      if (status)
+          WA_DBG("isCardInserted: Authentication key request sent, Card is 'Ready'\n");
+      else
+          WA_DBG("isCardInserted: Authentication key request not sent, Card is 'Not Ready'\n");
+
       WA_INFO("isCardInserted: card present: %s\n", (status? "YES" : "NO"));
     }
 
@@ -299,7 +311,7 @@ int WA_DIAG_MCARD_status(void* instanceHandle, void *initHandle, json_t **params
     if (ret < 1)
     {
       WA_ERROR("mcard_status, isCardInserted, error code: %d\n", ret);
-      return setReturnData(ret == 0? WA_DIAG_ERRCODE_FAILURE : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
+      return setReturnData(ret == 0? WA_DIAG_ERRCODE_MCARD_AUTH_KEY_REQUEST_FAILURE : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
     }
 
     ret = getMCardId(size, &value[0]);
@@ -312,7 +324,7 @@ int WA_DIAG_MCARD_status(void* instanceHandle, void *initHandle, json_t **params
         }
 
         WA_ERROR("mcard_status, getMCardId, error code: %d\n", ret);
-        return setReturnData((ret == 0 ? WA_DIAG_ERRCODE_FAILURE : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR), params);
+        return setReturnData((ret == 0 ? WA_DIAG_ERRCODE_MCARD_HOSTID_RETRIEVE_FAILURE : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR), params);
     }
 
     WA_DBG("MCard id read successfully.\n");
@@ -327,7 +339,7 @@ int WA_DIAG_MCARD_status(void* instanceHandle, void *initHandle, json_t **params
         }
 
         WA_ERROR("mcard_status, getMCartCert, error code: %d\n", ret);
-        return setReturnData((ret == 0 ? WA_DIAG_ERRCODE_MCARD_CERT_INVALID : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR), params);
+        return setReturnData((ret == 0 ? WA_DIAG_ERRCODE_MCARD_CERT_AVAILABILITY_FAILURE : WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR), params);
     }
 
     WA_DBG("MCard certificate present.\n");

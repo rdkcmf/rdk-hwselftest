@@ -122,7 +122,8 @@ int WA_DIAG_BLUETOOTH_status(void* instanceHandle, void *initHandle, json_t **pa
     if(hciNum == 0)
     {
         *params = json_string("No bluetooth devices found.");
-        status = WA_DIAG_ERRCODE_FAILURE;
+        WA_ERROR("No bluetooth devices found.\n");
+        status = WA_DIAG_ERRCODE_BLUETOOTH_INTERFACE_FAILURE;
         goto end;
     }
 
@@ -137,13 +138,13 @@ int WA_DIAG_BLUETOOTH_status(void* instanceHandle, void *initHandle, json_t **pa
         }
 
         v = WA_DIAG_BLUETOOTH_Verify(hci[i]);
-        if(v > 0)
+        if(v < 0)                              /* Fixed value check through DELIA-49129 */
         {
             *params = json_string("Bluetooth not operational.");
             status = WA_DIAG_ERRCODE_FAILURE;
             break;
         }
-        else if(v < 0)
+        else if(v > 0)
         {
             *params = json_string("HW not accessible.");
             status = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
@@ -198,7 +199,7 @@ end:
  * @brief Verify bluetooth HW at given interface
  *
  * @retval 0 is operational
- * @retval -1 not operational or cancelled
+ * @retval -1 not operational
  * @retval 1 cannot access bluettoth HW
  */
 int WA_DIAG_BLUETOOTH_Verify(int hci)
@@ -211,7 +212,7 @@ int WA_DIAG_BLUETOOTH_Verify(int hci)
     snprintf(buf, STR_MAX, "/usr/bin/hciconfig hci%d 2>/dev/null | grep -q \" *DOWN\" 2>/dev/null", hci);
     if(system(buf) == 0)
     {
-        WA_DBG("hci%d is down\n", hci);
+        WA_ERROR("hci%d is down\n", hci);
         status = -1;
     }
     else
@@ -219,7 +220,7 @@ int WA_DIAG_BLUETOOTH_Verify(int hci)
         snprintf(buf, STR_MAX, "/usr/bin/hciconfig hci%d version &>/dev/null", hci);
         if(system(buf) != 0)
         {
-            WA_DBG("hci%d failure\n", hci);
+            WA_DBG("hci%d is not DOWN, but unable to read version\n", hci);
             status = 1;
         }
     }

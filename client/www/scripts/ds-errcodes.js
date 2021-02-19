@@ -38,10 +38,6 @@ var DIAG_ERRCODE = {
         AV_NO_SIGNAL:           -107,
         IR_NOT_DETECTED:        -108,
         CM_NO_SIGNAL:           -109,
-
-        /* currently mapped to DIAG_ERRCODE.FAILURE in wa_diag_errcodes.h
-        MCARD_CERT_INVALID:     -110, */
-
         TUNER_BUSY:             -111,
         RF4CE_NO_RESPONSE:      -112,
         WIFI_NO_CONNECTION:     -113,
@@ -49,13 +45,9 @@ var DIAG_ERRCODE = {
 
         NON_RF4CE_INPUT:        -117,
 
-        /* Failure Specific Error Codes */
-        EMMC_MAX_LIFE_EXCEED_FAILURE:   -118,
-        EMMC_ZERO_LIFETIME_FAILURE:     -119,
         RF4CE_CTRLM_NO_RESPONSE:        -120,
         HDD_MARGINAL_ATTRIBUTES_FOUND:  -121,
 
-        RF4CE_CHIP_DISCONNECTED:        -122, /* RF4CE Chip Failure code */
         NO_GATEWAY_CONNECTION:          -123,
         NO_COMCAST_WAN_CONNECTION:      -124,
         NO_PUBLIC_WAN_CONNECTION:       -125,
@@ -67,5 +59,18 @@ var DIAG_ERRCODE = {
         NO_MW_GATEWAY_CONNECTION:       -131,
 
         /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
-        DEFAULT_RESULT_VALUE:           -200
+        DEFAULT_RESULT_VALUE:           -200,
+
+        /* Failure Specific Error Codes */
+        BLUETOOTH_INTERFACE_FAILURE:        -211,
+        FILE_WRITE_OPERATION_FAILURE:       -212,
+        FILE_READ_OPERATION_FAILURE:        -213,
+        EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE: -214,
+        EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE: -215,
+        EMMC_TYPEA_ZERO_LIFETIME_FAILURE:   -216,
+        EMMC_TYPEB_ZERO_LIFETIME_FAILURE:   -217,
+        MCARD_AUTH_KEY_REQUEST_FAILURE:     -218,
+        MCARD_HOSTID_RETRIEVE_FAILURE:      -219,
+        MCARD_CERT_AVAILABILITY_FAILURE:    -220,
+        RF4CE_CHIP_DISCONNECTED:            -221
 };

@@ -41,6 +41,7 @@ DiagRf4ce::DiagRf4ce(const std::string &params_):
     presentationComment.insert(std::pair<int, const std::string>(NON_RF4CE_INPUT, "RF Paired But No RF Input"));
     presentationComment.insert(std::pair<int, const std::string>(RF4CE_CTRLM_NO_RESPONSE, "RF Controller Issue"));
     presentationComment.insert(std::pair<int, const std::string>(RF4CE_CHIP_DISCONNECTED, "RF4CE Chip Fail"));
+    presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Paired RCU Count Exceeded Max Value"));
 }
 
 std::string DiagRf4ce::getPresentationName() const

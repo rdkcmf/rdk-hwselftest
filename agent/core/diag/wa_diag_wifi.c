@@ -202,10 +202,6 @@ static int setReturnData(int status, json_t **param)
            *param = json_string("WiFi interface is able to transmit and receive network traffic.");;
            break;
 
-        case WA_DIAG_ERRCODE_FAILURE:
-            *param = json_string("Couldn't fetch WiFi values.");
-            break;
-
         case WA_DIAG_ERRCODE_WIFI_NO_CONNECTION:
             *param = json_string("WiFi connection is not established.");
             break;
@@ -264,19 +260,19 @@ int WA_DIAG_WIFI_status(void *instanceHandle, void *initHandle, json_t **params)
     }
 
     hwStatus = getWifiHwStatus_IARM(); /* Check for Hardware status of the WiFi Interface */
-    if(hwStatus == -1)
-    {
-        WA_ERROR("WA_DIAG_WIFI_status(): Unable to get enable value\n");
-        ret = WA_UTILS_IARM_Disconnect();
-        WA_DBG("WA_DIAG_WIFI_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
-        return setReturnData(WA_DIAG_ERRCODE_FAILURE, params);
-    }
     if(hwStatus == 0)
     {
         WA_INFO("WA_DIAG_WIFI_status(): Hardware setup is not enabled\n");
         ret = WA_UTILS_IARM_Disconnect();
         WA_DBG("WA_DIAG_WIFI_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
         return setReturnData(WA_DIAG_ERRCODE_WIFI_NO_CONNECTION, params);
+    }
+    else if(hwStatus == -1)
+    {
+        WA_DBG("WA_DIAG_WIFI_status(): Unable to get enable value\n");
+        ret = WA_UTILS_IARM_Disconnect();
+        WA_DBG("WA_DIAG_WIFI_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
+        return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
     }
 
     WA_INFO("WiFi interface hardware status is good\n");
@@ -291,6 +287,13 @@ int WA_DIAG_WIFI_status(void *instanceHandle, void *initHandle, json_t **params)
             WA_DBG("WA_DIAG_WIFI_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
             return setReturnData(WA_DIAG_ERRCODE_SUCCESS, params);
         }
+    }
+    else if(ret == -1)
+    {
+        WA_DBG("WA_DIAG_WIFI_status(): Unable to get SSID status\n");
+        ret = WA_UTILS_IARM_Disconnect();
+        WA_DBG("WA_DIAG_WIFI_status(): WA_UTILS_IARM_Disconnect() status - %d\n", ret);
+        return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
     }
 
     WA_INFO("WiFi connection is not established\n");

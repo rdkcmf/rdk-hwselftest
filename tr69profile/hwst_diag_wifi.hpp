@@ -29,11 +29,11 @@ class Comm;
 class DiagWifi: public Diag
 {
     friend class hwst::Comm;
-    
+
     enum {
         WIFI_NO_CONNECTION = -113
     };
-    
+
 public:
     DiagWifi(const std::string &params_ = "");
     ~DiagWifi() {}

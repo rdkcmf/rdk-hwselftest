@@ -39,6 +39,7 @@ DiagHdd::DiagHdd(const std::string &params_):
     presentationComment.insert(std::pair<int, const std::string>(HDD_STATUS_MISSING, "HDD Test Not Run"));
     presentationComment.insert(std::pair<int, const std::string>(HDD_MARGINAL_ATTRIBUTES_FOUND, "Marginal HDD Values"));
     presentationComment.insert(std::pair<int, const std::string>(HDD_DEVICE_NODE_NOT_FOUND, "HDD Device Node Not Found"));
+    presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Disk Health Status Error"));
 }
 
 std::string DiagHdd::getPresentationName() const

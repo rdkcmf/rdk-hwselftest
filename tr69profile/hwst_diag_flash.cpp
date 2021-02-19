@@ -32,11 +32,20 @@ namespace hwst {
 DiagFlash::DiagFlash(const std::string &params_):
     Diag("flash_status", params_)
 {
-    presentationResult.insert(std::pair<int, const std::string>(EMMC_MAX_LIFE_EXCEED_FAILURE, "FAILED"));
-    presentationResult.insert(std::pair<int, const std::string>(EMMC_ZERO_LIFETIME_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(FILE_WRITE_OPERATION_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(FILE_READ_OPERATION_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(EMMC_TYPEA_ZERO_LIFETIME_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(EMMC_TYPEB_ZERO_LIFETIME_FAILURE, "FAILED"));
 
-    presentationComment.insert(std::pair<int, const std::string>(EMMC_MAX_LIFE_EXCEED_FAILURE, "Device Exceeded Max Life"));
-    presentationComment.insert(std::pair<int, const std::string>(EMMC_ZERO_LIFETIME_FAILURE, "Device Returned Invalid Response"));
+    presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Memory Verify Error"));
+    presentationComment.insert(std::pair<int, const std::string>(FILE_WRITE_OPERATION_FAILURE, "File Write Operation Error"));
+    presentationComment.insert(std::pair<int, const std::string>(FILE_READ_OPERATION_FAILURE, "File Read Operation Error"));
+    presentationComment.insert(std::pair<int, const std::string>(EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE, "Device TypeA Exceeded Max Life"));
+    presentationComment.insert(std::pair<int, const std::string>(EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE, "Device TypeB Exceeded Max Life"));
+    presentationComment.insert(std::pair<int, const std::string>(EMMC_TYPEA_ZERO_LIFETIME_FAILURE, "Device TypeA Returned Invalid Response"));
+    presentationComment.insert(std::pair<int, const std::string>(EMMC_TYPEB_ZERO_LIFETIME_FAILURE, "Device TypeB Returned Invalid Response"));
 }
 
 std::string DiagFlash::getPresentationName() const

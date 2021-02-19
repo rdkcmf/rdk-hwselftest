@@ -34,7 +34,7 @@ DiagWifi::DiagWifi(const std::string &params_):
 {
     presentationResult.insert(std::pair<int, const std::string>(WIFI_NO_CONNECTION, "WARNING"));
 
-    presentationComment.insert(std::pair<int, const std::string>(WIFI_NO_CONNECTION, "No Connection")); 
+    presentationComment.insert(std::pair<int, const std::string>(WIFI_NO_CONNECTION, "No Connection"));
 }
 
 std::string DiagWifi::getPresentationName() const

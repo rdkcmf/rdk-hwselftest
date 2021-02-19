@@ -29,6 +29,10 @@ class Comm;
 class DiagBluetooth: public Diag
 {
     friend class hwst::Comm;
+
+    enum {
+        BLUETOOTH_INTERFACE_FAILURE = -211
+    };
 public:
     DiagBluetooth(const std::string &params_ = "");
     ~DiagBluetooth() {}

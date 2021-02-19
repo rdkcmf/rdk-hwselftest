@@ -30,11 +30,11 @@ class DiagMcard: public Diag
 {
     friend class hwst::Comm;
 
-    /* currently mapped to FAILURE
     enum {
-        MCARD_CERT_INVALID = -110
+        MCARD_AUTH_KEY_REQUEST_FAILURE = -218,
+        MCARD_HOSTID_RETRIEVE_FAILURE = -219,
+        MCARD_CERT_AVAILABILITY_FAILURE = -220
     };
-    */
 public:
     DiagMcard(const std::string &params_ = "");
     ~DiagMcard() {}

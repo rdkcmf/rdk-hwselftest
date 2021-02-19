@@ -75,6 +75,8 @@
 #define EMMC_PATTERN_STR                "TSB_MOUNT_PATH="
 #define EMMC_MAX_DEVICE_LIFETIME        0x0A /* 90% - 100% device life time used */
 #define EMMC_ZERO_DEVICE_LIFETIME       0x0
+#define MAX_LIFE_EXCEED_FAILURE         -4
+#define ZERO_LIFETIME_FAILURE           -5
 #endif
 
 /*****************************************************************************
@@ -124,10 +126,6 @@ static int setReturnData(int status, json_t **param)
             *param = json_string("eMMC Card bad.");
             break;
 
-        case WA_DIAG_ERRCODE_EMMC_MAX_LIFE_EXCEED_FAILURE:
-            *param = json_string("Device Exceeded Max Life.");
-            break;
-
         case WA_DIAG_ERRCODE_NOT_APPLICABLE:
             *param = json_string("Not applicable.");
             break;
@@ -136,8 +134,28 @@ static int setReturnData(int status, json_t **param)
             *param = json_string("Test cancelled.");
             break;
 
-        case WA_DIAG_ERRCODE_EMMC_ZERO_LIFETIME_FAILURE:
-            *param = json_string("Device Returned Invalid Response.");
+        case WA_DIAG_ERRCODE_EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE:
+            *param = json_string("Device Type A Exceeded Max Life.");
+            break;
+
+        case WA_DIAG_ERRCODE_EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE:
+            *param = json_string("Device Type B Exceeded Max Life.");
+            break;
+
+        case WA_DIAG_ERRCODE_EMMC_TYPEA_ZERO_LIFETIME_FAILURE:
+            *param = json_string("Device Type A Returned Invalid Response.");
+            break;
+
+        case WA_DIAG_ERRCODE_EMMC_TYPEB_ZERO_LIFETIME_FAILURE:
+            *param = json_string("Device Type B Returned Invalid Response.");
+            break;
+
+        case WA_DIAG_ERRCODE_FILE_WRITE_OPERATION_FAILURE:
+            *param = json_string("File Write Operation Error.");
+            break;
+
+        case WA_DIAG_ERRCODE_FILE_READ_OPERATION_FAILURE:
+            *param = json_string("File Read Operation Error.");
             break;
 
         case WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR:
@@ -156,7 +174,7 @@ static int checkEMMCLifeLapseParam(char *param)
     int is_connected = 0;
     char *data;
     int value;
-    int result = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+    int result = -1;
 
     WA_ENTER("checkEMMCLifeLapseParam()\n");
 
@@ -191,10 +209,10 @@ static int checkEMMCLifeLapseParam(char *param)
         if (value <= EMMC_ZERO_DEVICE_LIFETIME)
         {
             IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, stMsgDataParam);
-            return WA_DIAG_ERRCODE_EMMC_ZERO_LIFETIME_FAILURE;
+            return ZERO_LIFETIME_FAILURE;
         }
 
-        result = (value <= EMMC_MAX_DEVICE_LIFETIME) ? WA_DIAG_ERRCODE_SUCCESS : WA_DIAG_ERRCODE_EMMC_MAX_LIFE_EXCEED_FAILURE;
+        result = (value <= EMMC_MAX_DEVICE_LIFETIME) ? WA_DIAG_ERRCODE_SUCCESS : MAX_LIFE_EXCEED_FAILURE;
 
         IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, stMsgDataParam);
 
@@ -208,41 +226,41 @@ static int checkEMMCLifeLapseParam(char *param)
 static int checkEMMCStorageLife()
 {
     int result = checkEMMCLifeLapseParam(TR69_EMMC_LIFE_ELAPSED_A);
-    if (result == WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR)
+    if (result == -1)
     {
         WA_ERROR("checkEMMCStorageLife(): checkEMMCLifeLapseParam('%s') failed\n", TR69_EMMC_LIFE_ELAPSED_A);
-        return result;
+        return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
 
-    if (result == WA_DIAG_ERRCODE_EMMC_MAX_LIFE_EXCEED_FAILURE)
+    if (result == MAX_LIFE_EXCEED_FAILURE)
     {
         WA_ERROR("checkEMMCStorageLife(): checkEMMCLifeLapseParam('%s') eMMC device exceeded max life\n", TR69_EMMC_LIFE_ELAPSED_A);
-        return result;
+        return WA_DIAG_ERRCODE_EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE;
     }
 
-    if (result == WA_DIAG_ERRCODE_EMMC_ZERO_LIFETIME_FAILURE)
+    if (result == ZERO_LIFETIME_FAILURE)
     {
         WA_ERROR("checkEMMCStorageLife(): checkEMMCLifeLapseParam('%s') eMMC device zero life\n", TR69_EMMC_LIFE_ELAPSED_A);
-        return result;
+        return WA_DIAG_ERRCODE_EMMC_TYPEA_ZERO_LIFETIME_FAILURE;
     }
 
     result = checkEMMCLifeLapseParam(TR69_EMMC_LIFE_ELAPSED_B);
-    if (result == WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR)
+    if (result == -1)
     {
         WA_ERROR("checkEMMCStorageLife(): checkEMMCLifeLapseParam('%s') failed\n", TR69_EMMC_LIFE_ELAPSED_B);
-        return result;
+        return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
 
-    if (result == WA_DIAG_ERRCODE_EMMC_MAX_LIFE_EXCEED_FAILURE)
+    if (result == MAX_LIFE_EXCEED_FAILURE)
     {
         WA_ERROR("checkEMMCStorageLife(): checkEMMCLifeLapseParam('%s') eMMC device exceeded max life\n", TR69_EMMC_LIFE_ELAPSED_B);
-        return result;
+        return WA_DIAG_ERRCODE_EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE;
     }
 
-    if (result == WA_DIAG_ERRCODE_EMMC_ZERO_LIFETIME_FAILURE)
+    if (result == ZERO_LIFETIME_FAILURE)
     {
         WA_ERROR("checkEMMCStorageLife(): checkEMMCLifeLapseParam('%s') eMMC device zero life\n", TR69_EMMC_LIFE_ELAPSED_B);
-        return result;
+        return WA_DIAG_ERRCODE_EMMC_TYPEB_ZERO_LIFETIME_FAILURE;
     }
 
     return result;
@@ -322,7 +340,7 @@ int WA_DIAG_FLASH_status(void* instanceHandle, void *initHandle, json_t **pJsonI
     result = WA_DIAG_FileTest((const char *)defaultFilePath, EMMC_DEFAULT_TEST_FILE_SIZE, config, pJsonInOut);
     free((void *)defaultFilePath);
 
-    if (result)
+    if (result != 0)
     {
         WA_ERROR("flash_status: eMMC error during file test in SLC2 partition.\n");
         return setReturnData(result, pJsonInOut);
@@ -374,7 +392,7 @@ int WA_DIAG_FLASH_status(void* instanceHandle, void *initHandle, json_t **pJsonI
     result = WA_DIAG_FileTest((const char *)defaultFilePath, EMMC_DEFAULT_TEST_FILE_SIZE, config, pJsonInOut);
     free((void *)defaultFilePath);
 
-    if (result)
+    if (result != 0)
     {
         WA_ERROR("flash_status: eMMC error during file test in SLC1 partition.\n");
         return setReturnData(result, pJsonInOut);
@@ -416,6 +434,7 @@ int WA_DIAG_FLASH_status(void* instanceHandle, void *initHandle, json_t **pJsonI
     result = WA_DIAG_FileTest(defaultFileName, defaultTotalSize,
              ((WA_DIAG_proceduresConfig_t*)initHandle)->config, pJsonInOut);
 
+    WA_RETURN("flash_status: returns \"%d\"\n", result);
     return result;
 
 #endif

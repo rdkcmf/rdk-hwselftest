@@ -96,7 +96,7 @@ int WA_DIAG_DRAM_status(void* instanceHandle, void *initHandle, json_t **pJsonIn
     {
         if(!applicable)
         {
-            WA_INFO("Not applicable\n");
+            WA_INFO("dram_status: Not applicable\n");
             *pJsonInOut = json_string("Not applicable.");
             return WA_DIAG_ERRCODE_NOT_APPLICABLE;
         }
@@ -124,6 +124,7 @@ int WA_DIAG_DRAM_status(void* instanceHandle, void *initHandle, json_t **pJsonIn
 
     free(filepath);
 
+    WA_RETURN("dram_status: returns \"%d\"\n", result);
     return result;
 }
 

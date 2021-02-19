@@ -35,6 +35,14 @@ DiagMcard::DiagMcard(const std::string &params_):
     /* currently mapped to FAILURE
     presentationResult.insert(std::pair<int, const std::string>(MCARD_CERT_INVALID, "FAILED"));
     */
+    presentationResult.insert(std::pair<int, const std::string>(MCARD_AUTH_KEY_REQUEST_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(MCARD_HOSTID_RETRIEVE_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(MCARD_CERT_AVAILABILITY_FAILURE, "FAILED"));
+
+    presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Invalid Card Certification"));
+    presentationComment.insert(std::pair<int, const std::string>(MCARD_AUTH_KEY_REQUEST_FAILURE, "Card Auth Key Not Ready"));
+    presentationComment.insert(std::pair<int, const std::string>(MCARD_HOSTID_RETRIEVE_FAILURE, "Unable To Retrieve Card ID"));
+    presentationComment.insert(std::pair<int, const std::string>(MCARD_CERT_AVAILABILITY_FAILURE, "Card Certification Not Available"));
 }
 
 std::string DiagMcard::getPresentationName() const

@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+#include <telemetry_busmessage_sender.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -184,6 +185,7 @@ int WA_AGG_StartTestRun(const char *client, time_t timestamp)
     if (WA_OSA_MutexLock(api_mutex))
     {
         WA_ERROR("WA_AGG_StartTestRun(): WA_OSA_MutexLock() failed\n");
+        t2_event_d("SYST_ERR_Mutexlockfail", 1);
         goto err;
     }
 
@@ -212,6 +214,7 @@ int WA_AGG_FinishTestRun(time_t timestamp)
     if (WA_OSA_MutexLock(api_mutex))
     {
         WA_ERROR("WA_AGG_FinishTestRun(): WA_OSA_MutexLock() failed\n");
+        t2_event_d("SYST_ERR_Mutexlockfail", 1);
         goto err;
     }
 
@@ -253,6 +256,7 @@ int WA_AGG_SetTestResult(const char *diag_name, int result, time_t timestamp)
     if (WA_OSA_MutexLock(api_mutex))
     {
         WA_ERROR("WA_AGG_SetTestResult(): WA_OSA_MutexLock() failed\n");
+        t2_event_d("SYST_ERR_Mutexlockfail", 1);
         goto err;
     }
 
@@ -298,6 +302,7 @@ const WA_AGG_AggregateResults_t *WA_AGG_GetPreviousResults()
     if (WA_OSA_MutexLock(api_mutex))
     {
         WA_ERROR("WA_AGG_GetPreviousResults(): WA_OSA_MutexLock() failed\n");
+        t2_event_d("SYST_ERR_Mutexlockfail", 1);
         goto err;
     }
 

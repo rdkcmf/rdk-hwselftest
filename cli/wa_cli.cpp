@@ -39,6 +39,7 @@
 #include <unistd.h>
 
 #include "breakpad_wrapper.h"
+#include <telemetry_busmessage_sender.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -115,6 +116,10 @@ int main(int argc, char * const argv[])
 
 /* Invoke the Breakpad exception handler registration interface */
     breakpad_ExceptionHandler();
+
+/* Initialize the module with telemetry2.0 */
+    t2_init("hwselftest");
+    cliprintf("Registered Hwselftest App with Telemetry 2.0\n");
 
     if (argc == 1)
         cliprintf("use --help for help\n");

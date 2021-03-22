@@ -29,6 +29,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fstream>
+#include <telemetry_busmessage_sender.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -172,7 +173,13 @@ bool wa_wsclient::enable(bool enable)
     if (result)
     {
         if (is_enabled())
+        {
             log("Feature enabled.\n");
+
+            t2_init("hwselftest");
+            WA_DBG("wa_wsclient::enable(): Registered Hwselftest App with Telemetry 2.0\n");
+            t2_event_d("SYST_INFO_hwselftest_enabled2", 1);
+        }
         else
             log("Feature disabled.\n");
     }
@@ -552,7 +559,7 @@ bool wa_wsclient::set_periodic_dram_threshold(unsigned int threshold)
     retval = _settings.set(HWST_DRAM_THRESHOLD_NAME, threshold);
     if (retval)
     {
-        WA_DBG("wa_wsclient::set_periodic_dram_threshold(): changed periodic run dram threshold to %i%%\n", threshold);
+        WA_DBG("wa_wsclient::set_periodic_dram_threshold(): changed periodic run dram threshold to %i MB\n", threshold);
         log("Periodic run DRAM threshold set to " + std::to_string(threshold) + " MB.\n");
     }
     else

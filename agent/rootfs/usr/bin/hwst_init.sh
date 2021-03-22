@@ -18,6 +18,8 @@
 # limitations under the License.
 ##########################################################################
 
+source /lib/rdk/t2Shared_api.sh
+
 enablePeriodicRun=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.hwHealthTest.Enable 2>&1 > /dev/null`
 if [ "$enablePeriodicRun" = "true" ]; then
     echo "HW Self Tests enabled"
@@ -27,8 +29,9 @@ if [ "$enablePeriodicRun" = "true" ]; then
         periodicRunFrequency=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.hwHealthTest.PeriodicRunFrequency 2>&1 > /dev/null`
         cpuThreshold=`tr181Set  Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.hwHealthTest.cpuThreshold 2>&1 > /dev/null`
         dramThreshold=`tr181Set Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.hwHealthTest.dramThreshold 2>&1 > /dev/null`
-        echo "Enabling periodic run of HW self tests with $periodicRunFrequency seconds frequency with CPU Threshold = $cpuThreshold and DRAM threshold = $dramThreshold "
+        echo "Enabling periodic run of HW self tests with $periodicRunFrequency minutes frequency with CPU Threshold = $cpuThreshold and DRAM threshold = $dramThreshold "
         /usr/bin/hwselftestcli enable-ptr $periodicRunFrequency $cpuThreshold $dramThreshold
+        t2CountNotify "SYST_INFO_hwselftest_enabled"
     else
         echo "HW self Tests periodic run is disabled"
     fi

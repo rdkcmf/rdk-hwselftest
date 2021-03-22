@@ -48,14 +48,17 @@ extern "C"
 /*****************************************************************************
  * EXPORTED DEFINITIONS
  *****************************************************************************/
-#define CLIENT_LOG(format, ...) WA_LOG_Client(false, format, ## __VA_ARGS__)
+#define RAW_MESSAGE 1
+#define T2_MESSAGE  2 /* RDK-31352 To report events for Telemetry2.0 */
+#define MESSAGE     3
+#define CLIENT_LOG(format, ...) WA_LOG_Client(MESSAGE, format, ## __VA_ARGS__)
 
 /*****************************************************************************
  * FUNCTION DEFINITIONS
  *****************************************************************************/
 bool WA_LOG_Init();
 
-void WA_LOG_Client(bool raw, const char * format, ...);
+void WA_LOG_Client(int level, const char * format, ...);
 
 int WA_LOG_Log(json_t **pJson);
 

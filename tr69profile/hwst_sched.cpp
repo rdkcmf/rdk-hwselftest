@@ -23,6 +23,8 @@
 
 #include <unistd.h>
 
+#include <telemetry_busmessage_sender.h>
+
 #include "hwst_sched.hpp"
 #include "hwst_scenario_set.hpp"
 #include "hwst_scenario_auto.hpp"
@@ -204,6 +206,11 @@ void Sched::worker(void)
                             summary += "\n";
                             summary += tmp;
                             comm->sendRaw("LOG", "{\"rawmessage\": \"" + tmp + "\"}", "null");
+
+                            t2_event_d("SYST_INFO_HWTestOK", 1);
+                            if (passed)
+                                t2_event_d("SYST_INFO_hwselftest_passed", 2); /* send value '2' as there is one another event sent for the same log */
+
                             if (!standAloneTest)
                             {
                                 telemetryLog(passed);
@@ -285,6 +292,7 @@ void Sched::telemetryLog(bool testResult)
 
     comm->sendRaw("LOG", "{\"rawmessage\": \"" + telemetry_resultHeader + "\"}", "null");
     comm->sendRaw("LOG", "{\"rawmessage\": \"" + telemetry_result + "\"}", "null");
+    t2_event_s("hwtest2_split", (char*)telemetry_log.c_str());
     telemetryLogInit();
 }
 

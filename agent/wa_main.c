@@ -40,6 +40,7 @@
 #include <errno.h>
 
 #include "breakpad_wrapper.h"
+#include <telemetry_busmessage_sender.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -179,6 +180,9 @@ int main(int argc, char *argv[])
     }
 
     WA_LOG_Init();
+
+    t2_init("hwselftest");
+    WA_INFO("main(): Registered Hwselftest App with Telemetry 2.0\n");
 
     for (int argi = 1; argi < argc; argi++)
     {

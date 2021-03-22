@@ -1269,6 +1269,7 @@ function telemetryLog() {
     result_store.push(completeResult);
     result_store.toString();
     ds.notify("LOG", { message: "HwTestResult2: " + result_store });
+    ds.notify("LOG", { telemetrymessage: "hwtest2_split " + result_store });
 
     result_store = [];
     telemetry_order = telemetry_swap;
@@ -1434,6 +1435,12 @@ function setFinal(showPrevious) {
             var timestampUI = timeStampUI(dt);
             document.getElementById('timestamp').innerHTML = timestampUI + " " + timeZone();
             ds.notify("LOG", { rawmessage: "HWST_LOG |" + timestamp + " Test execution completed:" + textResult});
+
+            ds.notify("LOG", { telemetrymessage: "SYST_INFO_HWTestOK" });
+            if (textResult === "PASSED") {
+                ds.notify("LOG", { telemetrymessage: "SYST_INFO_hwselftest_passed" });
+            }
+
             ds.notify("TESTRUN", { state: "finish" } );
             telemetryLog();
         }

@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <telemetry_busmessage_sender.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -58,6 +59,7 @@
  *****************************************************************************/
 static void saveLog(const char * msg);
 static void saveRawLog(const char * msg);
+static void saveTelemetryLog(const char * msg); /* RDK-31352 To report events for Telemetry2.0 */
 static void writeLineToLog(const char * line);
 static void prepareLogHeader(char * buffer, const char * mark, size_t bufferSize);
 
@@ -78,7 +80,7 @@ bool WA_LOG_Init()
     return true;
 }
 
-void WA_LOG_Client(bool raw, const char * format, ...)
+void WA_LOG_Client(int level, const char * format, ...)
 {
     char * logmsg = NULL;
     va_list ap;
@@ -90,13 +92,18 @@ void WA_LOG_Client(bool raw, const char * format, ...)
     }
     else
     {
-        if(raw)
+        switch (level)
         {
-            saveRawLog(logmsg);
-        }
-        else
-        {
-            saveLog(logmsg);
+            case RAW_MESSAGE:
+                saveRawLog(logmsg);
+                break;
+            case T2_MESSAGE:
+                saveTelemetryLog(logmsg);
+                break;
+            case MESSAGE:
+            default:
+                saveLog(logmsg);
+                break;
         }
     }
     va_end(ap);
@@ -123,16 +130,22 @@ int WA_LOG_Log(json_t **pJson)
         goto end;
     }
 
-    msg = json_string_value(json_object_get(jps, "message"));
-    if(msg != NULL)
-    {
-        WA_LOG_Client(false, "%s", msg);
-        goto end;
-    }
     msg = json_string_value(json_object_get(jps, "rawmessage"));
     if(msg != NULL)
     {
-        WA_LOG_Client(true, "%s", msg);
+        WA_LOG_Client(RAW_MESSAGE, "%s", msg);
+        goto end;
+    }
+    msg = json_string_value(json_object_get(jps, "telemetrymessage"));
+    if(msg != NULL)
+    {
+        WA_LOG_Client(T2_MESSAGE, "%s", msg);
+        goto end;
+    }
+    msg = json_string_value(json_object_get(jps, "message"));
+    if(msg != NULL)
+    {
+        WA_LOG_Client(MESSAGE, "%s", msg);
         goto end;
     }
 
@@ -209,6 +222,41 @@ static void saveRawLog(const char * msg)
     buffer[msgLen + 1] = 0;
 
     writeLineToLog(buffer);
+
+    free(buffer);
+}
+
+static void saveTelemetryLog(const char * msg)
+{
+    char * buffer = NULL;
+    size_t msgLen = strlen(msg);
+
+    buffer = (char*) malloc(msgLen + 1 + 1);
+    if (!buffer)
+    {
+        return;
+    }
+
+    memcpy(buffer, msg, msgLen);
+    buffer[msgLen] = '\n';
+    buffer[msgLen + 1] = 0;
+
+    char * token = strtok(buffer, " ");
+
+    if (!strcmp(token, "hwtest2_split"))
+    {
+        t2_event_s(token, strtok(NULL, " "));
+        WA_INFO("saveTelemetryLog() Reported t2_event_s\n");
+    }
+    else
+    {
+        if (!strcmp(token, "SYST_INFO_hwselftest_passed"))
+            t2_event_d(token, 2); /* send value '2' as there is one another event sent for the same log */
+        else
+            t2_event_d(token, 1);
+
+        WA_INFO("saveTelemetryLog() Reported t2_event_d\n");
+    }
 
     free(buffer);
 }

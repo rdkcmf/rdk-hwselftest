@@ -100,6 +100,9 @@ extern "C"
 #define WA_DIAG_ERRCODE_MCARD_HOSTID_RETRIEVE_FAILURE       (-219)
 #define WA_DIAG_ERRCODE_MCARD_CERT_AVAILABILITY_FAILURE     (-220)
 #define WA_DIAG_ERRCODE_RF4CE_CHIP_DISCONNECTED             (-221)
+#define WA_DIAG_ERRCODE_SD_CARD_TSB_STATUS_FAILURE          (-222)
+#define WA_DIAG_ERRCODE_SD_CARD_ZERO_MAXMINUTES_FAILURE     (-223)
+
 /*****************************************************************************
  * EXPORTED TYPES
  *****************************************************************************/

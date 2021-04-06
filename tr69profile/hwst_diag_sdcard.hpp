@@ -31,8 +31,8 @@ class DiagSdcard: public Diag
     friend class hwst::Comm;
 
     enum {
-        FILE_WRITE_OPERATION_FAILURE = -212,
-        FILE_READ_OPERATION_FAILURE  = -213
+        SD_CARD_TSB_STATUS_FAILURE       = -222,
+        SD_CARD_ZERO_MAXMINUTES_FAILURE  = -223
     };
 public:
     DiagSdcard(const std::string &params_ = "");

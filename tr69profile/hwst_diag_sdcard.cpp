@@ -32,12 +32,11 @@ namespace hwst {
 DiagSdcard::DiagSdcard(const std::string &params_):
     Diag("sdcard_status", params_)
 {
-    presentationResult.insert(std::pair<int, const std::string>(FILE_WRITE_OPERATION_FAILURE, "FAILED"));
-    presentationResult.insert(std::pair<int, const std::string>(FILE_READ_OPERATION_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(SD_CARD_TSB_STATUS_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(SD_CARD_ZERO_MAXMINUTES_FAILURE, "FAILED"));
 
-    presentationComment.insert(std::pair<int, const std::string>(FILE_WRITE_OPERATION_FAILURE, "File Write Operation Error"));
-    presentationComment.insert(std::pair<int, const std::string>(FILE_READ_OPERATION_FAILURE, "File Read Operation Error"));
-    presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Memory Verify Error"));
+    presentationComment.insert(std::pair<int, const std::string>(SD_CARD_TSB_STATUS_FAILURE, "TSB Status Error"));
+    presentationComment.insert(std::pair<int, const std::string>(SD_CARD_ZERO_MAXMINUTES_FAILURE, "TSB Zero MaxMinutes"));
 }
 
 std::string DiagSdcard::getPresentationName() const

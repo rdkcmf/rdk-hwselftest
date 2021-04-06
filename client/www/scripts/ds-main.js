@@ -1125,6 +1125,7 @@ function getInfo(elemName, status, data) {
         break;
     case DIAG_ERRCODE.NO_MW_GATEWAY_CONNECTION:
         info = "No Local Gateway Response";
+        break;
     case DIAG_ERRCODE.BLUETOOTH_INTERFACE_FAILURE:
         info = "Bluetooth Interfaces Not Found";
         break;
@@ -1154,6 +1155,12 @@ function getInfo(elemName, status, data) {
         break;
     case DIAG_ERRCODE.MCARD_CERT_AVAILABILITY_FAILURE:
         info = "Card Certification Not Available";
+        break;
+    case DIAG_ERRCODE.SD_CARD_TSB_STATUS_FAILURE:
+        info = "TSB Status Error";
+        break;
+    case DIAG_ERRCODE.SD_CARD_ZERO_MAXMINUTES_FAILURE:
+        info = "TSB Zero MaxMinutes";
         break;
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
     default:
@@ -1283,6 +1290,8 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.MCARD_AUTH_KEY_REQUEST_FAILURE:
     case DIAG_ERRCODE.MCARD_HOSTID_RETRIEVE_FAILURE:
     case DIAG_ERRCODE.MCARD_CERT_AVAILABILITY_FAILURE:
+    case DIAG_ERRCODE.SD_CARD_TSB_STATUS_FAILURE:
+    case DIAG_ERRCODE.SD_CARD_ZERO_MAXMINUTES_FAILURE:
         elem.result = results.error;
         break;
     case DIAG_ERRCODE.SUCCESS:

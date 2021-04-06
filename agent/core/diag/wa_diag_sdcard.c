@@ -39,8 +39,12 @@
  *****************************************************************************/
 #include "wa_diag.h"
 #include "wa_debug.h"
-#include "wa_fileops.h"
-#include "wa_diag_file.h"
+
+/* rdk specific */
+#include "wa_iarm.h"
+#include "libIBus.h"
+#include "libIARMCore.h"
+#include "rdkStorageMgrTypes.h"
 
 /* module interface */
 #include "wa_diag_sdcard.h"
@@ -52,12 +56,7 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
-#define DEV_CONFIG_FILE_PATH            "/etc/device.properties"
-#define FILE_MODE                       "r"
-#define SD_CARD_PATTERN_STR             "SD_CARD_MOUNT_PATH="
-#define SD_CARD_DEFAULT_MOUNT_PATH_STR  "/media/tsb"
-#define SD_CARD_DEFAULT_TEST_FILE_STR   "diagsys-test-file"
-#define SD_CARD_DEFAULT_TEST_FILE_SIZE  (512*1024)
+#define IARM_BUS_STMGR_NAME     "rSTMgrBus" // Defined in rdkStorageMgr_iarm_private.h of storagemanager which is not accessible for other modules
 
 /*****************************************************************************
  * LOCAL TYPES
@@ -67,7 +66,8 @@
 /*****************************************************************************
  * LOCAL FUNCTION PROTOTYPES
  *****************************************************************************/
-
+static int checkTSBStatus();
+static int checkTSBMaxMinutes();
 static int setReturnData(int status, json_t **param);
 
 /*****************************************************************************
@@ -77,6 +77,73 @@ static int setReturnData(int status, json_t **param);
 /*****************************************************************************
  * FUNCTION DEFINITIONS
  *****************************************************************************/
+static int checkTSBStatus()
+{
+    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
+    int ret = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+    int is_connected = 0;
+    eSTMGRTSBStatus status;
+
+    iarm_result = IARM_Bus_IsConnected(IARM_BUS_STMGR_NAME, &is_connected);
+    if (iarm_result != IARM_RESULT_SUCCESS || !is_connected)
+    {
+        WA_ERROR("checkTSBStatus(): IARM_Bus_IsConnected('%s') failed. Storage Manager not available.\n", IARM_BUS_STMGR_NAME);
+        return ret;
+    }
+
+    iarm_result = IARM_Bus_Call(IARM_BUS_STMGR_NAME, "GetTSBStatus", (void *)&status, sizeof(status));
+    if (iarm_result == IARM_RESULT_SUCCESS)
+    {
+        if (status == RDK_STMGR_TSB_STATUS_UNKNOWN) // Defined in rdkStorageMgrTypes.h whose decimal value is 64
+        {
+            WA_ERROR("checkTSBStatus(): TSBStatus=%i\n", status);
+            ret = WA_DIAG_ERRCODE_SD_CARD_TSB_STATUS_FAILURE;
+        }
+        else
+        {
+            WA_DBG("checkTSBStatus(): TSBStatus is good (status=%i)\n", status);
+            ret = WA_DIAG_ERRCODE_SUCCESS;
+        }
+    }
+    else
+        WA_ERROR("checkTSBStatus(): IARM_Bus_Call() returned %i\n", iarm_result);
+
+    return ret;
+}
+
+static int checkTSBMaxMinutes()
+{
+    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
+    int ret = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+    int is_connected = 0;
+    unsigned int minutes;
+
+    iarm_result = IARM_Bus_IsConnected(IARM_BUS_STMGR_NAME, &is_connected);
+    if (iarm_result != IARM_RESULT_SUCCESS || !is_connected)
+    {
+        WA_ERROR("checkTSBMaxMinutes(): IARM_Bus_IsConnected('%s') failed. Storage Manager not available.\n", IARM_BUS_STMGR_NAME);
+        return ret;
+    }
+
+    iarm_result = IARM_Bus_Call(IARM_BUS_STMGR_NAME, "GetTSBMaxMinutes", (void *)&minutes, sizeof(minutes));
+    if (iarm_result == IARM_RESULT_SUCCESS)
+    {
+        if (minutes == 0)
+        {
+            WA_ERROR("checkTSBMaxMinutes(): TSBMaxMinutes=%i\n", minutes);
+            ret = WA_DIAG_ERRCODE_SD_CARD_ZERO_MAXMINUTES_FAILURE;
+        }
+        else
+        {
+            WA_DBG("checkTSBMaxMinutes(): TSBMaxMinutes is good (minutes=%i)\n", minutes);
+            ret = WA_DIAG_ERRCODE_SUCCESS;
+        }
+    }
+    else
+        WA_ERROR("checkTSBMaxMinutes(): IARM_Bus_Call() returned %i\n", iarm_result);
+
+    return ret;
+}
 
 static int setReturnData(int status, json_t **param)
 {
@@ -108,12 +175,12 @@ static int setReturnData(int status, json_t **param)
             *param = json_string("Internal test error.");
             break;
 
-        case WA_DIAG_ERRCODE_FILE_WRITE_OPERATION_FAILURE:
-            *param = json_string("File Write Operation Error.");
+        case WA_DIAG_ERRCODE_SD_CARD_TSB_STATUS_FAILURE:
+            *param = json_string("TSB Status Error");
             break;
 
-        case WA_DIAG_ERRCODE_FILE_READ_OPERATION_FAILURE:
-            *param = json_string("File Read Operation Error.");
+        case WA_DIAG_ERRCODE_SD_CARD_ZERO_MAXMINUTES_FAILURE:
+            *param = json_string("TSB Zero MaxMinutes");
             break;
 
         default:
@@ -123,7 +190,6 @@ static int setReturnData(int status, json_t **param)
     return status;
 }
 
-
 /*****************************************************************************
  * EXPORTED FUNCTIONS
  *****************************************************************************/
@@ -132,8 +198,6 @@ int WA_DIAG_SDCARD_status(void* instanceHandle, void *initHandle, json_t **param
 {
     int status = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     json_t *config = NULL;
-    const char *filename = NULL;
-    char *mountPath = NULL;
 
     json_decref(*params); // not used
     *params = NULL;
@@ -142,14 +206,9 @@ int WA_DIAG_SDCARD_status(void* instanceHandle, void *initHandle, json_t **param
 
     /* Use test config details if found */
     config = ((WA_DIAG_proceduresConfig_t*)initHandle)->config;
-    if(config && (json_unpack(config, "{ss}", "filename", &filename)==0))
+    if(!config)
     {
-        WA_DBG("sdcard_status: config filename = %s\n", filename);
-    }
-    else
-    {
-        WA_INFO("sdcard_status: config filename not found\n");
-        filename = NULL;
+        WA_DBG("sdcard_status: config file not found.\n");
     }
 
     if(WA_OSA_TaskCheckQuit())
@@ -158,47 +217,29 @@ int WA_DIAG_SDCARD_status(void* instanceHandle, void *initHandle, json_t **param
         return setReturnData(WA_DIAG_ERRCODE_CANCELLED, params);
     }
 
-    mountPath = WA_UTILS_FILEOPS_OptionFind(DEV_CONFIG_FILE_PATH, SD_CARD_PATTERN_STR);
-    if(mountPath == NULL)
+    if(WA_UTILS_IARM_Connect())
     {
-        WA_INFO("sdcard_status: Mount path not found.\n");
-
-        if(filename == NULL)
-        {
-            WA_ERROR("sdcard_status: Neither config filename nor Mount Path found.\n");
-            return setReturnData(WA_DIAG_ERRCODE_NOT_APPLICABLE, params);
-        }
-
-        if (asprintf(&mountPath, SD_CARD_DEFAULT_MOUNT_PATH_STR) == -1)
-        {
-            WA_ERROR("sdcard_status: asprintf failed\n");
-            return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
-        }
-    }
-    else
-    {
-        WA_DBG("sdcard_status: mountPath=%s\n", mountPath);
-    }
-
-    if(WA_OSA_TaskCheckQuit())
-    {
-        WA_DBG("sdcard_status: Test cancelled\n");
-        free((void *)mountPath);
-        return setReturnData(WA_DIAG_ERRCODE_CANCELLED, params);
-    }
-
-    char *defaultFilePath = NULL;
-    int res = asprintf(&defaultFilePath, "%s/%s", mountPath, SD_CARD_DEFAULT_TEST_FILE_STR);
-    free((void *)mountPath);
-    if (res == -1)
-    {
-        WA_ERROR("sdcard_status: asprintf failed\n");
         return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
     }
-    WA_DBG("sdcard_status: defaultFilePath=%s\n", defaultFilePath);
 
-    status = WA_DIAG_FileTest((const char *)defaultFilePath, SD_CARD_DEFAULT_TEST_FILE_SIZE, config, params);
-    free((void *)defaultFilePath);
+    status = checkTSBStatus();
+
+    if (status == WA_DIAG_ERRCODE_SUCCESS)
+    {
+        WA_DBG("sdcard_status: checkTSBStatus() passed\n");
+        status = checkTSBMaxMinutes();
+    }
+
+    if(WA_UTILS_IARM_Disconnect())
+    {
+        WA_DBG("sdcard_status, WA_UTILS_IARM_Disconnect() Failed\n");
+    }
+
+    if(WA_OSA_TaskCheckQuit())
+    {
+        WA_DBG("sdcard_status: Test cancelled\n");
+        return setReturnData(WA_DIAG_ERRCODE_CANCELLED, params);
+    }
 
     WA_RETURN("sdcard_status: %d\n", status);
     return setReturnData(status, params);

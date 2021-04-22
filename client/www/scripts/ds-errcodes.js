@@ -74,5 +74,13 @@ var DIAG_ERRCODE = {
         MCARD_CERT_AVAILABILITY_FAILURE:    -220,
         RF4CE_CHIP_DISCONNECTED:            -221,
         SD_CARD_TSB_STATUS_FAILURE:         -222,
-        SD_CARD_ZERO_MAXMINUTES_FAILURE:    -223
+        SD_CARD_ZERO_MAXMINUTES_FAILURE:    -223,
+
+        /* App launch failure codes */
+        MULTIPLE_CONNECTIONS_NOT_ALLOWED: -250,
+        WEBSOCKET_CONNECTION_FAILURE:     -251,
+        AGENT_INIT_FAILURE:               -252,
+        RESOURCE_OPERATION_FAILURE:       -253,
+        DRAM_THRESHOLD_EXCEEDED:          -254,
+        CPU_THRESHOLD_EXCEEDED:           -255
 };

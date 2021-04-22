@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 
     if (getenv("HW_TEST_SVC")==NULL)
     {
-        fprintf(stderr, "hwselftest: diagnostic agent can't be excuted out of service\n");
+        CLIENT_LOG("hwselftest: diagnostic agent can't be executed out of service\n");
         exit(1);
     }
 
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     sa_new.sa_handler  = sig_usr;
     if(sigaction(SIGUSR1, &sa_new, &sa_old) == -1)
     {
-         WA_ERROR("hwselftest: failed install signal handler for SIGUSR1");
+         CLIENT_LOG("hwselftest: failed install signal handler for SIGUSR1");
          exit(1);
     }
 
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
     childInitSem = malloc(sizeof(sem_t));
     if (!childInitSem || (sem_init(childInitSem, 0, 0) != 0))
     {
-        fprintf(stderr, "hwselftest: can't create child init semaphore\n");
+        CLIENT_LOG("hwselftest: can't create child init semaphore\n");
         exit(1);
     }
 
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
         sid = setsid();
         if (sid < 0)
         {
-            fprintf(stderr, "hwselftest: failed to create new SID for child process\n");
+            CLIENT_LOG("hwselftest: failed to create new SID for child process\n");
             exit(1);
         }
     }
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 
         if (wait_status == -1)
         {
-            fprintf(stderr, "hwselftest: child process has not sent signal - initialization failed\n");
+            CLIENT_LOG("hwselftest: child process has not sent signal - initialization failed with error value %d\n", errno);
             exit(1);
         }
 
@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
     else
     {
         /* Failed to create child process */
-        fprintf(stderr, "hwselftest: failed to create child process, fork returned %d\n", pid);
+        CLIENT_LOG("hwselftest: failed to create child process, fork returned %d\n", pid);
         exit(1);
     }
 
@@ -175,7 +175,7 @@ int main(int argc, char *argv[])
 
     if(sigaction(SIGUSR1, &sa_old, NULL) == -1)
     {
-        WA_ERROR("hwselftest: failed to restore previous signal handler for SIGUSR1");
+        CLIENT_LOG("hwselftest: failed to restore previous signal handler for SIGUSR1");
         exit(1);
     }
 
@@ -254,13 +254,13 @@ int main(int argc, char *argv[])
     exitReason = 0;
 
     if (getenv("HW_TEST_NO_CONN_INIT_TIMEOUT") != NULL)
-        printf("hwselftest: diagnostic agent will not timeout if no connection\n");
+        CLIENT_LOG("hwselftest: diagnostic agent will not timeout if no connection\n");
     else
     {
         if(quitState == quitStarting)
             if(WA_OSA_CondTimedWait(quitCondVar, NO_CONNECTION_TIMEOUT) == 1) //timeout
             {
-                WA_INFO("main(): no connection, quitting...\n");
+                CLIENT_LOG("main(): no connection, quitting...\n");
                 exitReason = 7;
                 quitState = quitQuit;
             }
@@ -314,7 +314,17 @@ err_cond:
 
 end:
     if(exitReason)
+    {
+        if (exitReason == 7) /* exitReason 1 to 6 are handled in hwst_agent_start.sh */
+        {
+            char agentFail_telemetry[128] = {'\0'};
+            strcpy(agentFail_telemetry, "N,N,N,N,N,N,N,N,N,N,N,N,N,N,F-252"); /* WA_DIAG_ERRCODE_AGENT_INIT_FAILURE */
+            CLIENT_LOG("HwTestResult2: %s\n", agentFail_telemetry);
+            t2_event_s("hwtest2_split", agentFail_telemetry);
+        }
+
         CLIENT_LOG("Agent exited (%d)", exitReason);
+    }
     else
         CLIENT_LOG("Agent exited");
 

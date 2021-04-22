@@ -22,6 +22,7 @@
 #include <algorithm>
 
 #include <unistd.h>
+#include <string.h>
 
 #include <telemetry_busmessage_sender.h>
 
@@ -363,6 +364,7 @@ int Sched::get(std::string &result)
 int Sched::issue(const std::vector<std::string>& jobs, const std::string& client, const std::string& param)
 {
     int status = -1;
+    bool connFailure = false;
     HWST_DBG("issue:" + jobs);
 
     switch(state)
@@ -441,6 +443,7 @@ int Sched::issue(const std::vector<std::string>& jobs, const std::string& client
                 std::unique_lock<std::mutex> condLock(cbMutex);
                 working = false;
                 cbHappened = true;
+                connFailure = true;
             }
             cbCond.notify_all();
             thd->join();
@@ -476,9 +479,47 @@ int Sched::issue(const std::vector<std::string>& jobs, const std::string& client
 
 end:
     if(status == -1)
-        Log().writeToLog(Log().format("[TR69] No connection to agent.\n"));
+    {
+        if (multipleInstances())
+        {
+            Log().writeToLog(Log().format("[TR69] Multiple Connections Not Allowed.\n"));
+            failedTelemetryLog("N,N,N,N,N,N,N,N,N,N,N,N,N,N,F-250"); /* WA_DIAG_ERRCODE_MULTIPLE_CONNECTIONS_NOT_ALLOWED */
+        }
+        else if (connFailure)
+        {
+            Log().writeToLog(Log().format("[TR69] Websocket Connection Failure.\n"));
+            failedTelemetryLog("N,N,N,N,N,N,N,N,N,N,N,N,N,N,F-251"); /* WA_DIAG_ERRCODE_WEBSOCKET_CONNECTION_FAILURE */
+        }
+        else
+        {
+            Log().writeToLog(Log().format("[TR69] No connection to agent.\n"));
+        }
+    }
 
     return status;
+}
+
+bool Sched::multipleInstances()
+{
+    FILE *p;
+    bool ret = false;
+    char stat[256];
+
+    p = popen("/bin/systemctl show -p ActiveState hwselftest | sed \"s/ActiveState=//g\"", "r");
+    if(p != NULL)
+    {
+        fscanf(p, "%s", stat);
+        ret = (!strcmp(stat, "active") || !strcmp(stat, "activating")) ? true : false;
+        pclose(p);
+    }
+
+    return ret;
+}
+
+void Sched::failedTelemetryLog(std::string telemetry)
+{
+    Log().writeToLog(Log().format("HwTestResult2: " + telemetry + "\n"));
+    t2_event_s("hwtest2_split", (char*)telemetry.c_str());
 }
 
 } // namespace hwst

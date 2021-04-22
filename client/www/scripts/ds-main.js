@@ -364,6 +364,9 @@ function wsEvent(type, evt) {
     case Diagsys.evType.close:
         agentMissing();
         break;
+    case Diagsys.evType.error:
+        logFileWrite(DIAG_ERRCODE.WEBSOCKET_CONNECTION_FAILURE);
+        break;
     }
 }
 
@@ -422,8 +425,9 @@ function agentMissing() {
     ds.disconnect();
     var store = document.getElementById('devinfo');
     store.style.textAlign = 'center';
-    store.innerHTML="WARNING:<br>No connection to agent, will exit in 3 seconds. Please retry after few minutes";
-    logWrite("No connection to agent, will exit in 3 seconds.");
+    store.innerHTML="WARNING:<br>Test Did Not Run - Please Retry";
+    logWrite("Test Did Not Run - Please Retry.");
+    logFileWrite(DIAG_ERRCODE.MULTIPLE_CONNECTIONS_NOT_ALLOWED); // Checking only for multiple connection issue and log the message into log file if it was a multiple connection
     setTimeout(uiExit, 3000);
 }
 
@@ -1727,6 +1731,22 @@ function dsReRun() {
         return;
     }
     dsRunPriv();
+}
+
+// To write logs into /opt/logs/hwselftest.log file
+function logFileWrite(msg) {
+    var str = msg.toString();
+    var logMsg=(str);
+
+    $.ajax({
+        async: false,
+        url: "cgi-bin/writelog.sh",
+        timeout: 2000,
+        cache: false,
+        data: logMsg,
+        dataType: "text",
+        type: "POST"
+    });
 }
 
 function logWrite(msg) {

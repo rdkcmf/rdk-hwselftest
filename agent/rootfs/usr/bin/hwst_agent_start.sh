@@ -27,12 +27,21 @@ HWST_MEM_CG="/sys/fs/cgroup/memory/hwst_mem"
 HWST_CPU_CG="/sys/fs/cgroup/cpu/hwst_cpu"
 
 . /usr/bin/hwst_log.sh
+source /lib/rdk/t2Shared_api.sh
 
 # quit - print error message and quit from running agent
 # args:
 #   $1: quit reason
 #
 function quit() {
+    if [ $1 -eq 7 ]; then
+        telemetryData="N,N,N,N,N,N,N,N,N,N,N,N,N,N,F-252" # WA_DIAG_ERRCODE_AGENT_INIT_FAILURE
+    else
+        telemetryData="N,N,N,N,N,N,N,N,N,N,N,N,N,N,F-253" # WA_DIAG_ERRCODE_RESOURCE_OPERATION_FAILURE
+    fi
+    n_log "HwTestResult2: $telemetryData"
+    t2ValNotify "hwtest2_split" "$telemetryData"
+
     n_log "Runtime limits not applied, agent not started. ($1)"
     exit $1
 }

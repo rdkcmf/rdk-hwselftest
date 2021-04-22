@@ -295,14 +295,14 @@ static json_t *sysinfo_Get()
     snprintf(num_ch, sizeof(num_ch), "%s | grep \"SRCID\" | wc -l", SI_PATH);
     fp = popen(num_ch, "r");
     fscanf(fp, "%s", channels);
-    fclose(fp);
+    pclose(fp);
 
     if (channels[0] == '\0' || channels[0] == '0') {
         WA_DBG("grep from %s failed\n", SI_PATH);
         snprintf(num_ch, sizeof(num_ch), "%s | grep \"SRCID\" | wc -l", TMP_SI_PATH);
         fp = popen(num_ch, "r");
         fscanf(fp, "%s", channels);
-        fclose(fp);
+        pclose(fp);
         if (channels[0] == '\0') {
             WA_DBG("grep from %s failed\n", TMP_SI_PATH);
         }

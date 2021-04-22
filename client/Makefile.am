@@ -44,4 +44,5 @@ dist_resources_DATA = www/resources/icon-fail.png \
                       www/resources/icon-warning-18.png
 
 dist_cgi_DATA = www/cgi-bin/agentkill.sh \
-                www/cgi-bin/log.sh
+                www/cgi-bin/log.sh \
+                www/cgi-bin/writelog.sh

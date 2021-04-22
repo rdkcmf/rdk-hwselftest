@@ -303,7 +303,7 @@ static int getMocaOptionStatus(MocaOption_t opt, int index, WA_UTILS_SNMP_Resp_t
         }
         else
         {
-            WA_DBG("getMocaOptionStatus, option: %s, failed.\n", MocaOptions[opt]);
+            WA_ERROR("getMocaOptionStatus, option: %s, failed.\n", MocaOptions[opt]);
             return -1;
         }
     }
@@ -324,6 +324,7 @@ static int getMocaOptionStatus(MocaOption_t opt, int index, WA_UTILS_SNMP_Resp_t
             break;
 
         default:
+            WA_ERROR("getMocaOptionStatus, Received invalid value type \"%d\" for %s from snmp call\n", value->type, oid);
             return -1;
     }
 
@@ -462,6 +463,7 @@ static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
                     break;
 
                 default:
+                    WA_ERROR("verifyOptionValue, Received invalid data \"%d\" for MoCA enable status from snmp call\n", value->data.l);
                     ret = -1;
                     break;
             }
@@ -716,7 +718,7 @@ int WA_DIAG_MOCA_status(void* instanceHandle, void *initHandle, json_t **params)
 
     if(ret < 1)
     {
-#ifndef MEDIA_CLIENT
+#ifdef MEDIA_CLIENT
         if(WA_UTILS_IARM_Disconnect())
         {
             WA_DBG("WA_DIAG_MOCA_status(): WA_UTILS_IARM_Disconnect() failed\n");

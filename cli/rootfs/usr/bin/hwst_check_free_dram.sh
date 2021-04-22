@@ -78,7 +78,7 @@ n_log "[PTR] Free DRAM: $FREE_DRAM_MBYTES MB (min required: $FREE_DRAM_MBYTES_MI
 
 RESULT=$(( $FREE_DRAM_MBYTES < $FREE_DRAM_MBYTES_MIN ))
 if [ "$RESULT" -eq 1 ]; then
-    n_log "`/bin/date -u "+%Y-%m-%d %H:%M:%S"` [PTR] Not enough DRAM."
+    n_log "[PTR] Not enough DRAM."
 fi
 
 exit $RESULT

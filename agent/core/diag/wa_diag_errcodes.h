@@ -103,6 +103,14 @@ extern "C"
 #define WA_DIAG_ERRCODE_SD_CARD_TSB_STATUS_FAILURE          (-222)
 #define WA_DIAG_ERRCODE_SD_CARD_ZERO_MAXMINUTES_FAILURE     (-223)
 
+/* App launch failure codes */
+#define WA_DIAG_ERRCODE_MULTIPLE_CONNECTIONS_NOT_ALLOWED  (-250)
+#define WA_DIAG_ERRCODE_WEBSOCKET_CONNECTION_FAILURE      (-251)
+#define WA_DIAG_ERRCODE_AGENT_INIT_FAILURE                (-252)
+#define WA_DIAG_ERRCODE_RESOURCE_OPERATION_FAILURE        (-253)
+#define WA_DIAG_ERRCODE_DRAM_THRESHOLD_EXCEEDED           (-254)
+#define WA_DIAG_ERRCODE_CPU_THRESHOLD_EXCEEDED            (-255)
+
 /*****************************************************************************
  * EXPORTED TYPES
  *****************************************************************************/

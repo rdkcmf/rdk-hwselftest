@@ -72,8 +72,9 @@ private:
     void cbUpdate(void);
     void worker(void);
     void telemetryLogInit(void);
-    void telemetryLogStore(std::string);
     void telemetryLog(bool);
+    bool multipleInstances();
+    void failedTelemetryLog(std::string);
     std::unique_ptr<std::thread> thd;
     std::shared_ptr<Comm> comm;
     std::unique_ptr<Scenario> scenario;

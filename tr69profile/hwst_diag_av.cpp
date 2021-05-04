@@ -35,10 +35,12 @@ DiagAv::DiagAv(const std::string &params_):
     presentationResult.insert(std::pair<int, const std::string>(SI_CACHE_MISSING, "WARNING"));
     presentationResult.insert(std::pair<int, const std::string>(AV_NO_SIGNAL, "WARNING"));
     presentationResult.insert(std::pair<int, const std::string>(AV_URL_NOT_REACHABLE, "WARNING"));
+    presentationResult.insert(std::pair<int, const std::string>(AV_DECODERS_NOT_ACTIVE, "WARNING"));
 
-    presentationComment.insert(std::pair<int, const std::string>(SI_CACHE_MISSING, "Missing Channel Map"));
-    presentationComment.insert(std::pair<int, const std::string>(AV_NO_SIGNAL, "No stream data. Check cable and verify STB is provisioned correctly"));
-    presentationComment.insert(std::pair<int, const std::string>(AV_URL_NOT_REACHABLE, "No AV. URL Not Reachable Or Check Cable"));
+    presentationComment.insert(std::pair<int, const std::string>(SI_CACHE_MISSING, "Missing Channel Map"));                                               /* Used ony for debugging in AV Decoder test but used in Tuner test */
+    presentationComment.insert(std::pair<int, const std::string>(AV_NO_SIGNAL, "No stream data. Check cable and verify STB is provisioned correctly"));   /* Deprecated (DELIA-48787) */
+    presentationComment.insert(std::pair<int, const std::string>(AV_URL_NOT_REACHABLE, "No AV. URL Not Reachable Or Check Cable"));                       /* Deprecated (DELIA-48787) */
+    presentationComment.insert(std::pair<int, const std::string>(AV_DECODERS_NOT_ACTIVE, "AV Decoders Not Active"));
     presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Play Status Error"));
 }
 

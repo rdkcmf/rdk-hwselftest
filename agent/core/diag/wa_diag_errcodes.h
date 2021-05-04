@@ -63,13 +63,13 @@ extern "C"
 #define WA_DIAG_ERRCODE_MOCA_DISABLED       (-104)
 #define WA_DIAG_ERRCODE_SI_CACHE_MISSING    (-105)
 #define WA_DIAG_ERRCODE_TUNER_NO_LOCK       (-106)
-#define WA_DIAG_ERRCODE_AV_NO_SIGNAL        (-107)
+#define WA_DIAG_ERRCODE_AV_NO_SIGNAL        (-107) /* Deprecated (DELIA-48787) - Used only for debugging with '#define AVD_USE_RMF 1' */
 #define WA_DIAG_ERRCODE_IR_NOT_DETECTED     (-108)
 #define WA_DIAG_ERRCODE_CM_NO_SIGNAL        (-109)
 #define WA_DIAG_ERRCODE_TUNER_BUSY          (-111)
 #define WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE   (-112)
 #define WA_DIAG_ERRCODE_WIFI_NO_CONNECTION  (-113)
-#define WA_DIAG_ERRCODE_AV_URL_NOT_REACHABLE (-114)
+#define WA_DIAG_ERRCODE_AV_URL_NOT_REACHABLE (-114) /* Deprecated (DELIA-48787) - Used only for debugging with '#define AVD_USE_RMF 1' */
 
 #define WA_DIAG_ERRCODE_NON_RF4CE_INPUT                 (-117)
 #define WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE         (-120)
@@ -84,6 +84,7 @@ extern "C"
 #define WA_DIAG_ERRCODE_NO_MW_GATEWAY_FOUND             (-129)
 #define WA_DIAG_ERRCODE_NO_ETH_GATEWAY_CONNECTION       (-130)
 #define WA_DIAG_ERRCODE_NO_MW_GATEWAY_CONNECTION        (-131)
+#define WA_DIAG_ERRCODE_AV_DECODERS_NOT_ACTIVE          (-132)
 
 #define WA_DIAG_ERRCODE_DEFAULT_RESULT_VALUE            (-200) /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
 

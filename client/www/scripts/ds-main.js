@@ -1064,7 +1064,7 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.TUNER_BUSY:
         info = "One or more tuners are busy. All tuners were not tested";
         break;
-    case DIAG_ERRCODE.AV_NO_SIGNAL:
+    case DIAG_ERRCODE.AV_NO_SIGNAL: /* Deprecated (DELIA-48787) */
         info = "No stream data. Check cable and verify STB is provisioned correctly";
         break;
     case DIAG_ERRCODE.IR_NOT_DETECTED:
@@ -1079,7 +1079,7 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.WIFI_NO_CONNECTION:
         info = "No Connection";
         break;
-    case DIAG_ERRCODE.AV_URL_NOT_REACHABLE:
+    case DIAG_ERRCODE.AV_URL_NOT_REACHABLE: /* Deprecated (DELIA-48787) */
         info = "No AV. URL Not Reachable Or Check Cable";
         break;
     case DIAG_ERRCODE.NON_RF4CE_INPUT:
@@ -1129,6 +1129,9 @@ function getInfo(elemName, status, data) {
         break;
     case DIAG_ERRCODE.NO_MW_GATEWAY_CONNECTION:
         info = "No Local Gateway Response";
+        break;
+    case DIAG_ERRCODE.AV_DECODERS_NOT_ACTIVE:
+        info = "AV Decoders Not Active";
         break;
     case DIAG_ERRCODE.BLUETOOTH_INTERFACE_FAILURE:
         info = "Bluetooth Interfaces Not Found";
@@ -1331,6 +1334,7 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.NO_MW_GATEWAY_FOUND:
     case DIAG_ERRCODE.NO_ETH_GATEWAY_CONNECTION:
     case DIAG_ERRCODE.NO_MW_GATEWAY_CONNECTION:
+    case DIAG_ERRCODE.AV_DECODERS_NOT_ACTIVE:
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
         elem.result = results.warning;
         break;

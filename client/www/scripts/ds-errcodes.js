@@ -35,13 +35,13 @@ var DIAG_ERRCODE = {
         MOCA_DISABLED:          -104,
         SI_CACHE_MISSING:       -105,
         TUNER_NO_LOCK:          -106,
-        AV_NO_SIGNAL:           -107,
+        AV_NO_SIGNAL:           -107, /* Deprecated (DELIA-48787) - Used only for debugging with '#define AVD_USE_RMF 1' */
         IR_NOT_DETECTED:        -108,
         CM_NO_SIGNAL:           -109,
         TUNER_BUSY:             -111,
         RF4CE_NO_RESPONSE:      -112,
         WIFI_NO_CONNECTION:     -113,
-        AV_URL_NOT_REACHABLE:   -114,
+        AV_URL_NOT_REACHABLE:   -114, /* Deprecated (DELIA-48787) - Used only for debugging with '#define AVD_USE_RMF 1' */
 
         NON_RF4CE_INPUT:        -117,
 
@@ -57,6 +57,7 @@ var DIAG_ERRCODE = {
         NO_MW_GATEWAY_FOUND:            -129,
         NO_ETH_GATEWAY_CONNECTION:      -130,
         NO_MW_GATEWAY_CONNECTION:       -131,
+        AV_DECODERS_NOT_ACTIVE:         -132,
 
         /* Also defined and used in wa_agg.c and hwst_diag_prev_results.cpp for initial value assignment */
         DEFAULT_RESULT_VALUE:           -200,

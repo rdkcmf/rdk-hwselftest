@@ -31,9 +31,10 @@ class DiagAv: public Diag
     friend class hwst::Comm;
 
     enum {
-        SI_CACHE_MISSING = -105,
-        AV_NO_SIGNAL = -107,
-        AV_URL_NOT_REACHABLE = -114
+        SI_CACHE_MISSING = -105,     /* Used only for debugging with '#define AVD_USE_RMF 1'; But the same error code is used in Tuner test */
+        AV_NO_SIGNAL = -107,         /* Deprecated (DELIA-48787) - Used only for debugging with '#define AVD_USE_RMF 1' */
+        AV_URL_NOT_REACHABLE = -114, /* Deprecated (DELIA-48787) - Used only for debugging with '#define AVD_USE_RMF 1' */
+        AV_DECODERS_NOT_ACTIVE = -132
     };
 public:
     DiagAv(const std::string &params_ = "");

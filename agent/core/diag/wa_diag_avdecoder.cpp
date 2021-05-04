@@ -36,23 +36,28 @@
 #include <typeinfo>
 #include <unistd.h>
 #include <sys/time.h>
+#include <string.h>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
  *****************************************************************************/
+//#define AVD_USE_RMF 1
 
 #include "wa_diag.h"
 #include "wa_debug.h"
 #include "wa_fileops.h"
 
-/* rdk specific */
-#include <glib.h>
-#include <string.h>
+/* module interface */
+#include "wa_diag_avdecoder.h"
 
+/* rdk specific */
+#include "rmf_osal_init.h"
+
+#ifdef AVD_USE_RMF
+#include <glib.h>
 #include "rmfcore.h"
 #include "hnsource.h"
 #include "mediaplayersink.h"
-#include "rmf_osal_init.h"
 
 #include "wa_sicache.h"
 #include "wa_iarm.h"
@@ -61,13 +66,11 @@
 #include "wa_rmf.h"
 #include "wa_log.h"
 
-/* module interface */
-#include "wa_diag_avdecoder.h"
-
 #if WA_DEBUG
 #include "wa_diag_tuner.h"
 #define DEBUG_TUNERS 6
 #endif
+#endif /* AVD_USE_RMF */
 
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
@@ -78,6 +81,12 @@ extern int WA_DIAG_AVDECODER_AudioDecoderStatus(void);
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
+#define VIDEO_DECODER_STATUS_FILE "/proc/video_status"
+#define AUDIO_DECODER_STATUS_FILE "/proc/audio_status"
+#define VIDEO_DECODER_STATUS_BRCM_FILE "/proc/brcm/video_decoder"
+#define AUDIO_DECODER_STATUS_BRCM_FILE "/proc/brcm/audio"
+
+#ifdef AVD_USE_RMF
 #define USE_WORKAROUND_RETRY_TUNING 1
 #define TRACE(x) if (1) {int rc_657821894756 = x; printf("HWST_DBG |RC: %i " #x "\n", rc_657821894756); } else (void)0
 
@@ -87,11 +96,6 @@ extern int WA_DIAG_AVDECODER_AudioDecoderStatus(void);
 #define NUM_SI_ENTRIES 3 /* Must limit used entries due to the total time constraint */
 #define RETRIES_NUM 3 /* tests show that at the 3rd time the lock is acquired eventually */
 #endif
-
-#define VIDEO_DECODER_STATUS_FILE "/proc/video_status"
-#define AUDIO_DECODER_STATUS_FILE "/proc/audio_status"
-#define VIDEO_DECODER_STATUS_BRCM_FILE "/proc/brcm/video_decoder"
-#define AUDIO_DECODER_STATUS_BRCM_FILE "/proc/brcm/audio"
 
 #define DECODER_CHECK_TOTAL_STEPS 10
 #define DECODER_CHECK_STEP_TIME 1 /* in [s] */
@@ -394,16 +398,169 @@ static std::auto_ptr<RMFManager<MediaPlayerSink> > sink;
 static std::auto_ptr<Handler> sourceHandler;
 static std::auto_ptr<Handler> sinkHandler;
 
-static bool rmfOsalInitialized;
 static GMainLoop * gml;
 static void * gmlThread;
 static bool playError;
 static void * playErrorCond;
 static bool avUnderflow, videoPES, videoFrame, audioPES, audioFrame;
+#endif /* AVD_USE_RMF */
+
+static bool rmfOsalInitialized;
+
+/*****************************************************************************
+ * EXPORTED FUNCTIONS
+ *****************************************************************************/
+int WA_DIAG_AVDECODER_VideoDecoderStatus(void)
+{
+    char *o = NULL;
+
+    /* pacexg1v3: "VIDEO[0,0] started:            yes" */
+    o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_FILE, "VIDEO[%*d,%*d] started:%*[ ]ye");
+
+    if(WA_OSA_TaskCheckQuit())
+    {
+        if(o)
+            free(o);
+
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): test cancelled\n");
+        return -1;
+    }
+
+    if(o && !strcmp(o,"s"))
+    {
+        free(o);
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): 0\n");
+        return 0;
+    }
+    free(o);
+    o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_FILE, "VIDEO[%*d,%*d] started:");
+
+    if(WA_OSA_TaskCheckQuit())
+    {
+        if(o)
+            free(o);
+
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): test cancelled\n");
+        return -1;
+    }
+
+    if(o)
+    {
+        free(o);
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): 1\n");
+        return 1;
+    }
+
+    /* fall back to trying the /proc/brcm/ file */
+    /* arrisxg1v3: "  started=y, codec=2, pid=0x46, pidCh=a7d5d400, stcCh=e92e9fb0" */
+    /* arrisxg1v4: "  started=y: codec=2, pid=0x46, pidCh=c9068000, stcCh=cce9e800" */
+    o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_BRCM_FILE, " started=");
+    if (o)
+    {
+        int status = o[0] == 'y'? 0 : 1;
+        free(o);
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): *%i\n", status);
+        return status;
+    }
+
+    WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): -1\n");
+    return -1;
+}
+
+int WA_DIAG_AVDECODER_AudioDecoderStatus(void)
+{
+    char *o = NULL;
+
+    /* pacexg1v3: "AUDIO[0] started:       yes" */
+    o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_FILE, "AUDIO[%*d] started:%*[ ]ye");
+    if(WA_OSA_TaskCheckQuit())
+    {
+        if(o)
+            free(o);
+
+        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): test cancelled\n");
+        return -1;
+    }
+
+    if(o && !strcmp(o,"s"))
+    {
+        free(o);
+        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): 0\n");
+        return 0;
+    }
+    free(o);
+    o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_FILE, "AUDIO[%*d] started:");
+
+    if(o)
+    {
+        free(o);
+        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): 1\n");
+        return 1;
+    }
+    /* fall back to trying the /proc/brcm/ file */
+    /* arrisxg1v1: "  dspIndex=0 started=y, codec=7, pid=68, pidChannel=a7c11280, stcChannel=e92e9fb0" */
+    /* arrisxg1v4: "  dsp index=0 started=y, codec=7, pid=56, pidCh=ca3bca00, stcCh=c750aa00" */
+    o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_BRCM_FILE, "%*[^=]%*s started=");
+    if (o)
+    {
+        /* 17.3 SDK changes the output format to started=started/stopped
+         * So, check for both started=y and started=started
+         */
+        int status1 = o[0] == 'y'? 0 : 1;
+        int status = status1 ? ((!strncmp(o,"started", 7)) ? 0 : 1) : 0;
+        free(o);
+        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): *%i\n", status);
+        return status;
+    }
+
+    WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): -1\n");
+    return -1;
+}
 
 /*****************************************************************************
  * FUNCTION DEFINITIONS
  *****************************************************************************/
+void * WA_DIAG_AVDECODER_init(struct WA_DIAG_proceduresConfig_t * diag)
+{
+    /* Consideration: Currently this function is used only for the purpose
+     *                of this diag only. For multiple usege it must be modified.
+     */
+    if (!rmfOsalInitialized)
+    {
+        rmf_Error re = rmf_osal_init("/etc/rmfconfig.ini", "/etc/debug.ini");
+        if (re != RMF_SUCCESS)
+        {
+            WA_ERROR("WA_DIAG_AVDECODER_init(): Failed to initialize RMF OSAL\n");
+        }
+        else
+        {
+            rmfOsalInitialized = true;
+        }
+    }
+
+    return diag;
+}
+
+#ifndef AVD_USE_RMF
+int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** pJsonInOut)
+{
+    int videoDecoderStatus, audioDecoderStatus;
+
+    json_decref(*pJsonInOut);
+    *pJsonInOut = NULL;
+
+    videoDecoderStatus = WA_DIAG_AVDECODER_VideoDecoderStatus();
+    audioDecoderStatus = WA_DIAG_AVDECODER_AudioDecoderStatus();
+    if (!videoDecoderStatus || !audioDecoderStatus)
+    {
+        WA_INFO("WA_DIAG_AVDECODER_status(): Either or both of the decoders already in use.\n");
+        return WA_DIAG_ERRCODE_SUCCESS;
+    }
+
+    WA_DBG("WA_DIAG_AVDECODER_status(): Both audio and video decoders not active.\n");
+    return WA_DIAG_ERRCODE_AV_DECODERS_NOT_ACTIVE; // If both audio and video decoders are not started, we are returning a warning
+}
+#else
 void SinkCbSignal(void * condHandle)
 {
     int rc;
@@ -479,27 +636,6 @@ static void SigQuitHandler(void)
 {
     WA_DBG("SigQuitHandler()\n");
     SinkCbSignal(playErrorCond);
-}
-
-void * WA_DIAG_AVDECODER_init(struct WA_DIAG_proceduresConfig_t * diag)
-{
-    /* Consideration: Currently this function is used only for the purpose
-     *                of this diag only. For multiple usege it must be modified.
-     */
-    if (!rmfOsalInitialized)
-    {
-        rmf_Error re = rmf_osal_init("/etc/rmfconfig.ini", "/etc/debug.ini");
-        if (re != RMF_SUCCESS)
-        {
-            WA_ERROR("WA_DIAG_AVDECODER_init(): Failed to initialize RMF OSAL\n");
-        }
-        else
-        {
-            rmfOsalInitialized = true;
-        }
-    }
-
-    return diag;
 }
 
 int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** pJsonInOut)
@@ -583,9 +719,9 @@ int WA_DIAG_AVDECODER_status(void* instanceHandle, void *initHandle, json_t ** p
 
     videoDecoderStatus = WA_DIAG_AVDECODER_VideoDecoderStatus();
     audioDecoderStatus = WA_DIAG_AVDECODER_AudioDecoderStatus();
-    if(!videoDecoderStatus && !audioDecoderStatus)
+    if(!videoDecoderStatus || !audioDecoderStatus)
     {
-        WA_INFO("WA_DIAG_AVDECODER_status(): Decoders already in use.\n");
+        WA_INFO("WA_DIAG_AVDECODER_status(): Either or both of the decoders already in use.\n");
         return WA_DIAG_ERRCODE_SUCCESS;
     }
 
@@ -1036,118 +1172,7 @@ static int getInteger(json_t * json, const char * key, bool * pOk)
 
     return json_integer_value(o);
 }
-
-/*****************************************************************************
- * EXPORTED FUNCTIONS
- *****************************************************************************/
-
-int WA_DIAG_AVDECODER_VideoDecoderStatus(void)
-{
-    char *o = NULL;
-
-    /* pacexg1v3: "VIDEO[0,0] started:            yes" */
-    o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_FILE, "VIDEO[%*d,%*d] started:%*[ ]ye");
-
-    if(WA_OSA_TaskCheckQuit())
-    {
-        if(o)
-            free(o);
-
-        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): test cancelled\n");
-        return -1;
-    }
-
-    if(o && !strcmp(o,"s"))
-    {
-        free(o);
-        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): 0\n");
-        return 0;
-    }
-    free(o);
-    o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_FILE, "VIDEO[%*d,%*d] started:");
-
-    if(WA_OSA_TaskCheckQuit())
-    {
-        if(o)
-            free(o);
-
-        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): test cancelled\n");
-        return -1;
-    }
-
-    if(o)
-    {
-        free(o);
-        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): 1\n");
-        return 1;
-    }
-
-    /* fall back to trying the /proc/brcm/ file */
-    /* arrisxg1v3: "  started=y, codec=2, pid=0x46, pidCh=a7d5d400, stcCh=e92e9fb0" */
-    /* arrisxg1v4: "  started=y: codec=2, pid=0x46, pidCh=c9068000, stcCh=cce9e800" */
-    o = WA_UTILS_FILEOPS_OptionFind(VIDEO_DECODER_STATUS_BRCM_FILE, " started=");
-    if (o)
-    {
-        int status = o[0] == 'y'? 0 : 1;
-        free(o);
-        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): *%i\n", status);
-        return status;
-    }
-
-    WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): -1\n");
-    return -1;
-}
-
-int WA_DIAG_AVDECODER_AudioDecoderStatus(void)
-{
-    char *o = NULL;
-
-    /* pacexg1v3: "AUDIO[0] started:       yes" */
-    o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_FILE, "AUDIO[%*d] started:%*[ ]ye");
-    if(WA_OSA_TaskCheckQuit())
-    {
-        if(o)
-            free(o);
-
-        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): test cancelled\n");
-        return -1;
-    }
-
-    if(o && !strcmp(o,"s"))
-    {
-        free(o);
-        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): 0\n");
-        return 0;
-    }
-    free(o);
-    o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_FILE, "AUDIO[%*d] started:");
-
-    if(o)
-    {
-        free(o);
-        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): 1\n");
-        return 1;
-    }
-    /* fall back to trying the /proc/brcm/ file */
-    /* arrisxg1v1: "  dspIndex=0 started=y, codec=7, pid=68, pidChannel=a7c11280, stcChannel=e92e9fb0" */
-    /* arrisxg1v4: "  dsp index=0 started=y, codec=7, pid=56, pidCh=ca3bca00, stcCh=c750aa00" */
-    o = WA_UTILS_FILEOPS_OptionFind(AUDIO_DECODER_STATUS_BRCM_FILE, "%*[^=]%*s started=");
-    if (o)
-    {
-        /* 17.3 SDK changes the output format to started=started/stopped
-         * So, check for both started=y and started=started
-         */
-        int status1 = o[0] == 'y'? 0 : 1;
-        int status = status1 ? ((!strncmp(o,"started", 7)) ? 0 : 1) : 0;
-        free(o);
-        WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): *%i\n", status);
-        return status;
-    }
-
-    WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): -1\n");
-    return -1;
-}
-
+#endif /* AVD_USE_RMF */
 
 /* End of doxygen group */
 /*! @} */

@@ -1046,6 +1046,11 @@ void *WA_OSA_QCreate(const unsigned int deep, long maxSize)
     (void)snprintf(qName, WA_OSA_Q_NAME_SIZE, "%s%04x", WA_OSA_Q_NAME_PREFIX, qCnt++);
     qName[WA_OSA_Q_NAME_SIZE-1]='\0';
 
+    /* DELIA-49685: Issues observed in field boxes where hwselftest never start until reboot; The root cause was QSIZE of one
+    or more message queues were not zero due to some extra left over buffer, even after hwselftest finished its process and exits.
+    Deleting queue, if it exists return value will be 0 otherwise -1 but we don't need the check as we just delete if exists */
+    mq_unlink(qName);
+
     WA_INFO("WA_OSA_QCreate(): name:\"%s\"\n", qName);
 
     qAttrs.mq_maxmsg = (long)deep;

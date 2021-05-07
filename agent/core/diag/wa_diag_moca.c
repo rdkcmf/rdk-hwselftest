@@ -303,7 +303,11 @@ static int getMocaOptionStatus(MocaOption_t opt, int index, WA_UTILS_SNMP_Resp_t
         }
         else
         {
-            WA_ERROR("getMocaOptionStatus, option: %s, failed.\n", MocaOptions[opt]);
+           if (opt <= MOCA11_OPT_NODE_SNR)
+               WA_DBG("getMocaOptionStatus, option: %s, failed.\n", MocaOptions[opt]);
+           else
+               WA_ERROR("getMocaOptionStatus, option: %s, failed.\n", MocaOptions[opt]);
+
             return -1;
         }
     }
@@ -324,7 +328,11 @@ static int getMocaOptionStatus(MocaOption_t opt, int index, WA_UTILS_SNMP_Resp_t
             break;
 
         default:
-            WA_ERROR("getMocaOptionStatus, Received invalid value type \"%d\" for %s from snmp call\n", value->type, oid);
+            if (opt <= MOCA11_OPT_NODE_SNR)
+                WA_DBG("getMocaOptionStatus, Received invalid value type \"%d\" for %s from snmp call\n", value->type, oid);
+            else
+                WA_ERROR("getMocaOptionStatus, Received invalid value type \"%d\" for %s from snmp call\n", value->type, oid);
+
             return -1;
     }
 
@@ -463,7 +471,11 @@ static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
                     break;
 
                 default:
-                    WA_ERROR("verifyOptionValue, Received invalid data \"%d\" for MoCA enable status from snmp call\n", value->data.l);
+                    if (opt == MOCA11_OPT_IF_ENABLE_STATUS)
+                        WA_DBG("verifyOptionValue, Received invalid data \"%d\" for MoCA enable status from snmp call\n", value->data.l);
+                    else
+                        WA_ERROR("verifyOptionValue, Received invalid data \"%d\" for MoCA enable status from snmp call\n", value->data.l);
+
                     ret = -1;
                     break;
             }

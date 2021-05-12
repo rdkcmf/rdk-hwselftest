@@ -76,6 +76,7 @@ var DIAG_ERRCODE = {
         RF4CE_CHIP_DISCONNECTED:            -221,
         SD_CARD_TSB_STATUS_FAILURE:         -222,
         SD_CARD_ZERO_MAXMINUTES_FAILURE:    -223,
+        EMMC_PREEOL_STATE_FAILURE:          -224,
 
         /* App launch failure codes */
         MULTIPLE_CONNECTIONS_NOT_ALLOWED: -250,

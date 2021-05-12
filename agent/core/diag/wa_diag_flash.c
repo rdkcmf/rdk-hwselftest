@@ -60,19 +60,14 @@
  * LOCAL DEFINITIONS
  *****************************************************************************/
 #ifdef HAVE_DIAG_FLASH_XI6
-#define DEV_CONFIG_FILE_PATH            "/etc/device.properties"
-#define FILE_MODE                       "r"
-#define EMMC_DEFAULT_MOUNT_PATH_STR     "/media/tsb"
-#define EMMC_DEFAULT_TEST_FILE_STR      "diagsys-test-file"
-#define EMMC_DEFAULT_TEST_FILE_SIZE     (512*1024)
-#ifdef HAVE_DIAG_FLASH_XIONE
-#define EMMC_SLC1_PARTITION             "/dev/mmcblk0p4"
-#else
-#define EMMC_SLC1_PARTITION             "/dev/mmcblk0gp"
-#endif
+#define TR181_XEMMC_FLASH               "Device.Services.STBService.1.Components.X_RDKCENTRAL-COM_eMMCFlash."
+#define EMMC_PRE_EOL_STATE_EUDA         "PreEOLStateEUDA"
+#define EMMC_PRE_EOL_STATE_SYSTEM       "PreEOLStateSystem"
+#define EMMC_PRE_EOL_STATE_MLC          "PreEOLStateMLC"
+#define EMMC_NORMAL_PRE_EOL_STATE       "Normal"
+
 #define TR69_EMMC_LIFE_ELAPSED_B        "Device.Services.STBService.1.Components.X_RDKCENTRAL-COM_eMMCFlash.LifeElapsedB"
 #define TR69_EMMC_LIFE_ELAPSED_A        "Device.Services.STBService.1.Components.X_RDKCENTRAL-COM_eMMCFlash.LifeElapsedA"
-#define EMMC_PATTERN_STR                "TSB_MOUNT_PATH="
 #define EMMC_MAX_DEVICE_LIFETIME        0x0A /* 90% - 100% device life time used */
 #define EMMC_ZERO_DEVICE_LIFETIME       0x0
 #define MAX_LIFE_EXCEED_FAILURE         -4
@@ -82,6 +77,14 @@
 /*****************************************************************************
  * LOCAL TYPES
  *****************************************************************************/
+#ifdef HAVE_DIAG_FLASH_XI6
+typedef enum {
+    EUDA,
+    SYSTEM,
+    MLC,
+    MAX_STATES
+} PreEOLState_t;
+#endif
 
 /*****************************************************************************
  * LOCAL FUNCTION PROTOTYPES
@@ -90,12 +93,19 @@
 static int setReturnData(int status, json_t **param);
 static int checkEMMCLifeLapseParam(char *param);
 static int checkEMMCStorageLife();
+static int checkEMMCPreEOLState(char* param);
 #endif
 
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
-#ifndef HAVE_DIAG_FLASH_XI6
+#ifdef HAVE_DIAG_FLASH_XI6
+char *PreEOLState[MAX_STATES] = {
+    EMMC_PRE_EOL_STATE_EUDA,
+    EMMC_PRE_EOL_STATE_SYSTEM,
+    EMMC_PRE_EOL_STATE_MLC
+};
+#else
 static const size_t defaultTotalSize = 512 * 1024;
 static const char * defaultFileName = "/mnt/nvram/diagsys-flash-test-file";
 #endif
@@ -148,6 +158,10 @@ static int setReturnData(int status, json_t **param)
 
         case WA_DIAG_ERRCODE_EMMC_TYPEB_ZERO_LIFETIME_FAILURE:
             *param = json_string("Device Type B Returned Invalid Response.");
+            break;
+
+        case WA_DIAG_ERRCODE_EMMC_PREEOL_STATE_FAILURE:
+            *param = json_string("Pre EOL State Error.");
             break;
 
         case WA_DIAG_ERRCODE_FILE_WRITE_OPERATION_FAILURE:
@@ -265,150 +279,103 @@ static int checkEMMCStorageLife()
 
     return result;
 }
+
+static int checkEMMCPreEOLState(char* param)
+{
+    IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;
+    int status = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
+    int is_connected = 0;
+    char* value;
+
+    WA_ENTER("checkEMMCPreEOLState()\n");
+
+    iarm_result = IARM_Bus_IsConnected(IARM_BUS_TR69HOSTIFMGR_NAME, &is_connected);
+    if (iarm_result != IARM_RESULT_SUCCESS)
+    {
+        WA_ERROR("checkEMMCPreEOLState(): IARM_Bus_IsConnected('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
+        return status;
+    }
+
+    HOSTIF_MsgData_t *stMsgDataParam = NULL;
+
+    iarm_result = IARM_Malloc(IARM_MEMTYPE_PROCESSLOCAL, sizeof(*stMsgDataParam), (void**)&stMsgDataParam);
+    if ((iarm_result == IARM_RESULT_SUCCESS) && stMsgDataParam)
+    {
+        memset(stMsgDataParam, 0, sizeof(*stMsgDataParam));
+        snprintf(stMsgDataParam->paramName, TR69HOSTIFMGR_MAX_PARAM_LEN, "%s%s", TR181_XEMMC_FLASH, param);
+
+        WA_DBG("checkEMMCPreEOLState(): IARM_Bus_Call('%s', '%s', %s)\n", IARM_BUS_TR69HOSTIFMGR_NAME, IARM_BUS_TR69HOSTIFMGR_API_GetParams, param);
+        iarm_result = IARM_Bus_Call(IARM_BUS_TR69HOSTIFMGR_NAME, IARM_BUS_TR69HOSTIFMGR_API_GetParams, (void *)stMsgDataParam, sizeof(*stMsgDataParam));
+
+        if (iarm_result != IARM_RESULT_SUCCESS)
+        {
+            WA_ERROR("checkEMMCPreEOLState(): IARM_Bus_Call('%s') failed\n", IARM_BUS_TR69HOSTIFMGR_NAME);
+            IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, stMsgDataParam);
+            return status;
+        }
+
+        value = (char*)&stMsgDataParam->paramValue[0];
+        if (strcmp(value, EMMC_NORMAL_PRE_EOL_STATE))
+        {
+            WA_ERROR("checkEMMCPreEOLState(): %s status is %s\n", param, value);
+            status = WA_DIAG_ERRCODE_EMMC_PREEOL_STATE_FAILURE;
+        }
+        else
+        {
+            WA_DBG("checkEMMCPreEOLState(): %s status is %s\n", param, value);
+            status = WA_DIAG_ERRCODE_SUCCESS;
+        }
+
+        IARM_Free(IARM_MEMTYPE_PROCESSLOCAL, stMsgDataParam);
+    }
+
+    WA_RETURN("checkEMMCPreEOLState(): %i\n", status);
+
+    return status;
+}
 #endif
 
 int WA_DIAG_FLASH_status(void* instanceHandle, void *initHandle, json_t **pJsonInOut)
 {
     int result = WA_DIAG_ERRCODE_FAILURE;
-    json_t *config;
 
     json_decref(*pJsonInOut);
     *pJsonInOut = NULL;
 
 #ifdef HAVE_DIAG_FLASH_XI6
-    char *mountPath = NULL;
-    const char *filename = NULL;
-
-    /* Use test config details if found */
-    config = ((WA_DIAG_proceduresConfig_t*)initHandle)->config;
-    if(config && (json_unpack(config, "{ss}", "filename", &filename)==0))
-    {
-        WA_DBG("flash_status: config filename = %s\n", filename);
-    }
-    else
-    {
-        WA_INFO("flash_status: config filename not found\n");
-        filename = NULL;
-    }
-
-    if(WA_OSA_TaskCheckQuit())
-    {
-        WA_DBG("flash_status: Test cancelled\n");
-        return setReturnData(WA_DIAG_ERRCODE_CANCELLED, pJsonInOut);
-    }
-
-    mountPath = WA_UTILS_FILEOPS_OptionFind(DEV_CONFIG_FILE_PATH, EMMC_PATTERN_STR);
-
-    if(mountPath == NULL)
-    {
-        WA_INFO("flash_status: Mount path not found.\n");
-
-        if(filename == NULL)
-        {
-            WA_ERROR("flash_status: Neither config filename nor Mount Path found.\n");
-            return setReturnData(WA_DIAG_ERRCODE_NOT_APPLICABLE, pJsonInOut);
-        }
-
-        if (asprintf(&mountPath, EMMC_DEFAULT_MOUNT_PATH_STR) == -1)
-        {
-            WA_ERROR("flash_status: asprintf failed\n");
-            return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, pJsonInOut);
-        }
-    }
-    else
-    {
-        WA_DBG("flash_status: mountPath=%s\n", mountPath);
-    }
-
-    if(WA_OSA_TaskCheckQuit())
-    {
-        WA_DBG("flash_status: Test cancelled\n");
-        free((void *)mountPath);
-        return setReturnData(WA_DIAG_ERRCODE_CANCELLED, pJsonInOut);
-    }
-
-    char *defaultFilePath = NULL;
-    int res = asprintf(&defaultFilePath, "%s/%s", mountPath, EMMC_DEFAULT_TEST_FILE_STR);
-    free((void *)mountPath);
-    if (res < 0)
-    {
-        WA_ERROR("flash_status: asprintf failed\n");
-        return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, pJsonInOut);
-    }
-    WA_DBG("flash_status: defaultFilePath=%s\n", defaultFilePath);
-
-    result = WA_DIAG_FileTest((const char *)defaultFilePath, EMMC_DEFAULT_TEST_FILE_SIZE, config, pJsonInOut);
-    free((void *)defaultFilePath);
-
-    if (result != 0)
-    {
-        WA_ERROR("flash_status: eMMC error during file test in SLC2 partition.\n");
-        return setReturnData(result, pJsonInOut);
-    }
-
-    char *mountPartition = NULL;
-    mountPath = NULL;
-
-    const char *file = "/etc/mtab";
-    struct mntent *fs = NULL;
-    FILE *fp = setmntent(file, "r");
-
-    if (fp == NULL)
-    {
-        WA_ERROR("flash_status: could not open %s\n", file);
-        return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, pJsonInOut);
-    }
-
-    while ((fs = getmntent(fp)) != NULL)
-    {
-        if (fs->mnt_fsname[0] != '/')   /* skip non-real file systems */
-            continue;
-
-        if (strncmp(fs->mnt_fsname, EMMC_SLC1_PARTITION, strlen(EMMC_SLC1_PARTITION)) == 0)
-        {
-            mountPartition = fs->mnt_fsname;
-            mountPath = fs->mnt_dir;
-            break;
-        }
-    }
-    endmntent(fp);
-
-    if (!mountPath)
-    {
-        WA_ERROR("flash_status: eMMC mount path %s not found in SLC1 partition %s\n", mountPath, mountPartition);
-        return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, pJsonInOut);
-    }
-
-    WA_DBG("flash_status: eMMC mount partition=%s, path=%s\n", mountPartition, mountPath);
-
-    res = asprintf(&defaultFilePath, "%s/%s", mountPath, EMMC_DEFAULT_TEST_FILE_STR);
-    if (res < 0)
-    {
-        WA_ERROR("flash_status: asprintf failed for eMMC\n");
-        return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, pJsonInOut);
-    }
-    WA_DBG("flash_status: eMMC SLC1 defaultFilePath=%s\n", defaultFilePath);
-
-    result = WA_DIAG_FileTest((const char *)defaultFilePath, EMMC_DEFAULT_TEST_FILE_SIZE, config, pJsonInOut);
-    free((void *)defaultFilePath);
-
-    if (result != 0)
-    {
-        WA_ERROR("flash_status: eMMC error during file test in SLC1 partition.\n");
-        return setReturnData(result, pJsonInOut);
-    }
 
     if (WA_UTILS_IARM_Connect())
     {
-        WA_ERROR("flash_status: WA_UTILS_IARM_Connect() Failed \n");
-        return setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, pJsonInOut);
+        WA_ERROR("flash_status(): WA_UTILS_IARM_Connect() Failed \n");
+        return WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR;
     }
 
-    result = checkEMMCStorageLife();
+    result = WA_DIAG_ERRCODE_SUCCESS; // Setting success initially before checking Pre EOL States
+    for (PreEOLState_t index = 0; index < MAX_STATES; index++)
+    {
+        int status = checkEMMCPreEOLState(PreEOLState[index]);
+
+        if (status == WA_DIAG_ERRCODE_EMMC_PREEOL_STATE_FAILURE)
+            result = WA_DIAG_ERRCODE_EMMC_PREEOL_STATE_FAILURE; // If any one of the Pre EOL State is not normal, the test will fail
+        else if (status == WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR && result != WA_DIAG_ERRCODE_EMMC_PREEOL_STATE_FAILURE)
+            result = WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR; // If any one of the Pre EOL State IARM Call fails but for other's state is normal, test will return Internal Error
+    }
+
+    if(WA_OSA_TaskCheckQuit())
+    {
+        WA_DBG("flash_status: Test cancelled\n");
+        result =  WA_DIAG_ERRCODE_CANCELLED;
+    }
+
+    if (result == WA_DIAG_ERRCODE_SUCCESS)
+    {
+        WA_INFO("flash_status(): eMMC Pre-EOL States are normal. Checking for life lapse for 2 partitions.\n");
+        result = checkEMMCStorageLife();
+    }
 
     if(WA_UTILS_IARM_Disconnect())
     {
-        WA_ERROR("flash_status: WA_UTILS_IARM_Disconnect() Failed \n");
+        WA_DBG("flash_status(): WA_UTILS_IARM_Disconnect() failed\n");
     }
 
     WA_RETURN("flash_status: %d\n", result);
@@ -417,6 +384,7 @@ int WA_DIAG_FLASH_status(void* instanceHandle, void *initHandle, json_t **pJsonI
 #else
 
     int applicable;
+    json_t *config;
 
     /* Determine if the test is applicable: */
     config = ((WA_DIAG_proceduresConfig_t*)initHandle)->config;

@@ -36,7 +36,8 @@ class DiagFlash: public Diag
         EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE = -214,
         EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE = -215,
         EMMC_TYPEA_ZERO_LIFETIME_FAILURE   = -216,
-        EMMC_TYPEB_ZERO_LIFETIME_FAILURE   = -217
+        EMMC_TYPEB_ZERO_LIFETIME_FAILURE   = -217,
+        EMMC_PREEOL_STATE_FAILURE          = -224
     };
 public:
     DiagFlash(const std::string &params_ = "");

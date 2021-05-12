@@ -38,6 +38,7 @@ DiagFlash::DiagFlash(const std::string &params_):
     presentationResult.insert(std::pair<int, const std::string>(EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE, "FAILED"));
     presentationResult.insert(std::pair<int, const std::string>(EMMC_TYPEA_ZERO_LIFETIME_FAILURE, "FAILED"));
     presentationResult.insert(std::pair<int, const std::string>(EMMC_TYPEB_ZERO_LIFETIME_FAILURE, "FAILED"));
+    presentationResult.insert(std::pair<int, const std::string>(EMMC_PREEOL_STATE_FAILURE, "FAILED"));
 
     presentationComment.insert(std::pair<int, const std::string>(FAILURE, "Memory Verify Error"));
     presentationComment.insert(std::pair<int, const std::string>(FILE_WRITE_OPERATION_FAILURE, "File Write Operation Error"));
@@ -46,6 +47,7 @@ DiagFlash::DiagFlash(const std::string &params_):
     presentationComment.insert(std::pair<int, const std::string>(EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE, "Device TypeB Exceeded Max Life"));
     presentationComment.insert(std::pair<int, const std::string>(EMMC_TYPEA_ZERO_LIFETIME_FAILURE, "Device TypeA Returned Invalid Response"));
     presentationComment.insert(std::pair<int, const std::string>(EMMC_TYPEB_ZERO_LIFETIME_FAILURE, "Device TypeB Returned Invalid Response"));
+    presentationComment.insert(std::pair<int, const std::string>(EMMC_PREEOL_STATE_FAILURE, "Pre EOL State Error"));
 }
 
 std::string DiagFlash::getPresentationName() const

@@ -1169,6 +1169,9 @@ function getInfo(elemName, status, data) {
     case DIAG_ERRCODE.SD_CARD_ZERO_MAXMINUTES_FAILURE:
         info = "TSB Zero MaxMinutes";
         break;
+    case DIAG_ERRCODE.EMMC_PREEOL_STATE_FAILURE:
+        info = "Pre EOL State Error";
+        break;
     case DIAG_ERRCODE.DEFAULT_RESULT_VALUE:
     default:
         if(status < 0) {
@@ -1300,6 +1303,7 @@ function setElemResult(elem, status, data) {
     case DIAG_ERRCODE.MCARD_CERT_AVAILABILITY_FAILURE:
     case DIAG_ERRCODE.SD_CARD_TSB_STATUS_FAILURE:
     case DIAG_ERRCODE.SD_CARD_ZERO_MAXMINUTES_FAILURE:
+    case DIAG_ERRCODE.EMMC_PREEOL_STATE_FAILURE:
         elem.result = results.error;
         break;
     case DIAG_ERRCODE.SUCCESS:

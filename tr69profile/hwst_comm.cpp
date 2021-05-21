@@ -354,7 +354,7 @@ int Comm::handleMsgMethod(std::unique_ptr<json_t, decltype(json_decref)*> &json)
 {
     int status;
     char *m, *d, *dt;
-    int id, progress, estatus;
+    int id, progress, estatus, filterenable, fstatus;
     json_t *jParams, *jData;
     std::string method, diag;
     std::map<std::string, std::shared_ptr<Diag>>::iterator it;
@@ -428,6 +428,22 @@ int Comm::handleMsgMethod(std::unique_ptr<json_t, decltype(json_decref)*> &json)
             goto end;
         }
 
+        /* check for "filterenabled" */
+        if(json_unpack(jParams, "{si}", "filterenabled", &filterenable) != 0)
+        {
+            HWST_DBG("missing filterenabled");
+            status = 7;
+            goto end;
+        }
+
+        /* check for "filterstatus" */
+        if(json_unpack(jParams, "{si}", "filterstatus", &fstatus) != 0)
+        {
+            HWST_DBG("missing filterstatus");
+            status = 8;
+            goto end;
+        }
+
         /* check for "data" */
 
         if(json_unpack(jParams, "{so}", "data", &jData) == 0) //jData will be released when releasing json object
@@ -441,15 +457,18 @@ int Comm::handleMsgMethod(std::unique_ptr<json_t, decltype(json_decref)*> &json)
             diag = std::string(d);
             HWST_DBG("diag:" + diag);
 
-            status = 7;
+            status = 9;
             apiLock.lock();
             it = byHInstanceMap.find(diag);
             if (it != byHInstanceMap.end())
             {
                 HWST_DBG("found diag:" + it->second->name);
                 HWST_DBG("status:" + estatus);
+                HWST_DBG("filterenable:" + std::to_string(filterenable));
+                HWST_DBG("filterstatus:" + std::to_string(fstatus));
                 HWST_DBG("data:");
                 it->second->setFinished(estatus, data);
+                it->second->setFilterStatus(filterenable, fstatus);
                 HWST_DBG("setFinished");
                 byHInstanceMap.erase(it);
                 HWST_DBG("erased");
@@ -461,7 +480,7 @@ int Comm::handleMsgMethod(std::unique_ptr<json_t, decltype(json_decref)*> &json)
     else
     {
         HWST_DBG("unknown method");
-        status = 8;
+        status = 10;
     }
 
 end:

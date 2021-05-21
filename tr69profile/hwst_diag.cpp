@@ -251,4 +251,13 @@ std::string Diag::getStrStatus() const
     return os.str();
 }
 
+void Diag::setFilterStatus(int fe, int fs)
+{
+    std::lock_guard<std::recursive_mutex> apiLock(apiMutex);
+
+    HWST_DBG("Filter enable:" + std::to_string(fe) + " Filter status:" + std::to_string(fs));
+    status.filter_enable = fe;
+    status.filter_status = fs;
+}
+
 } // namespace hwst

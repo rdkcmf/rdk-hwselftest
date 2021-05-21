@@ -56,6 +56,8 @@ typedef struct
     const char *diag;
     time_t timestamp;
     int result;
+    const char *diagResultsName;
+    char diagResultMessage[512];
 }
 WA_AGG_DiagResult_t;
 
@@ -63,8 +65,9 @@ typedef struct
 {
     bool dirty;
     char client[32];
+    char results_type[16];
     time_t start_time;
-    time_t end_time;
+    time_t local_time;
     int diag_count;
     WA_AGG_DiagResult_t *diag_results;
 }
@@ -100,7 +103,7 @@ int WA_AGG_Exit();
  * @returns Operation status.
  * @retval 0 for success, non-zero otherwise
  */
-int WA_AGG_StartTestRun(const char *client, time_t timestamp);
+int WA_AGG_StartTestRun(const char *client, bool results_filter, time_t timestamp);
 
 /**
  * @brief Marks end of a test run.

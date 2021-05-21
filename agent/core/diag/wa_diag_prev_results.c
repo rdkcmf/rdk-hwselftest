@@ -71,7 +71,7 @@ int WA_DIAG_PREV_RESULTS_Info(void *instanceHandle, void *initHandle, json_t **p
     const WA_AGG_AggregateResults_t *results = WA_AGG_GetPreviousResults();
     if (results)
     {
-        if (!expiry_time || ((time(0) - results->end_time) <= (time_t)(expiry_time * 60)))
+        if (!expiry_time || ((time(0) - results->local_time) <= (time_t)(expiry_time * 60)))
         {
             // results are still valid
             if (!WA_AGG_Serialise(results, params) && *params)

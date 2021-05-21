@@ -23,6 +23,13 @@
 #include <string>
 #include <memory>
 #include <cstring>
+#include <sstream>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <fstream>
+#include <unistd.h>
+#include <algorithm>
 
 /*****************************************************************************
  * PROJECT-SPECIFIC INCLUDE FILES
@@ -30,8 +37,10 @@
 #include "DeviceInfo_hwHealthTest.h"
 #include "hostIf_tr69ReqHandler.h"
 #include "wa_wsclient.h"
+#include "hwst_sched.hpp"
 #include "jansson.h"
 #include <rdk_debug.h>
+#include <telemetry_busmessage_sender.h>
 
 /*****************************************************************************
  * LOCAL DEFINITIONS
@@ -43,6 +52,13 @@
 #define TUNE_TYPE_FREQ_PROG    "FREQ_PROG"
 #define TUNE_RESULTS_FILE      "/opt/logs/hwselftest.tuneresults"
 #define MAX_LEN                TR69HOSTIFMGR_MAX_PARAM_LEN
+#define FILTER_FILES_PATH            "/opt/hwselftest"
+#define FILTER_ENABLE_FILE           "/opt/hwselftest/.hwselftest_filter_enable"
+#define FILTER_QUEUE_DEPTH_FILE      "/opt/hwselftest/.hwst_queuedepth"
+#define RESULTS_FILTERED_ENABLE_FILE "/opt/hwselftest/.hwst_filteredResult_enable"
+#define FILTER_BUFFER_FILE           "/opt/hwselftest/hwstresults.buffer"
+#define FILTER_QUEUE_DEPTH_DEFAULT   20
+#define FILTER_QUEUE_DEPTH_MAX       100
 
 /*****************************************************************************
  * EXPORTED FUNCTIONS
@@ -596,4 +612,281 @@ bool set_Device_DeviceInfo_RFC_hwHealthTestWAN_WANEndPointURL(const char *log_mo
     return true;
 }
 
+bool set_Device_DeviceInfo_xRDKCentralComRFC_hwHealthTest_ResultFilter_Enable(const char *log_module, HOSTIF_MsgData_t *stMsgData)
+{
+    bool ret = false;
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to enable/disable the hwselftest result-filter feature...\n", FILE_CPP, __FUNCTION__);
+
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE_CPP, __FUNCTION__);
+        return ret;
+    }
+
+    bool value = *(reinterpret_cast<bool *>(stMsgData->paramValue));
+    wa_wsclient *pInst = wa_wsclient::instance();
+
+    struct stat buffer;
+    if (stat(FILTER_FILES_PATH, &buffer) != 0)
+        mkdir(FILTER_FILES_PATH, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+
+    if (value)
+    {
+        int fd = open(FILTER_ENABLE_FILE, O_RDWR | O_CREAT, S_IRUSR | S_IRGRP | S_IROTH);
+        if (fd != -1)
+        {
+            close(fd);
+            ret = (stat(FILTER_ENABLE_FILE, &buffer) == 0);
+        }
+    }
+    else
+    {
+        if(stat(FILTER_ENABLE_FILE, &buffer) == 0)  /* Delete file if present */
+            ret = (unlink(FILTER_ENABLE_FILE) == 0);
+        else
+            ret = true;
+        unlink(FILTER_BUFFER_FILE);
+    }
+
+    if (ret)
+    {
+        pInst->log("Filter feature " + (value ? std::string ("enabled") : std::string ("disabled")) + ".\n");
+        RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest result-filter %s successfully\n", FILE_CPP, __FUNCTION__, (value? "enabled" : "disabled"));
+    }
+    else
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to %s hwselftest result-filter\n", FILE_CPP, __FUNCTION__, (value? "enable" : "disable"));
+
+    filterTelemetry();
+    return ret;
+}
+
+bool set_Device_DeviceInfo_xRDKCentralComRFC_hwHealthTest_ResultFilter_QueueDepth(const char *log_module, HOSTIF_MsgData_t *stMsgData)
+{
+    bool ret = false;
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set hwselftest queue depth for result-filter...\n", FILE_CPP, __FUNCTION__);
+
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE_CPP, __FUNCTION__);
+        return ret;
+    }
+
+    unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
+
+    create_emptyStrResponse(stMsgData);
+    stMsgData->faultCode = fcInternalError;
+
+    wa_wsclient *pInst = wa_wsclient::instance();
+
+    struct stat buffer;
+    if (stat(FILTER_FILES_PATH, &buffer) != 0)
+        mkdir(FILTER_FILES_PATH, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+
+    std::ofstream file(FILTER_QUEUE_DEPTH_FILE, std::ios::trunc);
+    if (file.is_open())
+    {
+        if (value > FILTER_QUEUE_DEPTH_MAX)
+        {
+            pInst->log("Queue depth " + std::to_string(value) + " is exceeding max value 100. Setting to the default max threshold.\n");
+            value = FILTER_QUEUE_DEPTH_MAX;
+        }
+        if (value <= 0)
+        {
+            pInst->log("Queue depth " + std::to_string(value) + " is invalid. Setting to a default value 20.\n");
+            value = FILTER_QUEUE_DEPTH_DEFAULT;
+        }
+        file << value <<'\n';
+        file.flush();
+    }
+    pInst->log("Filter feature QueueDepth set to " + std::to_string(value) + ".\n");
+
+    filterTelemetry();
+    return true;
+}
+
+bool set_Device_DeviceInfo_xRDKCentralComRFC_hwHealthTest_ResultFilter_FilterParams(const char *log_module, HOSTIF_MsgData_t *stMsgData)
+{
+    bool ret = false;
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set hwselftest FilterParams for result-filter...\n", FILE_CPP, __FUNCTION__);
+
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE_CPP, __FUNCTION__);
+        return ret;
+    }
+
+    wa_wsclient *pInst = wa_wsclient::instance();
+
+    std::string filter_params = stMsgData->paramValue;
+    pInst->log("Filter parameters given : " + filter_params + ".\n");
+
+    /* Get the queue depth value */
+    std::string queueDepth;
+    std::ifstream depth(FILTER_QUEUE_DEPTH_FILE);
+    getline(depth, queueDepth);
+    queueDepth = (queueDepth.compare("") == 0) ? "0" : queueDepth;
+    int qd = atoi(queueDepth.c_str());
+
+    std::string filterParams_final = "";
+    std::istringstream tokenstream(filter_params);
+    std::string param;
+    int i = 1;
+
+    while (std::getline(tokenstream, param, ',') && i <= NUM_ELEMENTS)
+    {
+        /* Remove additional spaces from params */
+        param.erase(remove_if(param.begin(), param.end(), isspace), param.end());
+
+        int pos = -1;
+        if (((pos = param.find("p")) != -1) || ((pos = param.find("P")) != -1))
+        {
+            std::string val = param.substr(pos+1);
+
+            /* Check if Percentage filter value is valid */
+            int per = atoi(val.c_str());
+            if ((per > 100) || (per <= 0)) {
+                param.replace(0,param.length(),"N");
+                pInst->log("The percentage filter value for component " + std::to_string(i) + " is invalid. Skipping filter for it.\n");
+            }
+            else {
+                std::string percentage_filter = "P" + std::to_string(per);
+                param.replace(0,param.length(),percentage_filter);
+            }
+        }
+        else if (((pos = param.find("s")) != -1) || ((pos = param.find("S")) != -1))
+        {
+            std::string val = param.substr(pos+1);
+
+            /* Check if Sequence filter value is valid */
+            int seq = atoi(val.c_str());
+            if ((qd != 0)  && (seq > qd)) {
+                std::string sequence_filter = "S" + std::to_string(qd);
+                param.replace(0,param.length(),sequence_filter);
+                pInst->log("The sequence filter value for component " + std::to_string(i) + " is greater than queueDepth. Hence defaulting it to queueDepth " + queueDepth + ".\n");
+            }
+            else if (seq <= 0)
+            {
+                param.replace(0,param.length(),"N");
+                pInst->log("The sequence filter value for component " + std::to_string(i) + " is invalid. Skipping filter for it.\n");
+            }
+            else {
+                std::string sequence_filter = "S" + std::to_string(seq);
+                param.replace(0,param.length(),sequence_filter);
+            }
+        }
+        else if (((pos = param.find("n")) != -1) || ((pos = param.find("N")) != -1))
+        {
+            param.replace(0,param.length(),"N");
+        }
+        else
+        {
+            param.replace(0,param.length(),"N");
+            pInst->log("The filter value for component " + std::to_string(i) + " is invalid. Skipping filter for it.\n");
+        }
+
+        if (i == NUM_ELEMENTS)
+            filterParams_final += param;
+        else
+            filterParams_final += param + ",";
+
+        i++;
+    }
+
+    /* Set "N" for components, if filter params are not provided */
+    if (i <= NUM_ELEMENTS)
+    {
+        while (i <= NUM_ELEMENTS)
+        {
+            if (i == NUM_ELEMENTS)
+                filterParams_final += "N";
+            else
+                filterParams_final += "N" + std::string(",");
+            i++;
+        }
+    }
+
+    create_emptyStrResponse(stMsgData);
+    stMsgData->faultCode = fcInternalError;
+
+    pInst->log("HwTestFilterParams: " + filterParams_final + ".\n");
+    t2_event_s("hwtestFilterParams_split", (char*)filterParams_final.c_str());
+
+    return true;
+}
+
+bool set_Device_DeviceInfo_xRDKCentralComRFC_hwHealthTest_ResultFilter_ResultsFiltered(const char *log_module, HOSTIF_MsgData_t *stMsgData)
+{
+    bool ret = false;
+
+    RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] attempting to set hwselftest ResultsFiltered result-filter feature...\n", FILE_CPP, __FUNCTION__);
+
+    if(stMsgData == NULL)
+    {
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] stMsgData is null pointer!\n", FILE_CPP, __FUNCTION__);
+        return ret;
+    }
+
+    unsigned int value = *(reinterpret_cast<unsigned int *>(stMsgData->paramValue));
+
+    create_emptyStrResponse(stMsgData);
+    stMsgData->faultCode = fcInternalError;
+
+    wa_wsclient *pInst = wa_wsclient::instance();
+    struct stat buffer;
+    if (stat(FILTER_FILES_PATH, &buffer) != 0)
+        mkdir(FILTER_FILES_PATH, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+
+    if (value)
+    {
+        int fd = open(RESULTS_FILTERED_ENABLE_FILE, O_RDWR | O_CREAT, S_IRUSR | S_IRGRP | S_IROTH);
+        if (fd != -1)
+        {
+            close(fd);
+            ret = (stat(RESULTS_FILTERED_ENABLE_FILE, &buffer) == 0);
+        }
+    }
+    else
+    {
+        if(stat(RESULTS_FILTERED_ENABLE_FILE, &buffer) == 0)  /* Delete file if present */
+            ret = (unlink(RESULTS_FILTERED_ENABLE_FILE) == 0);
+        else
+            ret = true;
+    }
+
+    if (ret)
+    {
+        pInst->log("Filter feature ResultsFiltered " + (value ? std::string ("enabled") : std::string ("disabled")) + ".\n");
+        RDK_LOG(RDK_LOG_DEBUG, log_module, "[%s:%s] hwselftest ResultsFiltered parameter %s successfully\n", FILE_CPP, __FUNCTION__, (value? "enabled" : "disabled"));
+    }
+    else
+        RDK_LOG(RDK_LOG_ERROR, log_module,"[%s:%s] failed to %s hwselftest ResultsFiltered parameter\n", FILE_CPP, __FUNCTION__, (value? "enable" : "disable"));
+
+    filterTelemetry();
+    return ret;
+}
+
+void filterTelemetry()
+{
+    int value;
+    struct stat buffer;
+
+    value = stat(FILTER_ENABLE_FILE, &buffer);
+    std::string Enable = ((value == 0) ? std::string("true") : std::string("false"));
+
+    std::string queueDepth;
+    std::ifstream depth(FILTER_QUEUE_DEPTH_FILE);
+    getline(depth, queueDepth);
+    queueDepth = (queueDepth.compare("") == 0) ? "nil" : queueDepth;
+
+    value = stat(RESULTS_FILTERED_ENABLE_FILE, &buffer);
+    std::string resultsFilterd = ((value == 0) ? std::string("true") : std::string("false"));
+
+    wa_wsclient *pInst = wa_wsclient::instance();
+    std::string filterControlTelemetry = Enable + "," + queueDepth + "," + resultsFilterd;
+    pInst->log("HwTestRFCFilterControl: " + filterControlTelemetry + "\n");
+    t2_event_s("hwtestRFCFilterControl_split", (char*)filterControlTelemetry.c_str());
+}
 } // namespace hwselftest

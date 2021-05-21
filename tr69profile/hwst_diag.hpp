@@ -72,6 +72,8 @@ public:
         int progress;
         std::string data;
         bool modified;
+        int filter_enable;
+        int filter_status;
     };
 
     const std::string params;
@@ -99,6 +101,7 @@ private:
     void setState(state_t s);
     void setProgress(int progress);
     void setFinished(int s, std::string data);
+    void setFilterStatus(int fe, int fs);
     void setError();
 };
 

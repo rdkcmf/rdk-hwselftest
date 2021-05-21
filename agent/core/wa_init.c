@@ -42,6 +42,7 @@
 #include "wa_osa.h"
 #include "wa_debug.h"
 #include "wa_agg.h"
+#include "wa_diag_filter.h"
 
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
@@ -100,6 +101,14 @@ int WA_INIT_Init(const WA_COMM_adaptersConfig_t *adapters,
         WA_UTILS_ID_t id;
         WA_UTILS_ID_Generate(&id);
     }
+
+    status = WA_FILTER_FilterInit();
+    if(status != 0)
+    {
+        WA_ERROR("WA_INIT_Init(): WA_FILTER_FilterInit():%d\n", status);
+        goto filter_err;
+    }
+
     WA_INIT_IncomingQ = WA_OSA_QCreate(WA_INIT_INCOME_Q_DEEP, sizeof(WA_OSA_Qjmsg_t));
     if(WA_INIT_IncomingQ == NULL)
     {
@@ -166,6 +175,13 @@ diag_err:
     }
 
 income_q_err:
+    s1 = WA_FILTER_FilterExit();
+    if(s1 != 0)
+    {
+        WA_ERROR("WA_INIT_Init(): WA_FILTER_FilterExit():%d\n", s1);
+    }
+
+filter_err:
     s1 = WA_UTILS_ID_Exit();
     if(s1 != 0)
     {
@@ -227,6 +243,12 @@ int WA_INIT_Exit(void)
     if(status != 0)
     {
         WA_ERROR("WA_INIT_Exit():  WA_OSA_QDestroy(WA_INIT_IncomingQ): %d\n", status);
+    }
+
+    status = WA_FILTER_FilterExit();
+    if(status != 0)
+    {
+        WA_ERROR("WA_INIT_Exit(): WA_FILTER_FilterExit():%d\n", status);
     }
 
     status = WA_UTILS_ID_Exit();

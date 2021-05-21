@@ -137,59 +137,59 @@ static WA_COMM_adaptersConfig_t adapters[] =
 
 static WA_DIAG_proceduresConfig_t diags[] =
 {
-    {"sysinfo_info", NULL, NULL, WA_DIAG_SYSINFO_Info, NULL, NULL, NULL},
-    {"capabilities_info", NULL, NULL, WA_DIAG_CAPABILITIES_Info, NULL, NULL, NULL },
+    {"sysinfo_info", NULL, NULL, WA_DIAG_SYSINFO_Info, NULL, NULL, NULL, NULL },
+    {"capabilities_info", NULL, NULL, WA_DIAG_CAPABILITIES_Info, NULL, NULL, NULL, NULL },
 
 #ifdef HAVE_DIAG_HDD
-    {"hdd_status", NULL, NULL, WA_DIAG_HDD_status, NULL, NULL, NULL },
+    {"hdd_status", NULL, NULL, WA_DIAG_HDD_status, NULL, NULL, NULL, "HDD"},
 #endif
 #ifdef HAVE_DIAG_SDCARD
-    {"sdcard_status", NULL, NULL, WA_DIAG_SDCARD_status, NULL, NULL, NULL },
+    {"sdcard_status", NULL, NULL, WA_DIAG_SDCARD_status, NULL, NULL, NULL, "SDCard" },
 #endif
 #ifdef HAVE_DIAG_FLASH
-    {"flash_status", NULL, NULL, WA_DIAG_FLASH_status, NULL, NULL, NULL },
+    {"flash_status", NULL, NULL, WA_DIAG_FLASH_status, NULL, NULL, NULL, "FLASH" },
 #endif
 #ifdef HAVE_DIAG_FLASH_XI6
-    {"flash_status", NULL, NULL, WA_DIAG_FLASH_status, NULL, NULL, NULL },
+    {"flash_status", NULL, NULL, WA_DIAG_FLASH_status, NULL, NULL, NULL, "FLASH" },
 #endif
 #ifdef HAVE_DIAG_DRAM
-    {"dram_status", NULL, NULL, WA_DIAG_DRAM_status, NULL, NULL, NULL },
+    {"dram_status", NULL, NULL, WA_DIAG_DRAM_status, NULL, NULL, NULL, "DRAM" },
 #endif
 #ifdef HAVE_DIAG_HDMIOUT
-    {"hdmiout_status", NULL, NULL, WA_DIAG_HDMIOUT_status, NULL, NULL, NULL },
+    {"hdmiout_status", NULL, NULL, WA_DIAG_HDMIOUT_status, NULL, NULL, NULL, "HDMI" },
 #endif
 #ifdef HAVE_DIAG_MCARD
-    {"mcard_status", NULL, NULL, WA_DIAG_MCARD_status, NULL, NULL, NULL },
+    {"mcard_status", NULL, NULL, WA_DIAG_MCARD_status, NULL, NULL, NULL, "CableCard" },
 #endif
 #ifdef HAVE_DIAG_IR
-    {"ir_status", NULL, NULL, WA_DIAG_IR_status, NULL, NULL, NULL},
+    {"ir_status", NULL, NULL, WA_DIAG_IR_status, NULL, NULL, NULL, "IRR"},
 #endif
 #ifdef HAVE_DIAG_RF4CE
-    {"rf4ce_status", NULL, NULL, WA_DIAG_RF4CE_status, NULL, NULL, NULL },
+    {"rf4ce_status", NULL, NULL, WA_DIAG_RF4CE_status, NULL, NULL, NULL, "RFR" },
 #endif
 #ifdef HAVE_DIAG_MOCA
-    {"moca_status", NULL, NULL, WA_DIAG_MOCA_status, NULL, NULL, NULL },
+    {"moca_status", NULL, NULL, WA_DIAG_MOCA_status, NULL, NULL, NULL, "MOCA" },
 #endif
 #ifdef HAVE_DIAG_AVDECODER_QAM
-    {"avdecoder_qam_status", WA_DIAG_AVDECODER_init, NULL, WA_DIAG_AVDECODER_status, NULL, NULL, NULL },
+    {"avdecoder_qam_status", WA_DIAG_AVDECODER_init, NULL, WA_DIAG_AVDECODER_status, NULL, NULL, NULL, "AVDecoder" },
 #endif
 #ifdef HAVE_DIAG_TUNER
-    {"tuner_status", NULL, NULL, WA_DIAG_TUNER_status, NULL, NULL, NULL },
+    {"tuner_status", NULL, NULL, WA_DIAG_TUNER_status, NULL, NULL, NULL, "QAM" },
 #endif
 #ifdef HAVE_DIAG_MODEM
-    {"modem_status", NULL, NULL, WA_DIAG_MODEM_status, NULL, NULL, NULL },
+    {"modem_status", NULL, NULL, WA_DIAG_MODEM_status, NULL, NULL, NULL, "DOCSIS" },
 #endif
 #ifdef HAVE_DIAG_BLUETOOTH
-    {"bluetooth_status", NULL, NULL, WA_DIAG_BLUETOOTH_status, NULL, NULL, NULL },
+    {"bluetooth_status", NULL, NULL, WA_DIAG_BLUETOOTH_status, NULL, NULL, NULL, "BTLE" },
 #endif
 #ifdef HAVE_DIAG_WIFI
-    {"wifi_status", NULL, NULL, WA_DIAG_WIFI_status, NULL, NULL, NULL },
+    {"wifi_status", NULL, NULL, WA_DIAG_WIFI_status, NULL, NULL, NULL, "WiFi" },
 #endif
 #ifdef HAVE_DIAG_WAN
-    {"wan_status", NULL, NULL, WA_DIAG_WAN_status, NULL, NULL, NULL },
+    {"wan_status", NULL, NULL, WA_DIAG_WAN_status, NULL, NULL, NULL, "WAN" },
 #endif
 
-    {"previous_results", NULL, NULL, WA_DIAG_PREV_RESULTS_Info, NULL, NULL, NULL },
+    {"previous_results", NULL, NULL, WA_DIAG_PREV_RESULTS_Info, NULL, NULL, NULL, NULL },
     /* END OF LIST */
     {NULL, NULL, NULL, NULL, NULL, NULL}
 };

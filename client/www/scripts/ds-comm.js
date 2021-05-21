@@ -99,6 +99,9 @@ function Diagsys(wsEvent, callback)
         var log, errorLog;
         var data;
         var error;
+        var filterenabled;
+        var filterstatus;
+        var showfilterResults;
 
         //dbgWrite("keys: " + keys);
         if(((index = keys.indexOf("jsonrpc")) < 0) || (vals[index] !== "2.0")) {
@@ -273,7 +276,31 @@ function Diagsys(wsEvent, callback)
                     }
                 }
 
-                that.cb(Diagsys.cbType.eod, instance.cookie, status, data);
+                if((index = Object.keys(params).indexOf("filterenabled")) < 0) {
+                    dbgWrite("eod - params missing filterenabled - ignore");
+                    return;
+                }
+                filterenabled = Object.values(params)[index];
+                //dbgWrite("filterenabled: " + filterenabled);
+
+                if((index = Object.keys(params).indexOf("filterstatus")) < 0) {
+                    dbgWrite("eod - params missing filterstatus - ignore");
+                    return;
+                }
+                filterstatus = Object.values(params)[index];
+                //dbgWrite("filterstatus: " + filterstatus);
+
+                if((index = Object.keys(params).indexOf("resultsfilter")) < 0) {
+                    dbgWrite("eod - params missing resultsfilter - ignore");
+                    return;
+                }
+                showfilterResults = Object.values(params)[index];
+                //dbgWrite("resultsfilter: " + showfilterResults);
+
+                if (filterenabled === 1)
+                    that.cb(Diagsys.cbType.eod, instance.cookie, status, data, filterenabled, filterstatus, showfilterResults);
+                else
+                    that.cb(Diagsys.cbType.eod, instance.cookie, status, data);
                 delete that.instances[diag];
                 return;
             }
@@ -338,7 +365,7 @@ Diagsys.prototype.disconnect = function() {
         return;
     }
 
-    this.websocket.onopen = function () {}; 
+    this.websocket.onopen = function () {};
     this.websocket.onclose = function () {};
     this.websocket.onmessage = function () {};
     this.websocket.onerror = function () {};
@@ -354,7 +381,7 @@ Diagsys.prototype.issue = function(cookie, diag, params) {
     if(this.websocket === null) {
         return false;
     }
-    
+
     if(cookie == null) {
         return Diagsys.prototype.notify(diag, params);
     }

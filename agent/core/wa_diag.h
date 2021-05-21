@@ -103,6 +103,7 @@ typedef struct WA_DIAG_proceduresConfig_t
     WA_DIAG_Callback_t callback; /** a callback function */
     json_t *config; /**< configuration given back to the above functions */
     const char *caps; /**< fnc capabilities */
+    const char *nameInResults; /**< component name represented in results file */
 }WA_DIAG_proceduresConfig_t;
 
 /** Adapter implementation side initialization for the diag procedure.

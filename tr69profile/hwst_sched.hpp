@@ -73,6 +73,7 @@ private:
     void worker(void);
     void telemetryLogInit(void);
     void telemetryLog(bool);
+    void telemetryFilterLog();
     bool multipleInstances();
     void failedTelemetryLog(std::string);
     std::unique_ptr<std::thread> thd;

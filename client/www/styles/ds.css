@@ -219,12 +219,12 @@ table.overallresult td {
 
     font-family: 'XFINITY Sans';
     font-weight: 100; /* 100 = Extra Light */
-    font-size: 42px;
+    font-size: 40px;
 }
 
 .normal {
     background-color: #FFFFFF; /* white */
-    color: blue; 
+    color: blue;
 }
 
 .reverse {

@@ -88,6 +88,26 @@ var diagGroupsAll = {
     'WAN': {'wan_status': []}
 };
 
+var resultsFileDiag = {
+    'hdd_status': 'HDD',
+    'sdcard_status': 'SDCard',
+    'flash_status': 'FLASH',
+    'dram_status': 'DRAM',
+    'hdmiout_status': 'HDMI',
+    'mcard_status': 'CableCard',
+    'ir_status': 'IRR',
+    'rf4ce_status': 'RFR',
+    'moca_status': 'MOCA',
+    'avdecoder_qam_status': 'AVDecoder',
+    'tuner_status': 'QAM',
+    'modem_status': 'DOCSIS',
+    'bluetooth_status': 'BTLE',
+    'wifi_status': 'WiFi',
+    'wan_status': 'WAN'
+};
+
+var resultsFilter = {"enable" : 0, "show" : 0, "type" : "instant"};
+
 /* to be adjusted when reading capabilities */
 var diagGroups = diagGroupsAll;
 
@@ -303,7 +323,18 @@ function readPreviousResults(data) {
     }
     //dbgWrite("readPreviousResults: results_valid: " + value);
 
-    index = findIndexByDiagName("start_time",data);
+    index = findIndexByDiagName("results_type", data);
+    if(index < 0) {
+        //dbgWrite("readPreviousResults: exit, results_type index not found");
+        setPrevResultsAvailable(false);
+        return;
+    }
+    //dbgWrite("readPreviousResults: results_type index: " + index);
+
+    resultsFilter.type = Object.values(data)[index];
+    //dbgWrite("readPreviousResults: results_type: " +  resultsFilter.type);
+
+/*    index = findIndexByDiagName("start_time",data);
     if(index < 0) {
         //dbgWrite("readPreviousResults: exit, start_time index not found");
         setPrevResultsAvailable(false);
@@ -311,10 +342,10 @@ function readPreviousResults(data) {
     }
     var startTimeVal = Object.values(data)[index];
     //dbgWrite("readPreviousResults: start_time index = " + index + ", value = " + startTimeVal);
-
-    index = findIndexByDiagName("end_time",data);
+*/
+    index = findIndexByDiagName("local_time",data);
     if(index < 0) {
-        //dbgWrite("readPreviousResults: end_time index not found");
+        //dbgWrite("readPreviousResults: local_time index not found");
         setPrevResultsAvailable(false);
         return;
     }
@@ -324,7 +355,7 @@ function readPreviousResults(data) {
     var local_time = new Date(t_msec);
     var dtime = timeStampUI(local_time);
     document.getElementById('timestamp').innerHTML = dtime + " " + timeZone() ;
-    //dbgWrite("readPreviousResults: end_time index = " + index + ", value = " + endTimeVal);
+    //dbgWrite("readPreviousResults: local_time index = " + index + ", value = " + endTimeVal);
 
     buildOperationGroup(diagGroups);
     tableCreateGroupProgress();
@@ -336,7 +367,7 @@ function readPreviousResults(data) {
             dbgWrite("readPrevResults: unknown diag: " + e);
             continue;
         }
-        setPrevResult(elem, data.results[e].result);
+        setPrevResult(elem, data.results[e].r);
     }
     if(!checkAllFinished()) {
         //dbgWrite("readPrevResults: missing diags.");
@@ -723,6 +754,7 @@ function disableRefreshMessage() {
 function dsRunPriv() {
     cancelled = false;
     telemetry_swap = telemetry_order;
+    resultsFilter.type = "instant";
     setInactivityTimer(0);
     ds.notify("TESTRUN", { state: "start", client: client_name } );
     setInprogressTimer(screen2InprogressTimeout);
@@ -906,10 +938,17 @@ function buildOperationGroup(source) {
             var diagName = groupEntries[d];
             groupStatus[g].elems[d] = {};
             groupStatus[g].elems[d].name = diagName;
+            for (var r in resultsFileDiag)
+            {
+                if (r == diagName)
+                    groupStatus[g].elems[d].resultsName = resultsFileDiag[r];
+            }
             groupStatus[g].elems[d].progress = 0;
             groupStatus[g].elems[d].log = [];
             groupStatus[g].elems[d].result = results.notrun;
+            groupStatus[g].elems[d].filterResult = results.notrun;
             groupStatus[g].elems[d].status = -1;
+            groupStatus[g].elems[d].filterStatus = -200;
             groupStatus[g].elems[d].id = diagId;
             diagId++;
 
@@ -1195,28 +1234,19 @@ function setGroupResult(group, showPrevious) {
         if((elem.result === results.failed) || (elem.result === results.error)) {
             group.result = results.failed;
             textResult = "FAILED";
-            group.img.src = "resources/icon-fail-18.png";
             warningInfo = getInfo(elem.name, elem.status, elem.data);
-            if(warningInfo != "") {
-                group.scroller.set(warningInfo);
-                group.scroller.start();
-            }
             break;
         }
         /* Only last element in warning message will be used */
         if(elem.result !== results.passed) {
             group.result = results.warning;
             textResult = "WARNING";
-            group.img.src = "resources/icon-warning-18.png";
             warningInfo = getInfo(elem.name, elem.status, elem.data);
-            if(warningInfo != "") {
-                group.scroller.set(warningInfo);
-                group.scroller.start();
-            }
         }
+
     }
 
-    group.img.style.visibility = "visible";
+    setGroupUIResult(group);
 
     if(!showPrevious) {
         logTextResult = textResult;
@@ -1225,6 +1255,40 @@ function setGroupResult(group, showPrevious) {
         }
         ds.notify("LOG", { message: "Test result: " + group.name + ":" + logTextResult });
     }
+}
+
+function setGroupUIResult(group) {
+    var warningInfo = "";
+
+    for(var e in group.elems) {
+        elem = group.elems[e];
+        if ((resultsFilter.type === "filtered") || (resultsFilter.enable === 1 && resultsFilter.show === 1)) {
+            if((elem.filterResult === results.failed) || (elem.filterResult === results.error) || (elem.filterResult !== results.passed)) {
+                group.img.src = "resources/icon-fail-18.png";
+            }
+        }
+        else {
+            if((elem.result === results.failed) || (elem.result === results.error)) {
+                group.img.src = "resources/icon-fail-18.png";
+                warningInfo = getInfo(elem.name, elem.status, elem.data);
+                if(warningInfo != "") {
+                    group.scroller.set(warningInfo);
+                    group.scroller.start();
+                }
+                break;
+            }
+
+            if(elem.result !== results.passed) {
+                warningInfo = getInfo(elem.name, elem.status, elem.data);
+                group.img.src = "resources/icon-warning-18.png";
+                if(warningInfo != "") {
+                    group.scroller.set(warningInfo);
+                    group.scroller.start();
+                }
+            }
+        }
+    }
+    group.img.style.visibility = "visible";
 }
 
 function telemetryLog() {
@@ -1280,6 +1344,43 @@ function telemetryLog() {
     result_store.toString();
     ds.notify("LOG", { message: "HwTestResult2: " + result_store });
     ds.notify("LOG", { telemetrymessage: "hwtest2_split " + result_store });
+
+    result_store = [];
+    telemetry_order = telemetry_swap;
+}
+
+function telemetryFilterLog() {
+    var result_store = [];
+    var completeResult = "P";
+
+    for(var group in groupStatus) {
+        var elems = groupStatus[group].elems;
+        for(var e in elems) {
+            var stat = elems[e].filterStatus;
+            var filter_result = elems[e].filterResult;
+            switch(filter_result) {
+                case results.error:
+                    result_data = "F";
+                    completeResult = "F";
+                    break;
+                case results.passed:
+                default:
+                    result_data = "P";
+                    break;
+            }
+        }
+        telemetry_order[group][1] = result_data;
+    }
+
+    for (var t in telemetry_order) {
+        result_store.push(telemetry_order[t][1]);
+    }
+
+    result_store.push(completeResult);
+    result_store.toString();
+
+    ds.notify("LOG", { message: "HwTestResultFilter: " + result_store });
+    ds.notify("LOG", { telemetrymessage: "hwtestResultFilter_split " + result_store });
 
     result_store = [];
     telemetry_order = telemetry_swap;
@@ -1356,16 +1457,34 @@ function setElemResult(elem, status, data) {
     }
 }
 
+function setElemFilterResult(elem, filterstatus)
+{
+    elem.filterStatus = filterstatus;
+
+    switch(filterstatus) {
+    case DIAG_ERRCODE.FAILURE:
+        elem.filterResult = results.error;
+        break;
+    case DIAG_ERRCODE.SUCCESS:
+    default:
+        elem.filterResult = results.passed;
+        break;
+    }
+}
+
 function setPrevResult(elem, status, data) {
         setProgress(elem.id, 100);
-        setElemResult(elem, status, data);
+        if (resultsFilter.type === "filtered")
+            setElemFilterResult(elem, status);
+        else
+            setElemResult(elem, status, data);
 
         var group = groupByElemId(elem.id);
         setGroupResult(group, true);
 }
 
-function setResult(id, status, data) {
-    //dbgWrite("setResult("+id+","+status+","+data+")");
+function setResult(id, status, filterenable, filterstatus, showfilterResults, data) {
+    //dbgWrite("setResult(id:"+id+",status:"+status+",data:"+data+",filterenable:"+filterenable+",filterstatus:"+filterstatus+",showfilterResults:"+showfilterResults+")");
     var elem = elemByElemId(id);
     if(elem === null) {
         return;
@@ -1373,6 +1492,13 @@ function setResult(id, status, data) {
 
     if(!cancelling) {
         setProgress(id, 100);
+
+        if (filterenable === 1) { // Results Filter feature enabled
+            resultsFilter.enable = 1;
+            if (showfilterResults === 1)
+                resultsFilter.show = 1;
+            setElemFilterResult(elem, filterstatus);
+        }
         setElemResult(elem, status, data);
 
         var group = groupByElemId(elem.id);
@@ -1423,6 +1549,7 @@ function timeStampUI(d) {
 function setFinal(showPrevious) {
     var result = results.passed;
     var textResult = "PASSED";
+
     for(var g in groupStatus) {
         if(groupStatus[g].result === results.failed) {
             result = results.failed;
@@ -1433,6 +1560,33 @@ function setFinal(showPrevious) {
             result = results.warning;
         }
     }
+
+    var resultUI = results.notrun;
+    if ((resultsFilter.type === "filtered") || (resultsFilter.enable === 1 && resultsFilter.show === 1)) {
+        document.getElementById('overallInstant').style.display = 'none';
+        document.getElementById('overallFiltered').style.display = 'block';
+
+        resultUI = results.passed;
+        for(var g in groupStatus) {
+            var elems = groupStatus[g].elems;
+            for(var d in elems) {
+                if ((elems[d].filterResult ===  results.error) || (elems[d].filterResult ===  results.failed)) {
+                    resultUI = results.failed;
+                    if(showPrevious)
+                        textResult = "FAILED";
+                }
+            }
+            if (resultUI === results.failed)
+                break;
+        }
+    }
+    else {
+        document.getElementById('overallInstant').style.display = 'block';
+        document.getElementById('overallFiltered').style.display = 'none';
+    }
+
+    if (resultUI !== results.notrun)
+        result = resultUI;
 
     setInprogressTimer(0);
     setInactivityTimer(screen2Timeout);
@@ -1455,6 +1609,8 @@ function setFinal(showPrevious) {
 
             ds.notify("TESTRUN", { state: "finish" } );
             telemetryLog();
+            if (resultsFilter.enable == 1)
+                telemetryFilterLog();
         }
 
         switch(result) {
@@ -1542,8 +1698,8 @@ function setProgress(id, progress) {
     group.bar.set(group.progress);
 }
 
-function dsCallbackRun(type, cookie, params, data) {
-    //dbgWrite("dsCallbackRun(" + type + "," + cookie + "," + params + ")");
+function dsCallbackRun(type, cookie, params, data, filterenable, filterparams, filtershowresults) {
+    //dbgWrite("dsCallbackRun(type: " + type + ",cookie:" + cookie + ",params:" + params + ",filterenable:" + filterenable + ",filterparams:" + filterparams + ",filtershowresults:" + filtershowresults + ")");
 
     switch(type) {
     case Diagsys.cbType.log:
@@ -1572,9 +1728,9 @@ function dsCallbackRun(type, cookie, params, data) {
             setResult(cookie, -1);
         }
         if((typeof data !== 'undefined') && (data !== null)) {
-            setResult(cookie, params, data);
+            setResult(cookie, params, filterenable, filterparams, filtershowresults, data);
         } else {
-            setResult(cookie, params);
+            setResult(cookie, params, filterenable, filterparams, filtershowresults);
         }
         break;
     default:
@@ -1631,7 +1787,7 @@ function elemByElemName(name) {
     for(var g in groupStatus) {
         var elems = groupStatus[g].elems;
         for(d in elems) {
-            if(elems[d].name === name)
+            if(elems[d].resultsName === name)
                 return elems[d];
         }
     }

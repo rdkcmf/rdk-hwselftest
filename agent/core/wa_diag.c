@@ -44,6 +44,7 @@
 #include "wa_debug.h"
 #include "wa_log.h"
 #include "wa_agg.h"
+#include "wa_diag_filter.h"
 
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
@@ -1088,7 +1089,7 @@ static int CleanupInstance(WA_DIAG_procedureInstance_t *pInstance)
 
 static void *InstanceTask(void *p)
 {
-    int status;
+    int status, filter_status;
     char tmp[WA_OSA_TASK_NAME_MAX_LEN];
     WA_DIAG_procedureInstance_t *pInstance = (WA_DIAG_procedureInstance_t *)p;
     WA_DIAG_procedureContext_t *pContext;
@@ -1096,6 +1097,9 @@ static void *InstanceTask(void *p)
     json_t *jp, *jparams = NULL, *jId;
     time_t timestamp;
     char strtimestamp[32];
+    int final_status = -1;
+    bool filter_enabled = false;
+    bool results_filter = false;
 
     WA_ENTER("InstanceTask(p=%p)\n", p);
 
@@ -1167,17 +1171,22 @@ static void *InstanceTask(void *p)
         WA_DBG("InstanceTask(): fnc(): %d\n", status);
     }
 
+    filter_status = WA_FILTER_GetFilteredResult(pContext->pConfig->name, status); // both status and filter_status is used for telemetry
+    filter_enabled = strstr(pContext->pConfig->name, "_status") ? WA_FILTER_IsFilterEnabled() : false; // filter_enabled is used to decide whether or not to print the telemetry of filtered results
+    results_filter = WA_FILTER_IsResultsFiltered(); // results_filter is used to decide whether status or filter_status must be written into results file and shown on UI
+
     timestamp = time(0);
 
-    if (WA_AGG_SetTestResult(pContext->pConfig->name, status, timestamp))
+    final_status = results_filter ? filter_status : status; // deciding which result must be written into hwselftest.results file
+    if (WA_AGG_SetTestResult(pContext->pConfig->name, final_status, timestamp))
         WA_WARN("InstanceTask(): WA_AGG_SetTestResult(): failed\n");
 
     WA_LOG_GetTimestampStr(timestamp, strtimestamp, sizeof(strtimestamp));
 
     if(jparams != NULL)
-        qjmsg.json = json_pack("{s:s,s:s,s:{s:s,s:i,s:s,s:o},s:n}", "jsonrpc", "2.0", "method", "eod", "params", "diag", tmp, "status", status, "timestamp", strtimestamp, "data", jparams, "id");
+        qjmsg.json = json_pack("{s:s,s:s,s:{s:s,s:i,s:i,s:i,s:i,s:s,s:o},s:n}", "jsonrpc", "2.0", "method", "eod", "params", "diag", tmp, "status", status, "filterstatus", filter_status, "resultsfilter", results_filter, "filterenabled", filter_enabled, "timestamp", strtimestamp, "data", jparams, "id");
     else
-        qjmsg.json = json_pack("{s:s,s:s,s:{s:s,s:i,s:s},s:n}", "jsonrpc", "2.0", "method", "eod", "params", "diag", tmp, "status", status, "timestamp", strtimestamp, "id");
+        qjmsg.json = json_pack("{s:s,s:s,s:{s:s,s:i,s:i,s:i,s:i,s:s},s:n}", "jsonrpc", "2.0", "method", "eod", "params", "diag", tmp, "status", status, "filterstatus", filter_status, "resultsfilter", results_filter, "filterenabled", filter_enabled, "timestamp", strtimestamp, "id");
 
     status = WA_OSA_QTimedRetrySend(WA_INIT_IncomingQ,
             (const char * const)&qjmsg,
@@ -1349,7 +1358,14 @@ static int TestRunControl(json_t **json)
             goto end;
         }
 
-        if (WA_AGG_StartTestRun(testrun_client, time(0)))
+        status = WA_FILTER_SetFilterBuffer();
+        if(status != 0)
+        {
+            WA_ERROR("TestRunControl(): WA_FILTER_SetFilterBuffer():%d\n", status);
+            goto end;
+        }
+
+        if (WA_AGG_StartTestRun(testrun_client, WA_FILTER_IsResultsFiltered(), time(0)))
         {
             WA_ERROR("TestRunControl(): WA_AGG_StartTestRun failed\n");
             status = -1;
@@ -1357,6 +1373,7 @@ static int TestRunControl(json_t **json)
     }
     else if (!strcasecmp(testrun_status, "finish"))
     {
+        status = WA_FILTER_DumpResultFilter();
         if (WA_AGG_FinishTestRun(time(0)))
         {
             WA_ERROR("TestRunControl(): WA_AGG_FinishTestRun failed\n");

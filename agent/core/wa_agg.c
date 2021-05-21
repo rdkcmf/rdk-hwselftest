@@ -46,6 +46,7 @@
 #include "wa_log.h"
 #include "wa_debug.h"
 #include "wa_osa.h"
+#include "wa_diag_errcodes.h"
 
 /*****************************************************************************
  * GLOBAL VARIABLE DEFINITIONS
@@ -98,7 +99,8 @@ int WA_AGG_Init(const WA_DIAG_proceduresConfig_t *diags)
         agg_results[i].dirty = true;
         agg_results[i].diag_results = NULL;
         agg_results[i].start_time = 0;
-        agg_results[i].end_time = 0;
+        agg_results[i].local_time = 0;
+        agg_results[i].results_type[0] = '\0';
         agg_results[i].client[0] = '\0';
 
         int count = 0;
@@ -121,6 +123,7 @@ int WA_AGG_Init(const WA_DIAG_proceduresConfig_t *diags)
                 agg_results[i].diag_results[count].diag = pDiag->name;
                 agg_results[i].diag_results[count].timestamp = 0;
                 agg_results[i].diag_results[count].result = DEFAULT_RESULT_VALUE;
+                agg_results[i].diag_results[count].diagResultsName = pDiag->nameInResults;
 
                 count++;
             }
@@ -176,7 +179,7 @@ int WA_AGG_Exit()
     return status;
 }
 
-int WA_AGG_StartTestRun(const char *client, time_t timestamp)
+int WA_AGG_StartTestRun(const char *client, bool results_filter, time_t timestamp)
 {
     int status = 1;
 
@@ -193,6 +196,7 @@ int WA_AGG_StartTestRun(const char *client, time_t timestamp)
     current_bank = (agg_results[0].dirty? 0 : 1);
 
     agg_results[current_bank].start_time = timestamp;
+    snprintf(agg_results[current_bank].results_type, sizeof(agg_results[current_bank].results_type), "%s", results_filter ? "filtered" : "instant");
     strncpy(agg_results[current_bank].client, client, sizeof(agg_results[current_bank].client) - 1);
     status = 0;
 
@@ -220,7 +224,7 @@ int WA_AGG_FinishTestRun(time_t timestamp)
 
     if (current_bank != -1)
     {
-        agg_results[current_bank].end_time = timestamp;
+        agg_results[current_bank].local_time = timestamp;
 
         if (writeTestResult)
         {
@@ -269,6 +273,175 @@ int WA_AGG_SetTestResult(const char *diag_name, int result, time_t timestamp)
             {
                 agg_results[current_bank].diag_results[i].result = result;
                 agg_results[current_bank].diag_results[i].timestamp = timestamp;
+
+                char info[512] = {'\0'};
+                if (result != 0)
+                {
+                    switch(result)
+                    {
+                        case WA_DIAG_ERRCODE_FAILURE:
+                            if (!strcmp("hdd_status", diag_name)) {
+                                strcpy(info, "FAILED_Disk_Health_Status_Error");
+                            }
+                            else if (!strcmp("mcard_status", diag_name)) {
+                                strcpy(info, "FAILED_Invalid_Card_Certification");
+                            }
+                            else if (!strcmp("rf4ce_status", diag_name)) {
+                                strcpy(info, "FAILED_Paired_RCU_Count_Exceeded_Max_Value");
+                            }
+                            else if (!strcmp("avdecoder_qam_status", diag_name)) {
+                                strcpy(info, "FAILED_Play_Status_Error");
+                            }
+                            else if (!strcmp("tuner_status", diag_name)) {
+                                strcpy(info, "FAILED_Read_Status_File_Error");
+                            }
+                            else if (!strcmp("modem_status", diag_name)) {
+                                strcpy(info, "FAILED_Gateway_IP_Not_Reachable");
+                            }
+                            else if (!strcmp("bluetooth_status", diag_name)) {
+                                strcpy(info, "FAILED_Bluetooth_Not_Operational");
+                            }
+                            else if ((!strcmp("sdcard_status", diag_name)) || (!strcmp("sdcard_status", diag_name)) || (!strcmp("sdcard_status", diag_name))) {
+                                strcpy(info, "FAILED_Memory_Verify_Error");
+                            }
+                            break;
+                        case WA_DIAG_ERRCODE_NOT_APPLICABLE:
+                            strcpy(info, "WARNING_Test_Not_Applicable");
+                            break;
+                        case WA_DIAG_ERRCODE_HDD_STATUS_MISSING:
+                            strcpy(info, "WARNING_HDD_Test_Not_Run");
+                            break;
+                        case WA_DIAG_ERRCODE_HDMI_NO_DISPLAY:
+                            strcpy(info, "WARNING_No_HDMI_detected._Verify_HDMI_cable_is_connected_on_both_ends_or_if_TV_is_compatible");
+                            break;
+                        case WA_DIAG_ERRCODE_HDMI_NO_HDCP:
+                            strcpy(info, "WARNING_HDMI_authentication_failed._Try_another_HDMI_cable_or_check_TV_compatibility");
+                            break;
+                        case WA_DIAG_ERRCODE_MOCA_NO_CLIENTS:
+                            strcpy(info, "WARNING_No_MoCA_Network_Found");
+                            break;
+                        case WA_DIAG_ERRCODE_MOCA_DISABLED:
+                            strcpy(info, "WARNING_MoCA_OFF");
+                            break;
+                        case WA_DIAG_ERRCODE_SI_CACHE_MISSING:
+                            strcpy(info, "WARNING_Missing_Channel_Map");
+                            break;
+                        case WA_DIAG_ERRCODE_TUNER_NO_LOCK:
+                            strcpy(info, "WARNING_Lock_Failed_-_Check_Cable");
+                            break;
+                        case WA_DIAG_ERRCODE_TUNER_BUSY:
+                            strcpy(info, "WARNING_One_or_more_tuners_are_busy._All_tuners_were_not_tested");
+                            break;
+                        case WA_DIAG_ERRCODE_AV_NO_SIGNAL:
+                            strcpy(info, "WARNING_No_stream_data._Check_cable_and_verify_STB_is_provisioned_correctly");
+                            break;
+                        case WA_DIAG_ERRCODE_IR_NOT_DETECTED:
+                            strcpy(info, "WARNING_IR_Not_Detected");
+                            break;
+                        case WA_DIAG_ERRCODE_CM_NO_SIGNAL:
+                            strcpy(info, "WARNING_Lock_Failed_-_Check_Cable");
+                            break;
+                        case WA_DIAG_ERRCODE_RF4CE_NO_RESPONSE:
+                            strcpy(info, "WARNING_RF_Input_Not_Detected_In_Last_10_Minutes");
+                            break;
+                        case WA_DIAG_ERRCODE_WIFI_NO_CONNECTION:
+                            strcpy(info, "WARNING_No_Connection");
+                            break;
+                        case WA_DIAG_ERRCODE_AV_URL_NOT_REACHABLE:
+                            strcpy(info, "WARNING_No_AV._URL_Not_Reachable_Or_Check_Cable");
+                            break;
+                        case WA_DIAG_ERRCODE_NON_RF4CE_INPUT:
+                            strcpy(info, "WARNING_RF_Paired_But_No_RF_Input");
+                            break;
+                        case WA_DIAG_ERRCODE_RF4CE_CTRLM_NO_RESPONSE:
+                            strcpy(info, "WARNING_RF_Controller_Issue");
+                            break;
+                        case WA_DIAG_ERRCODE_HDD_MARGINAL_ATTRIBUTES_FOUND:
+                            strcpy(info, "WARNING_Marginal_HDD_Values");
+                            break;
+                        case WA_DIAG_ERRCODE_RF4CE_CHIP_DISCONNECTED:
+                            strcpy(info, "FAILED_RF4CE_Chip_Fail");
+                            break;
+                        case WA_DIAG_ERRCODE_HDD_DEVICE_NODE_NOT_FOUND:
+                            strcpy(info, "WARNING_HDD_Device_Node_Not_Found");
+                            break;
+                        case WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR:
+                            strcpy(info, "WARNING_Test_Not_Run");
+                            break;
+                        case WA_DIAG_ERRCODE_CANCELLED:
+                            strcpy(info, "WARNING_Test_Cancelled");
+                            break;
+                        case WA_DIAG_ERRCODE_CANCELLED_NOT_STANDBY:
+                            strcpy(info, "WARNING_Test_Cancelled._Device_not_in_standby");
+                            break;
+                        case WA_DIAG_ERRCODE_NO_GATEWAY_CONNECTION:
+                            strcpy(info, "WARNING_No_Local_Gateway_Connection");
+                            break;
+                        case WA_DIAG_ERRCODE_NO_COMCAST_WAN_CONNECTION:
+                            strcpy(info, "WARNING_No_Comcast_WAN_Connection");
+                            break;
+                        case WA_DIAG_ERRCODE_NO_PUBLIC_WAN_CONNECTION:
+                            strcpy(info, "WARNING_No_Public_WAN_Connection");
+                            break;
+                        case WA_DIAG_ERRCODE_NO_WAN_CONNECTION:
+                            strcpy(info, "WARNING_No_WAN_Connection._Check_Connection");
+                            break;
+                        case WA_DIAG_ERRCODE_NO_ETH_GATEWAY_FOUND:
+                            strcpy(info, "WARNING_No_Gateway_Discovered_via_Ethernet");
+                            break;
+                        case WA_DIAG_ERRCODE_NO_MW_GATEWAY_FOUND:
+                            strcpy(info, "WARNING_No_Local_Gateway_Discovered");
+                            break;
+                        case WA_DIAG_ERRCODE_NO_ETH_GATEWAY_CONNECTION:
+                            strcpy(info, "WARNING_No_Gateway_Response_via_Ethernet");
+                            break;
+                        case WA_DIAG_ERRCODE_NO_MW_GATEWAY_CONNECTION:
+                            strcpy(info, "WARNING_No_Local_Gateway_Response");
+                            break;
+                        case WA_DIAG_ERRCODE_AV_DECODERS_NOT_ACTIVE:
+                            strcpy(info, "WARNING_AV_Decoders_Not_Active");
+                            break;
+                        case WA_DIAG_ERRCODE_BLUETOOTH_INTERFACE_FAILURE:
+                            strcpy(info, "FAILED_Bluetooth_Interfaces_Not_Found");
+                            break;
+                        case WA_DIAG_ERRCODE_FILE_WRITE_OPERATION_FAILURE:
+                            strcpy(info, "FAILED_File_Write_Operation_Error");
+                            break;
+                        case WA_DIAG_ERRCODE_FILE_READ_OPERATION_FAILURE:
+                            strcpy(info, "FAILED_File_Read_Operation_Error");
+                            break;
+                        case WA_DIAG_ERRCODE_EMMC_TYPEA_MAX_LIFE_EXCEED_FAILURE:
+                            strcpy(info, "FAILED_Device_TypeA_Exceeded_Max_Life");
+                            break;
+                        case WA_DIAG_ERRCODE_EMMC_TYPEB_MAX_LIFE_EXCEED_FAILURE:
+                            strcpy(info, "FAILED_Device_TypeB_Exceeded_Max_Life");
+                            break;
+                        case WA_DIAG_ERRCODE_EMMC_TYPEA_ZERO_LIFETIME_FAILURE:
+                            strcpy(info, "FAILED_Device_TypeA_Returned_Invalid_Response");
+                            break;
+                        case WA_DIAG_ERRCODE_EMMC_TYPEB_ZERO_LIFETIME_FAILURE:
+                            strcpy(info, "FAILED_Device_TypeB_Returned_Invalid_Response");
+                            break;
+                        case WA_DIAG_ERRCODE_MCARD_AUTH_KEY_REQUEST_FAILURE:
+                            strcpy(info, "FAILED_Card_Auth_Key_Not_Ready");
+                            break;
+                        case WA_DIAG_ERRCODE_MCARD_HOSTID_RETRIEVE_FAILURE:
+                            strcpy(info, "FAILED_Unable_To_Retrieve_Card_ID");
+                            break;
+                        case WA_DIAG_ERRCODE_MCARD_CERT_AVAILABILITY_FAILURE:
+                            strcpy(info, "FAILED_Card_Certification_Not_Available");
+                            break;
+                        case WA_DIAG_ERRCODE_DEFAULT_RESULT_VALUE:
+                        default:
+                            if(result < 0) {
+                                strcpy(info, "WARNING_Test_Not_Executed");
+                            } else {
+                                strcpy(info, "");
+                            }
+                            break;
+                    }
+                    strcpy (agg_results[current_bank].diag_results[i].diagResultMessage, info);
+                }
                 status = 0;
                 break;
             }
@@ -330,22 +503,44 @@ int WA_AGG_Serialise(const WA_AGG_AggregateResults_t *results, json_t **out_json
     if (results && out_json)
     {
         char buf[32];
+        int finalResult = 0; /* all PASS */
         json_t *jroot = json_object();
         json_t *jresults = json_object();
 
         json_object_set_new(jroot, "client", json_string(results->client));
-        json_object_set_new(jroot, "start_time", json_string(WA_LOG_GetTimestampStr(results->start_time, buf, sizeof(buf))));
-        json_object_set_new(jroot, "end_time", json_string(WA_LOG_GetTimestampStr(results->end_time, buf, sizeof(buf))));
+        json_object_set_new(jroot, "results_type", json_string(results->results_type));
+//      json_object_set_new(jroot, "start_time", json_string(WA_LOG_GetTimestampStr(results->start_time, buf, sizeof(buf)))); /* COLBO-202 */
+        json_object_set_new(jroot, "local_time", json_string(WA_LOG_GetTimestampStr(results->local_time, buf, sizeof(buf))));
 
         for (int i = 0; i < results->diag_count; i++)
         {
-            json_t *jdiagresult = json_pack("{s:i,s:s}",
-                                           "result", results->diag_results[i].result,
-                                           "timestamp", WA_LOG_GetTimestampStr(results->diag_results[i].timestamp, buf, sizeof(buf)));
+            json_t *jdiagresult = NULL;
+            if (results->diag_results[i].result == WA_DIAG_ERRCODE_SUCCESS)
+            {
+                jdiagresult = json_pack("{s:i}", "r", results->diag_results[i].result);
+            }
+            else if (results->diag_results[i].result == WA_DIAG_ERRCODE_DEFAULT_RESULT_VALUE) /* Test not exceuted due to pre-conditions */
+            {
+                continue;
+            }
+            else
+            {
+                if ((results->diag_results[i].result == WA_DIAG_ERRCODE_FAILURE) || (results->diag_results[i].result <= WA_DIAG_ERRCODE_BLUETOOTH_INTERFACE_FAILURE))
+                    finalResult = 1;
 
-            json_object_set_new(jresults, results->diag_results[i].diag, jdiagresult);
+                if (!strcmp(results->results_type, "filtered")) /* Skip the message if results are filtered */
+                    jdiagresult = json_pack("{s:i}", "r", results->diag_results[i].result);
+                else
+                    jdiagresult = json_pack("{s:i,s:s}",
+                                                   "r", results->diag_results[i].result,
+                                                   "m", results->diag_results[i].diagResultMessage);
+            }
+
+            json_object_set_new(jresults, results->diag_results[i].diagResultsName, jdiagresult);
         }
 
+        json_t *jdiagfinalresult = json_pack("{s:i}", "r", finalResult);
+        json_object_set_new(jresults, "Final", jdiagfinalresult);
         json_object_set_new(jroot, "results", jresults);
         *out_json = jroot;
 
@@ -368,6 +563,7 @@ int WA_AGG_Deserialise(json_t *json, WA_AGG_AggregateResults_t *out_results)
     if (json && out_results)
     {
         char *client_str = NULL;
+        char *results_type_str = NULL;
         char *timestamp_str = NULL;
         time_t timestamp;
 
@@ -378,26 +574,32 @@ int WA_AGG_Deserialise(json_t *json, WA_AGG_AggregateResults_t *out_results)
         strncpy(out_results->client, client_str, sizeof(out_results->client) - 1);
 
         status = 11;
+        if (json_unpack(json, "{s:s}", "results_type", &results_type_str) || !results_type_str)
+            goto err;
+
+        strncpy(out_results->results_type, results_type_str, sizeof(out_results->results_type) - 1);
+
+/*        status = 12;
         if (json_unpack(json, "{s:s}", "start_time", &timestamp_str) || !timestamp_str)
             goto err;
 
-        status = 12;
+        status = 13;
         if (WA_LOG_GetTimestampTime(timestamp_str, &timestamp))
             goto err;
 
         out_results->start_time = timestamp;
-
-        status = 13;
-        if (json_unpack(json, "{s:s}", "end_time", &timestamp_str) || !timestamp_str)
+*/
+        status = 14;
+        if (json_unpack(json, "{s:s}", "local_time", &timestamp_str) || !timestamp_str)
             goto err;
 
-        status = 14;
+        status = 15;
         if (WA_LOG_GetTimestampTime(timestamp_str, &timestamp))
             goto err;
 
-        out_results->end_time = timestamp;
+        out_results->local_time = timestamp;
 
-        status = 15;
+        status = 16;
         json_t *results_json = NULL;
         if (json_unpack(json, "{s:o}", "results", &results_json) || !results_json)
             goto err;
@@ -406,34 +608,48 @@ int WA_AGG_Deserialise(json_t *json, WA_AGG_AggregateResults_t *out_results)
         {
             status = 100+i;
             json_t *diag_result_json = NULL;
-            if (json_unpack(results_json, "{s:o}", out_results->diag_results[i].diag, &diag_result_json) || !diag_result_json)
+            if (json_unpack(results_json, "{s:o}", out_results->diag_results[i].diagResultsName, &diag_result_json) || !diag_result_json)
             {
-                WA_ERROR("WA_AGG_Deserialise(): missing results for %s\n", out_results->diag_results[i].diag);
-                goto err;
+                WA_DBG("WA_AGG_Deserialise(): No previous result for %s\n", out_results->diag_results[i].diagResultsName);
+                continue;
             }
             else
             {
                 status = 200+i;
                 int result;
-                if (json_unpack(diag_result_json, "{s:s,s:i}", "timestamp", &timestamp_str, "result", &result) || !timestamp_str)
-                    goto err;
-
-                status = 300+i;
-                if (WA_LOG_GetTimestampTime(timestamp_str, &timestamp))
-                    goto err;
+                char *message = NULL;
+                if (json_unpack(diag_result_json, "{s:i, s:s}", "r", &result, "m", &message) || !message)
+                {
+                    if (json_unpack(diag_result_json, "{s:i}", "r", &result))
+                        goto err;
+                }
 
                 out_results->diag_results[i].result = result;
-                out_results->diag_results[i].timestamp = timestamp;
+                if (message != NULL)
+                    strcpy (out_results->diag_results[i].diagResultMessage, message);
             }
         }
+
+        status = 17;
+        json_t *diag_finalresult_json = NULL;
+        if (json_unpack(results_json, "{s:o}", "Final", &diag_finalresult_json) || !diag_finalresult_json)
+        {
+            WA_DBG("WA_AGG_Deserialise(): missing final result\n");
+            goto err;
+        }
+
+        status = 18;
+        int final_result;
+        if (json_unpack(diag_finalresult_json, "{s:i}", "r", &final_result))
+            goto err;
 
         status = 0;
 err:
         if (status)
-            WA_ERROR("WA_AGG_Deserialise(): invalid json data (%i)\n", status);
+            WA_DBG("WA_AGG_Deserialise(): invalid json data (%i)\n", status);
     }
     else
-        WA_ERROR("WA_AGG_Serialise(): invalid parameters\n");
+        WA_DBG("WA_AGG_Serialise(): invalid parameters\n");
 
     WA_RETURN("WA_AGG_Deserialise(): %d\n", status);
 
@@ -459,7 +675,7 @@ static int load_results(const char *file, WA_AGG_AggregateResults_t *bank)
             status = 0;
         }
         else
-            WA_ERROR("load_results(): deserialisation failed\n");
+            WA_DBG("load_results(): deserialisation failed\n");
 
         json_decref(json);
     }

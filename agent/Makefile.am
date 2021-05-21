@@ -27,6 +27,7 @@ hwselftest_SOURCES = \
         core/diag/wa_diag_sysinfo.c \
         core/diag/wa_diag_capabilities.c \
         core/diag/wa_diag_prev_results.c \
+        core/diag/wa_diag_filter.c \
         core/utils/fileops/wa_fileops.c \
         core/utils/id/wa_id.c \
         core/utils/json/wa_json.c \

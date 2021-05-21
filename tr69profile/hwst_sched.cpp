@@ -215,6 +215,7 @@ void Sched::worker(void)
                             if (!standAloneTest)
                             {
                                 telemetryLog(passed);
+                                telemetryFilterLog();
                             }
                             comm->sendRaw("TESTRUN", "{\"state\": \"finish\"}", "null");
                         }
@@ -297,7 +298,61 @@ void Sched::telemetryLog(bool testResult)
     telemetryLogInit();
 }
 
+void Sched::telemetryFilterLog()
+{
+    for(auto const& e: scenario->elements)
+    {
+        Diag::Status s = e.diag->getStatus(true);
+        if (((e.diag->name).find("_status") != std::string::npos) && ((s.state == Diag::error) || (s.state == Diag::finished)))
+        {
+            if (s.filter_enable)
+                break;
+            else
+                return;
+        }
+    }
+
+    std::string diag_result;
+    std::string final_result = "P";
+    for(auto const& e: scenario->elements)
+    {
+        Diag::Status s = e.diag->getStatus(true);
+        if ((s.state == Diag::error) || (s.state == Diag::finished))
+        {
+            if (s.filter_status == 1) // FAILED
+            {
+                diag_result = "F";
+                final_result = "F";
+            }
+            else
+                diag_result = "P";
+
+            auto it = diagPool.find(e.diag->name);
+            if (it == diagPool.end())
+                continue;
+            int index = it->second;
+            diag_result.copy(telemetryResults[index], diag_result.length(), 0);
+            telemetryResults[index][diag_result.length()] = '\0';
+        }
+    }
+
+    std::string telemetry_log;
+    for(int i=0; i< NUM_ELEMENTS; i++)
+    {
+        telemetry_log.append(telemetryResults[i]);
+        telemetry_log.append(",");
+    }
+    telemetry_log.append(final_result);
+
+    std::string telemetry_result = Log().format("HwTestResultFilter: " + telemetry_log);
+
+    comm->sendRaw("LOG", "{\"rawmessage\": \"" + telemetry_result + "\"}", "null");
+    t2_event_s("hwtestResultFilter_split", (char*)telemetry_log.c_str());
+    telemetryLogInit();
+}
+
 void Sched::cbConnected()
+
 {
     {
         std::unique_lock<std::mutex> condLock(cbMutex);

@@ -412,6 +412,7 @@ static bool rmfOsalInitialized;
  *****************************************************************************/
 int WA_DIAG_AVDECODER_VideoDecoderStatus(void)
 {
+    #ifndef DEVICE_XIONE_RTK
     char *o = NULL;
 
     /* pacexg1v3: "VIDEO[0,0] started:            yes" */
@@ -463,12 +464,53 @@ int WA_DIAG_AVDECODER_VideoDecoderStatus(void)
         return status;
     }
 
+    #else
+    char cmd[256]={'\0'};
+    char *o = NULL;
+    WA_ERROR("WA_DIAG_AVDECODER_status()VIDEO---XIONE \n");
+    sprintf(cmd, "sh /lib/rdk/get_avstatus.sh > /tmp/av.log");
+    if(system(cmd) != 0)
+    {
+       WA_ERROR("WA_DIAG_AVDECODER_status(): AV script not working--XIONE\n");
+       return -1;
+    }
+    WA_ERROR("WA_DIAG_AVDECODER_status()VIDEO---XIONE-FILE CREATED \n");
+    o = WA_UTILS_FILEOPS_OptionFind("/tmp/av.log", "Video Started=");
+
+    if(WA_OSA_TaskCheckQuit())
+    {
+        if(o)
+            free(o);
+
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): test cancelled\n");
+        return -1;
+    }
+
+    if (o)
+    {
+       WA_ERROR("WA_DIAG_AVDECODER_status(): XIONE \n");
+       int status = o[0] == 'y'? 0 : 1;
+       free(o);
+       char command[256]={'\0'};
+       sprintf(command, "rm /tmp/av.log");
+       if(system(command) != 0)
+       {
+          WA_ERROR("WA_DIAG_AVDECODER_status(): File not deleted- XIONE\n");
+       }
+       WA_DBG("WA_DIAG_AVDECODER_status(): File deleted- VIDEO XIONE\n");
+       WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus():XIONE *%i\n", status);
+       return status;
+    }
+
+    #endif
+
     WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): -1\n");
     return -1;
 }
 
 int WA_DIAG_AVDECODER_AudioDecoderStatus(void)
 {
+    #ifndef DEVICE_XIONE_RTK 
     char *o = NULL;
 
     /* pacexg1v3: "AUDIO[0] started:       yes" */
@@ -512,6 +554,43 @@ int WA_DIAG_AVDECODER_AudioDecoderStatus(void)
         WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): *%i\n", status);
         return status;
     }
+
+    #else
+    char cmd[256]={'\0'};
+    char *o = NULL;
+    WA_ERROR("WA_DIAG_AVDECODER_status()AUDIO---XIONE \n");
+    sprintf(cmd, "sh /lib/rdk/get_avstatus.sh > /tmp/av.log");
+    if(system(cmd) != 0)
+    {
+       WA_ERROR("WA_DIAG_AVDECODER_status(): AV script not working- XIONE\n");
+       return -1;
+    }
+    WA_ERROR("WA_DIAG_AVDECODER_status()VIDEO---XIONE AUDIO FILE CREATED \n");
+    o = WA_UTILS_FILEOPS_OptionFind("/tmp/av.log", "Audio Started=");
+    if(WA_OSA_TaskCheckQuit())
+    {
+        if(o)
+            free(o);
+
+        WA_DBG("WA_DIAG_AVDECODER_VideoDecoderStatus(): test cancelled-XIONE\n");
+        return -1;
+    }
+
+    if (o)
+    {
+       int status = o[0] == 'y'? 0 : 1;
+       free(o);
+       char command[256]={'\0'};
+       sprintf(command, "rm /tmp/av.log");
+       if(system(command) != 0)
+       {
+         WA_ERROR("WA_DIAG_AVDECODER_status(): File not deleted- XIONE\n");
+       }
+       WA_DBG("WA_DIAG_AVDECODER_status(): File deleted- AUDIO XIONE\n");
+       WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus():XIONE *%i\n", status);
+       return status;
+    }
+    #endif
 
     WA_DBG("WA_DIAG_AVDECODER_AudioDecoderStatus(): -1\n");
     return -1;

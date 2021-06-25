@@ -49,7 +49,7 @@
 #include "wa_json.h"
 #include "libIBus.h"
 #include "libIARMCore.h"
-#if defined(DEVICE_ARRISXI6) || defined(DEVICE_TCHXI6) || defined(DEVICE_PACEXI5)
+#if defined(DEVICE_ARRISXI6) || defined(DEVICE_TCHXI6) || defined(DEVICE_PACEXI5) || defined(DEVICE_XIONE_BCOM)
 #include "netsrvmgrIarm.h"
 #endif
 
@@ -172,7 +172,7 @@ int gatewayConnection()
     int result = -1;
     bool eth_connected = false;
 
-#if defined(DEVICE_ARRISXI6) || defined(DEVICE_TCHXI6) || defined(DEVICE_PACEXI5)
+#if defined(DEVICE_ARRISXI6) || defined(DEVICE_TCHXI6) || defined(DEVICE_PACEXI5) || defined(DEVICE_XIONE_BCOM)
 
     /* Check ANI */
     IARM_Result_t iarm_result = IARM_RESULT_IPCCORE_FAIL;

@@ -472,9 +472,9 @@ static int verifyOptionValue(MocaOption_t opt, WA_UTILS_SNMP_Resp_t *value)
 
                 default:
                     if (opt == MOCA11_OPT_IF_ENABLE_STATUS)
-                        WA_DBG("verifyOptionValue, Received invalid data \"%d\" for MoCA enable status from snmp call\n", value->data.l);
+                        WA_DBG("verifyOptionValue, Received invalid data \"%ld\" for MoCA enable status from snmp call\n", value->data.l);
                     else
-                        WA_ERROR("verifyOptionValue, Received invalid data \"%d\" for MoCA enable status from snmp call\n", value->data.l);
+                        WA_ERROR("verifyOptionValue, Received invalid data \"%ld\" for MoCA enable status from snmp call\n", value->data.l);
 
                     ret = -1;
                     break;

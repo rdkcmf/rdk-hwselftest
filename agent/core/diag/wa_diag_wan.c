@@ -401,7 +401,7 @@ int publicNetwork()
     fp = popen(nslookup_command, "r");
     if (fp == NULL)
     {
-        WA_DBG("publicNetwork(): Unable to fetch IPv6 for URL \"%s\" through 'nslookup'\n");
+        WA_DBG("publicNetwork(): Unable to fetch IPv6 for URL through 'nslookup'\n");
         return result;
     }
 

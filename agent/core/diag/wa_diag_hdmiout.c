@@ -98,7 +98,7 @@ static int nexus_hdcpStatus();
  *****************************************************************************/
 
 static int setReturnData(int status, json_t **param)
-{
+{   
     if(param == NULL)
         return status;
 
@@ -200,7 +200,7 @@ int WA_DIAG_HDMIOUT_status(void *instanceHandle, void *initHandle, json_t **para
     WA_UTILS_MGR_Init();
 
     portId = WA_UTILS_VPORT_GetHdmiPortId();
-
+    WA_DBG("Enter : WA_DIAG_HDMIOUT_status: portid =%d\n",portId);
     if(portId == WA_UTILS_VPORT_ID_UNKNOWN)
     {
         ret = setReturnData(WA_DIAG_ERRCODE_INTERNAL_TEST_ERROR, params);
@@ -217,6 +217,7 @@ int WA_DIAG_HDMIOUT_status(void *instanceHandle, void *initHandle, json_t **para
     if(WA_UTILS_VPORT_IsDisplayConnected(portId))
     {
         hdcpState = WA_UTILS_VPORT_IsHdcpEnabled(portId);
+	WA_DBG("WA_UTILS_VPORT_IsDisplayConnected-hdcpState=%d\n",hdcpState);
         switch(hdcpState)
         {
             case WA_UTILS_VPORT_HDCP_CHECK_CANCELLED:
@@ -234,6 +235,7 @@ int WA_DIAG_HDMIOUT_status(void *instanceHandle, void *initHandle, json_t **para
                     ret = setReturnData(WA_DIAG_ERRCODE_SUCCESS, params);
                 else
 #endif
+	            WA_DBG("WA_UTILS_VPORT_IsHdcpEnabled: WA_DIAG_ERRCODE_HDMI_NO_HDCP\n");
                     ret = setReturnData(WA_DIAG_ERRCODE_HDMI_NO_HDCP, params);
                 break;
 
@@ -252,6 +254,7 @@ int WA_DIAG_HDMIOUT_status(void *instanceHandle, void *initHandle, json_t **para
             ret = setReturnData(WA_DIAG_ERRCODE_HDMI_NO_HDCP, params);
         else
 #endif
+            WA_DBG("WA_UTILS_VPORT_IsHdcpEnabled: WA_DIAG_ERRCODE_HDMI_NO_DISPLAY\n");  
             ret = setReturnData(WA_DIAG_ERRCODE_HDMI_NO_DISPLAY, params);
     }
 

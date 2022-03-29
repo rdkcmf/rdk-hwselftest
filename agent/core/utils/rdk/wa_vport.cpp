@@ -63,7 +63,7 @@
 /*****************************************************************************
  * LOCAL DEFINITIONS
  *****************************************************************************/
-
+#define HDMIAUTH_TRIES 5
 /*****************************************************************************
  * LOCAL FUNCTION PROTOTYPES
  *****************************************************************************/
@@ -71,7 +71,7 @@
 /*****************************************************************************
  * LOCAL VARIABLE DECLARATIONS
  *****************************************************************************/
-
+static int disabled_check = 0;
 /*****************************************************************************
  * FUNCTION DEFINITIONS
  *****************************************************************************/
@@ -120,8 +120,8 @@ int WA_UTILS_VPORT_IsHdcpEnabled(int id)
     int status = dsHDCP_STATUS_INPROGRESS;
 
     device::VideoOutputPort port =  device::Host::getInstance().getVideoOutputPort(id);
-
-    while (status == dsHDCP_STATUS_INPROGRESS && !WA_OSA_TaskCheckQuit())
+    
+    while (status == dsHDCP_STATUS_INPROGRESS && !WA_OSA_TaskCheckQuit() && (disabled_check < HDMIAUTH_TRIES))
     {
         status = port.getHDCPStatus();
 
@@ -129,10 +129,13 @@ int WA_UTILS_VPORT_IsHdcpEnabled(int id)
         {
             case dsHDCP_STATUS_AUTHENTICATED:
                 retCode = WA_UTILS_VPORT_HDCP_ENABLED;
+		WA_DBG("WA_UTILS_VPORT_IsHdcpEnabled: WA_UTILS_VPORT_HDCP_ENABLED\n");
                 break;
 
             default:
                 retCode = WA_UTILS_VPORT_HDCP_DISABLED;
+		disabled_check++;
+		WA_DBG("WA_UTILS_VPORT_IsHdcpEnabled: WA_UTILS_VPORT_HDCP_DISABLED%d\n",disabled_check);
                 break;
         }
 
